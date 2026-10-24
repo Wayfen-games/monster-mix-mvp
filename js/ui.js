@@ -1,26 +1,38 @@
-// 화면. 규칙은 logic.js 에 있고, 여기서는 그리기와 입력만 다룬다.
+// 화면 (v2). 규칙은 logic.js, 숫자는 balance.js. 여기서는 그리기와 입력만.
 (function (MM) {
   var SAVE_KEY = 'monster-mix-mvp-v1';
+  var BACKUP_KEY = 'monster-mix-mvp-v1-backup';
   var S = null;
   var view = {
-    tab: 'home', monTab: 'list',
+    tab: 'home', stageSeg: 'stage', monSeg: 'list', dexSeg: 'dex',
     fusion: { mainId: null, subId: null, soulEl: null },
-    stage: null, battle: null, reward: null
+    stage: null, dungeonEls: [], battle: null, reward: null,
+    tut: { picks: [] }, migrated: false
   };
   var $ = function (id) { return document.getElementById(id); };
+  var BAL = function () { return MM.BALANCE; };
+  var T = function () { return MM.BALANCE.MAX_TIER; };
 
-  // ---------------- 저장 ----------------
+  // ================= 저장 =================
   function load() {
-    try {
-      var raw = localStorage.getItem(SAVE_KEY);
-      if (raw) S = JSON.parse(raw);
-    } catch (e) { S = null; }
-    if (!S || S.version !== 1) S = MM.newState();
-    S.settings = S.settings || { fastTest: false, autoBattle: false };
+    var raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) {}
+    try { S = raw ? JSON.parse(raw) : null; } catch (e) { S = null; }
+    if (S && S.version !== MM.SAVE_VERSION) {
+      try { localStorage.setItem(BACKUP_KEY, raw); } catch (e) {}
+      S = null; view.migrated = true;
+    }
+    if (!S) S = MM.newState(Date.now());
+    var d = MM.newState(Date.now());
+    Object.keys(d).forEach(function (k) { if (S[k] === undefined) S[k] = d[k]; });
+    Object.keys(d.settings).forEach(function (k) { if (S.settings[k] === undefined) S.settings[k] = d.settings[k]; });
   }
-  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+  function save() {
+    if (document.visibilityState !== 'hidden') S.offline.lastSeen = Date.now();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
+  }
 
-  // ---------------- 공용 그리기 ----------------
+  // ================= 공용 그리기 =================
   function polyPoints(n, cx, cy, r, rot, inner) {
     var pts = [], total = inner ? n * 2 : n;
     for (var i = 0; i < total; i++) {
@@ -30,29 +42,37 @@
     }
     return pts.join(' ');
   }
-  var SHAPES = {
-    1: '<circle cx="50" cy="54" r="38"/>',
-    2: '<polygon points="50,8 95,90 5,90" stroke-linejoin="round"/>',
-    3: '<rect x="12" y="14" width="76" height="76" rx="12"/>',
-    4: '<polygon points="' + polyPoints(5, 50, 54, 44, -Math.PI / 2) + '" stroke-linejoin="round"/>',
-    5: '<polygon points="' + polyPoints(5, 50, 54, 48, -Math.PI / 2, 22) + '" stroke-linejoin="round"/>'
-  };
-  var EYE_Y = { 1: 52, 2: 66, 3: 50, 4: 54, 5: 56 };
-  function monSvg(el, tier, size, sil) {
+  function shapeFor(tier) {
+    if (tier === 1) return '<circle cx="50" cy="54" r="38"/>';
+    if (tier === 2) return '<polygon points="50,8 95,90 5,90" stroke-linejoin="round"/>';
+    if (tier === 3) return '<rect x="12" y="14" width="76" height="76" rx="12"/>';
+    if (tier === 4) return '<polygon points="' + polyPoints(5, 50, 54, 44, -Math.PI / 2) + '" stroke-linejoin="round"/>';
+    if (tier === 5) return '<polygon points="' + polyPoints(5, 50, 54, 48, -Math.PI / 2, 22) + '" stroke-linejoin="round"/>';
+    if (tier === 6) return '<polygon points="' + polyPoints(6, 50, 54, 46, -Math.PI / 2) + '" stroke-linejoin="round"/><polygon points="' + polyPoints(6, 50, 54, 30, -Math.PI / 2) + '" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3"/>';
+    return '<polygon points="' + polyPoints(tier - 1, 50, 54, 48, -Math.PI / 2, 26) + '" stroke-linejoin="round"/>';
+  }
+  var EYE_Y = { 1: 52, 2: 66, 3: 50, 4: 54, 5: 56, 6: 54 };
+  function monInner(el, tier, sil) {
     var color = sil ? '#3a355f' : MM.ELEMENTS[el].color;
-    var ey = EYE_Y[tier], eyes = sil ? '' :
+    var ey = EYE_Y[tier] || 56;
+    var eyes = sil ? '' :
       '<circle cx="40" cy="' + ey + '" r="7" fill="#fff"/><circle cx="60" cy="' + ey + '" r="7" fill="#fff"/>' +
       '<circle cx="41.5" cy="' + (ey + 1) + '" r="3.5" fill="#1b1830"/><circle cx="61.5" cy="' + (ey + 1) + '" r="3.5" fill="#1b1830"/>';
-    return '<span class="mon"><svg width="' + size + '" height="' + size + '" viewBox="0 0 100 100">' +
-      '<g fill="' + color + '" stroke="rgba(0,0,0,.28)" stroke-width="4">' + SHAPES[tier] + '</g>' + eyes + '</svg></span>';
+    return '<g fill="' + color + '" stroke="rgba(0,0,0,.28)" stroke-width="4">' + shapeFor(tier) + '</g>' + eyes;
+  }
+  function monSvg(el, tier, size, sil) {
+    return '<span class="mon"><svg width="' + size + '" height="' + size + '" viewBox="0 0 100 100">' + monInner(el, tier, sil) + '</svg></span>';
+  }
+  function unknownSvg(size) {
+    return '<span class="mon"><svg width="' + size + '" height="' + size + '" viewBox="0 0 100 100"><circle cx="50" cy="54" r="38" fill="#3a355f"/><text x="50" y="68" text-anchor="middle" font-size="40" font-weight="900" fill="#a9a2cc">?</text></svg></span>';
   }
   function elName(el) { return '<span style="color:' + MM.ELEMENTS[el].color + '">' + MM.ELEMENTS[el].name + '</span>'; }
   function name(m) { return MM.speciesName(m.el, m.tier); }
   function pct(x) { return Math.round(x * 1000) / 10 + '%'; }
-  function fmt(n) { return n.toLocaleString('ko-KR'); }
+  function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
   function toast(msg) {
     var t = $('toast'); t.textContent = msg; t.hidden = false;
-    clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 2200);
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 2400);
   }
   function sortMons(list) {
     return list.slice().sort(function (a, b) {
@@ -60,341 +80,581 @@
     });
   }
   function partyMons() { return S.party.map(function (id) { return MM.getMonster(S, id); }).filter(Boolean); }
+  function maxPartyTier() { return Math.max.apply(null, partyMons().map(function (m) { return m.tier; }).concat([1])); }
+  function gridCols() { return 'grid-template-columns:44px repeat(' + T() + ', minmax(52px, 1fr))'; }
+  function elChart() {
+    return '<div class="elchart">' + elName('grass') + '<span class="arrow">▶</span>' + elName('water') + '<span class="arrow">▶</span>' + elName('fire') + '<span class="arrow">▶</span>' + elName('grass') +
+      '<span class="arrow" style="margin:0 6px">·</span>' + elName('dark') + '<span class="arrow">⇄</span>' + elName('light') + '</div>' +
+      '<div class="muted small" style="margin-top:4px">유리하면 피해 ×' + BAL().ELEMENT_ADV_MULT + ', 불리하면 ×' + BAL().ELEMENT_DISADV_MULT + ' (어둠과 빛은 서로에게 강해요)</div>';
+  }
+  function weakText(el) {
+    var w = MM.weaknessesOf(el);
+    return w.length ? '<div class="weak">약점: ' + w.map(function (x) { return MM.ELEMENTS[x].name; }).join('·') + '</div>' : '';
+  }
+  function timeText(t) {
+    var d = new Date(t);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
 
-  // ---------------- 탭 전환 ----------------
+  // ================= 화면 전환 =================
+  function stopBattleTimers() { if (view.battle && view.battle.timer) clearTimeout(view.battle.timer); }
   function go(tab) {
-    if (view.battle && view.battle.timer) clearTimeout(view.battle.timer);
+    stopBattleTimers();
     if (tab !== 'battle') view.battle = null;
     view.tab = tab;
+    closeSheet();
     render();
     $('screen').scrollTop = 0;
   }
 
   function render() {
+    MM.refreshDaily(S, Date.now());
     $('gold').textContent = fmt(S.gold) + ' G';
     document.body.classList.toggle('in-battle', view.tab === 'battle');
-    var tabFor = { stageDetail: 'stages', reward: 'stages', settings: 'home' };
+    var tabFor = { stageDetail: 'stages', reward: 'stages', settings: 'home', battle: 'stages' };
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
       b.classList.toggle('on', b.dataset.tab === (tabFor[view.tab] || view.tab));
     });
     var fn = SCREENS[view.tab] || SCREENS.home;
     $('screen').innerHTML = fn();
+    var dock = DOCKS[view.tab] ? DOCKS[view.tab]() : '';
+    $('dock').innerHTML = dock; $('dock').hidden = !dock;
+    $('screen').classList.toggle('has-dock', !!dock);
   }
 
-  // ---------------- 마을 ----------------
+  var SCREENS = {}, DOCKS = {};
+
+  // ================= 마을 =================
   function goalCount() {
-    return MM.RING.filter(function (el) { return S.dex[MM.speciesKey(el, 5)]; }).length;
+    return MM.RING.filter(function (el) { return S.dex[MM.speciesKey(el, T())]; }).length;
+  }
+  function readyPairs(limit) {
+    var out = [];
+    S.monsters.forEach(function (a) {
+      S.monsters.forEach(function (b) {
+        if (out.length >= (limit || 99)) return;
+        if (!MM.isPair(a, b)) return;
+        var c = MM.fusionCheck(S, a, b);
+        if (c.ok) out.push({ main: a, sub: b });
+      });
+    });
+    out.sort(function (x, y) { return y.main.tier - x.main.tier; });
+    return out;
   }
   function hint() {
-    var mons = S.monsters;
-    for (var i = 0; i < mons.length; i++) for (var j = 0; j < mons.length; j++) {
-      if (MM.canFuse(mons[i], mons[j])) {
-        var c = MM.fusionCost(mons[i], mons[j]);
-        var soulOk = !c.soulTier || c.soulOptions.some(function (el) { return (S.souls[MM.speciesKey(el, c.soulTier)] || 0) > 0; });
-        if (soulOk && S.gold >= c.gold) return '지금 합성할 수 있는 조합이 있어요: ' + name(mons[i]) + ' + ' + name(mons[j]);
-      }
-    }
-    var ready = MM.ALL_SPECIES.filter(function (sp) { return MM.canSummon(S, sp.key); });
+    var r = readyPairs(1);
+    if (r.length) return '지금 합성할 수 있어요: ' + name(r[0].main) + ' + ' + name(r[0].sub);
+    var ready = MM.allSpecies().filter(function (sp) { return MM.canSummon(S, sp.key); });
     if (ready.length) return '소환할 수 있는 소울이 있어요 (몬스터 → 소울)';
-    var maxT = Math.max.apply(null, partyMons().map(function (m) { return m.tier; }).concat([1]));
-    return maxT + '단계 스테이지에서 소울과 경험치를 모으세요. 레벨을 올리면 ' + Math.min(5, maxT + 1) + '단계 스테이지에 도전할 수 있어요.';
+    var mt = maxPartyTier();
+    return mt + '단계 스테이지에서 소울과 경험치를 모으세요. 합성하려면 재료 두 마리가 Lv ' + MM.fuseLevelReq(Math.min(mt, T() - 1)) + ' 이상이어야 해요.';
   }
 
-  var SCREENS = {};
   SCREENS.home = function () {
-    var g = goalCount();
+    var g = goalCount(), now = Date.now();
     var stars = MM.RING.map(function (el) {
-      var have = !!S.dex[MM.speciesKey(el, 5)];
-      return '<div>' + monSvg(el, 5, 40, !have) + '<div>' + MM.ELEMENTS[el].name + '5</div></div>';
+      var have = !!S.dex[MM.speciesKey(el, T())];
+      return '<div>' + monSvg(el, T(), 40, !have) + '<div>' + MM.speciesName(el, T()) + '</div></div>';
     }).join('');
+    var pm = partyMons();
     var slots = [0, 1, 2].map(function (i) {
-      var m = MM.getMonster(S, S.party[i]);
+      var m = pm[i];
       if (!m) return '<button class="slot empty" data-act="tab" data-tab="monsters">+ 비어 있음</button>';
       return '<button class="slot" data-act="tab" data-tab="monsters">' + monSvg(m.el, m.tier, 44) + '<div>' + name(m) + '</div><div class="muted small">Lv ' + m.level + '</div></button>';
     }).join('');
-    var first = S.stats.fusionTries === 0 && S.stats.battlesWon === 0;
-    return '<div class="card"><div class="row between"><b>1차 목표: 5단계 5종 모으기</b><span class="chip">' + g + ' / 5</span></div>' +
-      '<div class="goal-stars">' + stars + '</div></div>' +
-      (first ? '<div class="card"><b>처음이라면</b><div class="muted" style="margin-top:6px;line-height:1.6">① 합성 탭에서 불1 + 풀1을 합성해 보세요 (성공률 80%)<br>② 스테이지 탭 → 1단계에서 소울을 모으세요<br>③ 소울 10개면 몬스터 1마리를 소환할 수 있어요</div></div>' :
-        '<div class="card"><b>다음 할 일</b><div class="muted" style="margin-top:6px">' + hint() + '</div></div>') +
-      '<h3>파티 (최대 3마리)</h3><div class="party-slots">' + slots + '</div>' +
-      '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="tab" data-tab="stages">⚔ 스테이지</button><button class="btn primary" data-act="tab" data-tab="fusion">✦ 합성</button></div>' +
-      '<h3>기록</h3><div class="card muted small" style="line-height:1.8">합성 ' + S.stats.fusionTries + '회 시도 · ' + S.stats.fusionSuccess + '회 성공<br>전투 ' + S.stats.battlesWon + '승 ' + S.stats.battlesLost + '패 · 몬스터 ' + S.monsters.length + '마리</div>' +
+    var dEl = MM.dungeonElementFor(now), off = S.offline.stage;
+    return '<div class="card"><div class="row between"><b>1차 목표: ' + T() + '단계 5종 모으기</b><span class="chip">' + g + ' / 5</span></div><div class="goal-stars">' + stars + '</div></div>' +
+      '<div class="card"><b>오늘</b><div class="today" style="margin-top:10px">' +
+      '<div>요일 던전<b>' + (dEl ? MM.ELEMENTS[dEl].name : '주말 선택') + ' ' + MM.dungeonLeft(S, now) + '/' + BAL().DUNGEON_DAILY + '</b></div>' +
+      '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b></div>' +
+      '<div>오프라인 보상<b>' + (off && MM.offlineStageValid(S) ? MM.speciesName(off.el, off.tier) + ' 스테이지' : '미지정') + '</b></div></div></div>' +
+      '<div class="card"><b>다음 할 일</b><div class="muted" style="margin-top:6px">' + hint() + '</div></div>' +
+      '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
+      '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="tab" data-tab="stages">⚔ 전투</button><button class="btn primary" data-act="tab" data-tab="fusion">✦ 합성</button></div>' +
+      '<h3>기록</h3><div class="card muted small lh">합성 ' + S.stats.fusionTries + '회 시도 · ' + S.stats.fusionSuccess + '회 성공<br>전투 ' + S.stats.battlesWon + '승 ' + S.stats.battlesLost + '패 · 몬스터 ' + S.monsters.length + '마리' +
+      (S.records.length ? '<br><button class="btn sm" style="margin-top:8px" data-act="records">희귀 획득 기록 ' + S.records.length + '개 보기</button>' : '') + '</div>' +
       '<button class="btn block" data-act="tab" data-tab="settings">⚙ 설정</button>';
   };
 
-  // ---------------- 스테이지 ----------------
+  // ================= 전투 탭: 스테이지 / 요일 던전 =================
   SCREENS.stages = function () {
-    var maxT = Math.max.apply(null, partyMons().map(function (m) { return m.tier; }).concat([1]));
-    var challenge = Math.min(5, maxT + 1);
-    var html = '<h2>스테이지</h2><div class="muted" style="margin-bottom:12px">n단계 스테이지는 (n-1)단계 3마리 파티로 깰 수 있는 난이도예요. 노란 테두리 = 지금 파티의 도전 단계</div>';
-    html += '<div class="stage-grid"><div></div>' + [1, 2, 3, 4, 5].map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
-    MM.RING.forEach(function (el) {
-      html += '<div class="el">' + elName(el) + '</div>';
-      for (var t = 1; t <= 5; t++) {
-        var c = S.cleared[MM.speciesKey(el, t)] || 0;
-        html += '<button class="stage-cell' + (c ? ' clear' : '') + (t === challenge ? ' rec' : '') + '" data-act="stage" data-el="' + el + '" data-tier="' + t + '">' +
-          monSvg(el, t, 24) + '<span>' + (c ? '✓' + c : '') + '</span></button>';
-      }
-    });
-    return html + '</div>';
+    var html = '<div class="seg"><button class="' + (view.stageSeg === 'stage' ? 'on' : '') + '" data-act="stageSeg" data-v="stage">스테이지</button>' +
+      '<button class="' + (view.stageSeg === 'dungeon' ? 'on' : '') + '" data-act="stageSeg" data-v="dungeon">요일 던전 ' + MM.dungeonLeft(S, Date.now()) + '/' + BAL().DUNGEON_DAILY + '</button></div>';
+    return html + (view.stageSeg === 'dungeon' ? dungeonHtml() : stageListHtml());
   };
 
-  function soulChances(el, tier) {
-    var enemies = MM.stageEnemies(el, tier), b = MM.BALANCE;
-    var mult = S.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1, rolls = {};
-    enemies.forEach(function (e) { for (var k = 1; k <= e.tier; k++) { var key = e.el + '|' + k; rolls[key] = (rolls[key] || 0) + 1; } });
-    return Object.keys(rolls).map(function (key) {
-      var p = key.split('|'), k = +p[1], rate = Math.min(1, b.DROP_RATES[k - 1] * mult);
-      return { el: p[0], tier: k, chance: 1 - Math.pow(1 - rate, rolls[key]) };
-    }).sort(function (a, b2) { return b2.tier - a.tier || b2.chance - a.chance; });
+  function stageListHtml() {
+    var mt = maxPartyTier();
+    var html = '<div class="card">' + elChart() + '</div>' +
+      '<div class="muted small" style="margin-bottom:10px">n단계 스테이지 = (n+1)단계 보스 + n단계 쫄 2마리. 노란 테두리 = 지금 파티 단계</div>';
+    html += '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
+    MM.RING.forEach(function (el) {
+      html += '<div class="el">' + elName(el) + '</div>';
+      MM.tiers().forEach(function (t) {
+        var c = S.cleared[MM.speciesKey(el, t)] || 0, bossT = t < T() ? t + 1 : t;
+        html += '<button class="stage-cell' + (c ? ' clear' : '') + (t === mt ? ' rec' : '') + '" data-act="stage" data-el="' + el + '" data-tier="' + t + '">' +
+          monSvg(el, bossT, 24) + '<span>' + (c ? '✓' + c : '') + '</span></button>';
+      });
+    });
+    return html + '</div></div>';
+  }
+
+  function possibleSouls(el, tier) {
+    var bossT = Math.min(tier < T() ? tier + 1 : tier, T());
+    var list = [];
+    for (var k = bossT; k >= 1; k--) list.push(monSvg(el, k, 18) + MM.speciesName(el, k));
+    return '<div class="row wrap" style="gap:6px;margin-top:8px">' + list.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('') + '</div>' +
+      '<div class="muted small" style="margin-top:6px">+ 쫄 속성 1~' + tier + '단계 소울 (랜덤)</div>';
+  }
+
+  function partyAdvRow(targetEls) {
+    var pm = partyMons();
+    if (!pm.length) return '<span class="muted">파티가 비어 있어요</span>';
+    return pm.map(function (m) {
+      var adv = targetEls.some(function (e) { return MM.beats(m.el, e); });
+      return '<div style="text-align:center;position:relative">' + monSvg(m.el, m.tier, 40) + (adv ? '<span class="adv-mark">▲</span>' : '') + '<div class="small">' + name(m) + ' Lv' + m.level + '</div></div>';
+    }).join('');
   }
 
   SCREENS.stageDetail = function () {
-    var st = view.stage, enemies = MM.stageEnemies(st.el, st.tier);
-    var party = partyMons();
+    var st = view.stage, cleared = !!S.cleared[MM.speciesKey(st.el, st.tier)];
+    var bossT = st.tier < T() ? st.tier + 1 : st.tier, now = Date.now();
+    var off = S.offline.stage, isOff = off && off.el === st.el && off.tier === st.tier;
+    var pm = partyMons();
     var html = '<button class="btn sm" data-act="tab" data-tab="stages">← 스테이지 목록</button>' +
       '<h2 style="margin-top:12px">' + elName(st.el) + ' ' + st.tier + '단계 스테이지</h2>' +
-      '<div class="card"><div class="muted small">등장하는 적</div><div class="enemy-row">' +
-      enemies.map(function (e) { return '<div>' + monSvg(e.el, e.tier, 52) + '<div>' + MM.speciesName(e.el, e.tier) + '</div><div class="muted small">Lv ' + e.level + '</div></div>'; }).join('') +
-      '</div><div class="muted small">권장 파티: ' + (st.tier === 1 ? '1단계' : (st.tier - 1) + '단계') + ' 3마리' + (st.tier > 1 ? ', 레벨 7 이상' : '') + '</div></div>';
-    html += '<div class="card"><div class="row between"><b>1판당 소울 드랍 확률</b>' + (S.settings.fastTest ? '<span class="chip">빠른 테스트 ×' + MM.BALANCE.FAST_TEST_DROP_MULT + '</span>' : '') + '</div>' +
-      soulChances(st.el, st.tier).map(function (c) {
-        return '<div class="cost-line"><span class="row">' + monSvg(c.el, c.tier, 20) + MM.speciesName(c.el, c.tier) + ' 소울</span><span>' + pct(c.chance) + '</span></div>';
-      }).join('') + '<div class="cost-line"><span>골드</span><span>+' + MM.BALANCE.CLEAR_GOLD[st.tier - 1] + ' G</span></div></div>';
-    html += '<div class="card"><div class="muted small" style="margin-bottom:8px">출전 파티</div><div class="row" style="justify-content:space-around">' +
-      (party.length ? party.map(function (m) { return '<div style="text-align:center">' + monSvg(m.el, m.tier, 40) + '<div class="small">' + name(m) + ' Lv' + m.level + '</div></div>'; }).join('') : '<span class="muted">파티가 비어 있어요</span>') +
-      '</div></div>';
-    html += '<button class="btn primary block" data-act="startBattle"' + (party.length ? '' : ' disabled') + '>출전</button>';
+      '<div class="card"><div class="muted small">등장하는 적 (보스 Lv ' + Math.round(MM.tierVal(BAL().STAGE_ENEMY_LEVEL, st.tier)) + ')</div><div class="enemy-row">' +
+      '<div>' + unknownSvg(46) + '<div>' + st.tier + '단계 쫄</div><div class="muted small">랜덤</div></div>' +
+      '<div class="boss">' + monSvg(st.el, bossT, 66) + '<div>' + MM.speciesName(st.el, bossT) + ' 보스</div>' + weakText(st.el) + '</div>' +
+      '<div>' + unknownSvg(46) + '<div>' + st.tier + '단계 쫄</div><div class="muted small">랜덤</div></div>' +
+      '</div><div class="muted small">쫄 2마리는 매 판 바뀌어요 (서로 다르고 보스와도 다른 속성)</div></div>';
+    html += '<div class="card">' + elChart() + '</div>';
+    html += '<div class="card"><div class="row between"><span class="muted small">출전 파티 (▲ = 보스에게 유리)</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</div>' +
+      '<div class="row" style="justify-content:space-around;margin-top:8px">' + partyAdvRow([st.el]) + '</div>' +
+      '<div class="muted small" style="margin-top:8px">권장: ' + st.tier + '단계 3마리</div></div>';
+    html += '<div class="card"><b>나올 수 있는 소울</b>' + possibleSouls(st.el, st.tier) + '</div>';
+    html += '<button class="btn primary block" data-act="startStage"' + (pm.length ? '' : ' disabled') + '>도전</button>';
+    if (cleared) {
+      var left = MM.autoLeft(S, now);
+      html += '<button class="btn good block" style="margin-top:10px" data-act="startRepeat"' + (left && pm.length ? '' : ' disabled') + '>자동 반복 시작 · 오늘 ' + left + '판 남음</button>' +
+        '<button class="btn block" style="margin-top:10px" data-act="setOffline"' + (isOff ? ' disabled' : '') + '>' + (isOff ? '✓ 오프라인 보상 스테이지' : '오프라인 보상 스테이지로 지정') + '</button>' +
+        '<div class="muted small" style="margin-top:6px;text-align:center">게임을 안 하는 동안 최대 ' + BAL().OFFLINE_MAX_HOURS + '시간, 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%로 보상이 쌓여요</div>';
+    } else {
+      html += '<div class="muted small" style="margin-top:8px;text-align:center">한 번 클리어하면 자동 반복과 오프라인 보상을 쓸 수 있어요</div>';
+    }
     return html;
   };
 
-  // ---------------- 전투 ----------------
-  function startBattle() {
+  function dungeonHtml() {
+    var now = Date.now(), dEl = MM.dungeonElementFor(now), wd = MM.weekday(now), left = MM.dungeonLeft(S, now);
+    var els = dEl ? [dEl] : view.dungeonEls;
+    var html = '<div class="card"><div class="row between"><b>' + MM.WEEKDAY_NAMES[wd] + '요일 던전</b><span class="chip gold">오늘 ' + left + '/' + BAL().DUNGEON_DAILY + '판</span></div>' +
+      '<div class="muted small lh" style="margin-top:6px">하루 ' + BAL().DUNGEON_DAILY + '판 · 소울이 스테이지보다 훨씬 잘 나와요 · 한 번 깬 단계는 소탕 가능 · 앞 단계를 깨야 다음 단계가 열려요<br>월 빛 · 화 불 · 수 물 · 목 풀 · 금 어둠 · 주말은 속성 3개 선택</div></div>';
+    if (!dEl) {
+      html += '<div class="card"><b>주말: 서로 다른 속성 3개 고르기</b><div class="el-pick" style="margin:10px 0 0">' + MM.RING.map(function (el) {
+        var on = view.dungeonEls.indexOf(el) >= 0;
+        return '<button class="' + (on ? 'on' : '') + '" data-act="dEl" data-el="' + el + '">' + monSvg(el, 2, 28) + '<div>' + MM.ELEMENTS[el].name + '</div></button>';
+      }).join('') + '</div></div>';
+    }
+    var ready = els.length === 1 || els.length === 3;
+    MM.tiers().forEach(function (t) {
+      var unlocked = MM.dungeonUnlocked(S, t), cleared = !!S.dungeon.cleared[t];
+      var icons = ready ? (els.length === 1 ? [els[0], els[0], els[0]] : els).map(function (e) { return monSvg(e, t + 1, 34); }).join('') : unknownSvg(34) + unknownSvg(34) + unknownSvg(34);
+      html += '<div class="card" style="' + (unlocked ? '' : 'opacity:.5') + '"><div class="row between"><div><b>' + t + '단계 던전</b> <span class="muted small">' + (t + 1) + '단계 3마리' + (t === T() ? ' · 던전 전용 보스' : '') + '</span></div>' +
+        (cleared ? '<span class="chip party">클리어</span>' : unlocked ? '' : '<span class="chip">잠김</span>') + '</div>' +
+        '<div class="row" style="margin:10px 0;justify-content:center;gap:12px">' + icons + '</div>' +
+        (unlocked ? '<div class="grid2"><button class="btn primary sm" data-act="startDungeon" data-tier="' + t + '"' + (left && ready && S.party.length ? '' : ' disabled') + '>도전</button>' +
+          '<button class="btn sm" data-act="sweepDungeon" data-tier="' + t + '"' + (left && ready && cleared ? '' : ' disabled') + '>소탕</button></div>' :
+          '<div class="muted small" style="text-align:center">' + (t - 1) + '단계 던전을 먼저 깨야 해요</div>') + '</div>';
+    });
+    return html;
+  }
+
+  // ================= 전투 =================
+  function newSession() { return { runs: 0, wins: 0, losses: 0, gold: 0, exp: 0, drops: {}, firsts: {}, wasted: 0, levelUps: {} }; }
+
+  function startBattle(kind, opts) {
     var party = partyMons();
     if (!party.length) { toast('파티에 몬스터를 넣어 주세요'); return; }
-    var bt = MM.createBattle(party, MM.stageEnemies(view.stage.el, view.stage.tier));
-    view.battle = { bt: bt, el: view.stage.el, tier: view.stage.tier, auto: !!S.settings.autoBattle, timer: null, last: null, busy: false };
+    var enemies;
+    if (kind === 'stage') enemies = MM.stageEnemies(opts.el, opts.tier);
+    else if (kind === 'dungeon') enemies = MM.dungeonEnemies(opts.els, opts.tier);
+    else enemies = MM.tutorialEnemies(S.tutorial.starters);
+    var prev = view.battle;
+    var repeat = !!opts.repeat;
+    if (repeat) {
+      if (MM.autoLeft(S, Date.now()) <= 0) { toast('오늘 자동 반복 판수를 다 썼어요'); endRepeat(); return; }
+      S.autoRepeat.used++;
+    }
+    view.battle = {
+      kind: kind, el: opts.el, tier: opts.tier, els: opts.els, enemies: enemies,
+      bt: MM.createBattle(party, enemies),
+      auto: repeat || (kind !== 'tutorial' && !!S.settings.autoBattle),
+      repeat: repeat, stopAfter: prev && prev.repeat ? prev.stopAfter : false,
+      session: repeat && prev && prev.repeat ? prev.session : (repeat ? newSession() : null),
+      timer: null, busy: false, last: null, between: false
+    };
     view.tab = 'battle';
+    save();
     render();
     battleTick();
   }
 
   function unitHtml(u, bt, actor, pickable) {
     var r = u.hp / u.maxHp;
-    var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 ? ' pickable' : '');
-    return '<div class="' + cls + '" id="u' + u.uid + '"' + (pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' +
-      monSvg(u.el, u.tier, 50) + '<div class="nm">' + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
+    var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.boss ? ' bossu' : '') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 ? ' pickable' : '');
+    var adv = '';
+    if (u.side === 'e' && actor && actor.side === 'p' && MM.beats(actor.el, u.el)) adv = '<span class="adv-mark">▲</span>';
+    return '<div class="' + cls + '" id="u' + u.uid + '"' + (pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
+      monSvg(u.el, u.tier, u.boss ? 60 : 50) + '<div class="nm">' + u.name + (u.boss ? ' 보스' : '') + '</div><div class="lv">Lv ' + u.level + '</div>' +
+      (u.side === 'e' ? weakText(u.el) : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
       '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div></div>';
   }
 
+  function sessionTally(ss) {
+    var keys = Object.keys(ss.drops).sort(function (a, b) { return MM.parseKey(b).tier - MM.parseKey(a).tier; });
+    return '<div class="tally">' + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (p.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.speciesName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : '<span class="muted small">아직 얻은 소울이 없어요</span>') + '</div>';
+  }
+
   SCREENS.battle = function () {
-    var B = view.battle; if (!B) return SCREENS.stages();
-    var bt = B.bt, actor = bt.result ? null : MM.currentActor(bt);
-    var myTurn = actor && actor.side === 'p' && !B.auto && !B.busy;
+    var Bt = view.battle; if (!Bt) return SCREENS.stages();
+    var bt = Bt.bt, actor = bt.result ? null : MM.currentActor(bt);
+    var myTurn = actor && actor.side === 'p' && !Bt.auto && !Bt.busy;
     var msg = '', sub = '';
     if (bt.result === 'win') msg = '승리!';
     else if (bt.result === 'lose') msg = '패배…';
-    else if (myTurn) { msg = actor.name + '의 차례'; sub = '공격할 적을 누르세요'; }
+    else if (myTurn) { msg = actor.name + '의 차례'; sub = '공격할 적을 누르세요 (▲ = 상성 유리)'; }
     else if (actor) msg = (actor.side === 'e' ? '적 ' : '') + actor.name + '의 공격';
-    if (B.last && !myTurn) {
-      var a = bt.units[B.last.actor], t = bt.units[B.last.target];
-      sub = a.name + ' → ' + t.name + ' ' + B.last.dmg + ' 피해' + (B.last.mult > 1 ? ' · 효과가 좋다!' : B.last.mult < 1 ? ' · 효과가 별로…' : '') + (B.last.ko ? ' · 쓰러뜨림' : '');
+    if (Bt.last && !myTurn && !bt.result) {
+      var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
+      sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '');
     }
-    return '<div class="battle">' +
-      '<div class="row between"><span class="muted small">' + elName(B.el) + ' ' + B.tier + '단계 · ' + bt.round + '라운드</span><button class="btn sm" data-act="flee">나가기</button></div>' +
-      '<div class="side">' + bt.units.filter(function (u) { return u.side === 'e'; }).map(function (u) { return unitHtml(u, bt, actor, myTurn); }).join('') + '</div>' +
+    var title = Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
+    var en = bt.units.filter(function (u) { return u.side === 'e'; });
+    var html = '<div class="battle">' +
+      '<div class="row between"><span class="muted small">' + title + ' · ' + bt.round + '라운드' + (bt.partyBonus ? ' · <span style="color:var(--good)">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</span>' +
+      (Bt.repeat || Bt.kind === 'tutorial' ? '' : '<button class="btn sm" data-act="flee">나가기</button>') + '</div>' +
+      '<div class="side enemies">' + en.map(function (u) { return unitHtml(u, bt, actor, myTurn); }).join('') + '</div>' +
       '<div class="battle-mid"><div class="msg">' + msg + '</div><div class="muted small">' + sub + '</div></div>' +
-      '<div class="side">' + bt.units.filter(function (u) { return u.side === 'p'; }).map(function (u) { return unitHtml(u, bt, actor, false); }).join('') + '</div>' +
-      '<div class="battle-bar"><button class="btn toggle' + (B.auto ? ' on' : '') + '" data-act="auto">자동 ' + (B.auto ? 'ON' : 'OFF') + '</button></div>' +
-      '</div>';
+      '<div class="side">' + bt.units.filter(function (u) { return u.side === 'p'; }).map(function (u) { return unitHtml(u, bt, actor, false); }).join('') + '</div>';
+    if (Bt.repeat) {
+      var ss = Bt.session;
+      html += '<div class="repeat-box"><div class="row between"><b>자동 반복 ' + (ss.runs + (bt.result ? 0 : 1)) + '판째</b><span class="muted small">오늘 남은 ' + MM.autoLeft(S, Date.now()) + '판</span></div>' +
+        '<div class="muted small">승 ' + ss.wins + ' · 패 ' + ss.losses + ' · 골드 +' + fmt(ss.gold) + '</div>' + sessionTally(ss) + '</div>' +
+        '<div class="battle-bar"><button class="btn' + (Bt.stopAfter ? ' toggle on' : '') + '" data-act="stopAfter">' + (Bt.stopAfter ? '이번 판 후 멈춤 ✓' : '이번 판 후 멈추기') + '</button><button class="btn danger" data-act="stopNow">지금 멈추기</button></div>';
+    } else if (Bt.kind !== 'tutorial') {
+      html += '<div class="battle-bar"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON' : 'OFF') + '</button></div>';
+    }
+    return html + '</div>';
   };
 
   function battleTick() {
-    var B = view.battle; if (!B || view.tab !== 'battle') return;
-    var bt = B.bt;
-    if (bt.result) { B.timer = setTimeout(finishBattle, 700); return; }
+    var Bt = view.battle; if (!Bt || view.tab !== 'battle') return;
+    var bt = Bt.bt;
+    if (!bt.result) MM.currentActor(bt);
+    if (bt.result) { render(); Bt.timer = setTimeout(finishBattle, Bt.repeat ? 500 : 700); return; }
     var actor = MM.currentActor(bt);
-    if (bt.result) { render(); B.timer = setTimeout(finishBattle, 700); return; }
-    if (actor.side === 'e' || B.auto) {
-      B.busy = true; render();
-      B.timer = setTimeout(function () { doAct(null); }, B.auto ? 260 : 520);
+    if (actor.side === 'e' || Bt.auto) {
+      Bt.busy = true; render();
+      Bt.timer = setTimeout(function () { doAct(null); }, Bt.auto ? BAL().AUTO_ACTION_MS : BAL().MANUAL_ENEMY_MS);
     } else {
-      B.busy = false; render();
+      Bt.busy = false; render();
     }
   }
 
   function doAct(targetUid) {
-    var B = view.battle; if (!B) return;
-    var ev = MM.act(B.bt, targetUid);
-    B.last = ev; B.busy = true; // 다음 틱 전까지 입력 막기
+    var Bt = view.battle; if (!Bt) return;
+    var ev = MM.act(Bt.bt, targetUid);
+    Bt.last = ev; Bt.busy = true;
     render();
     if (ev) {
       var node = $('u' + ev.target);
       if (node) {
         node.classList.add('hit');
         var d = document.createElement('div');
-        d.className = 'dmg' + (ev.mult > 1 ? ' adv' : ev.mult < 1 ? ' dis' : '');
+        d.className = 'dmg' + (ev.crit ? ' crit' : ev.mult > 1 ? ' adv' : ev.mult < 1 ? ' dis' : '');
         d.textContent = '-' + ev.dmg;
         node.appendChild(d);
       }
     }
-    B.timer = setTimeout(battleTick, B.auto ? 220 : 380);
+    Bt.timer = setTimeout(battleTick, Bt.auto ? Math.round(BAL().AUTO_ACTION_MS * 0.6) : 380);
   }
+
+  function rareOf(drops) { return drops.filter(function (d) { return d.tier >= BAL().RECORD_MIN_SOUL_TIER && d.added > 0; }); }
 
   function finishBattle() {
-    var B = view.battle; if (!B) return;
-    if (B.bt.result === 'win') {
-      var rw = MM.grantWin(S, B.el, B.tier);
-      view.reward = { win: true, el: B.el, tier: B.tier, r: rw };
+    var Bt = view.battle; if (!Bt) return;
+    var win = Bt.bt.result === 'win', r = null;
+    if (Bt.kind === 'tutorial') {
+      if (!win) { startBattle('tutorial', {}); return; }
+      MM.tutorialBattleReward(S); save();
+      view.battle = null; view.tab = 'home'; render();
+      showTutorial();
+      return;
+    }
+    if (win) {
+      r = Bt.kind === 'dungeon' ? MM.grantDungeonWin(S, Bt.tier, Bt.enemies) : MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies);
     } else {
       S.stats.battlesLost++;
-      view.reward = { win: false, el: B.el, tier: B.tier };
     }
     save();
+    if (Bt.repeat) {
+      var ss = Bt.session;
+      ss.runs++; if (win) ss.wins++; else ss.losses++;
+      if (r) {
+        ss.gold += r.gold; ss.exp += r.exp;
+        r.drops.forEach(function (d) { ss.drops[d.key] = (ss.drops[d.key] || 0) + d.added; ss.wasted += d.wasted; if (d.first) ss.firsts[d.key] = true; });
+        r.levelUps.forEach(function (u) { ss.levelUps[u.id] = u; });
+        rareOf(r.drops).forEach(showBanner);
+      }
+      if (Bt.stopAfter || MM.autoLeft(S, Date.now()) <= 0) {
+        if (MM.autoLeft(S, Date.now()) <= 0) toast('오늘 자동 반복 판수를 다 썼어요');
+        endRepeat(); return;
+      }
+      render();
+      Bt.timer = setTimeout(function () { if (view.battle === Bt) startBattle('stage', { el: Bt.el, tier: Bt.tier, repeat: true }); }, BAL().REWARD_PAUSE_MS);
+      return;
+    }
+    view.reward = { win: win, kind: Bt.kind, el: Bt.el, tier: Bt.tier, els: Bt.els, r: r };
     view.battle = null; view.tab = 'reward';
     render();
+    if (r) { var rare = rareOf(r.drops); if (rare.length) showRareDrops(rare); }
   }
 
-  // ---------------- 보상 ----------------
+  function endRepeat() {
+    var Bt = view.battle;
+    stopBattleTimers();
+    if (!Bt || !Bt.session) { go('stages'); return; }
+    view.reward = { repeat: true, el: Bt.el, tier: Bt.tier, session: Bt.session };
+    view.battle = null; view.tab = 'reward';
+    save(); render();
+  }
+
+  // ================= 보상 =================
+  function dropsHtml(list) {
+    if (!list.length) return '<span class="muted">이번에는 소울이 나오지 않았어요</span>';
+    return list.map(function (d) {
+      return '<div class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 24) + MM.speciesName(d.el, d.tier) + ' ×' + d.count +
+        (d.first ? ' <span class="first">첫 획득!</span>' : '') + (d.wasted ? ' <span class="lack small">가득 차서 ' + d.wasted + '개 버려짐</span>' : '') + '</div>';
+    }).join('');
+  }
+
   SCREENS.reward = function () {
     var R = view.reward; if (!R) return SCREENS.stages();
-    var html = '<div class="reward-title ' + (R.win ? 'win' : 'lose') + '">' + (R.win ? '클리어!' : '패배…') + '</div>' +
-      '<div class="muted" style="text-align:center;margin-bottom:14px">' + elName(R.el) + ' ' + R.tier + '단계 스테이지</div>';
-    if (R.win) {
-      var keys = Object.keys(R.r.drops);
-      html += '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' +
-        (keys.length ? keys.map(function (k) {
-          var el = k.replace(/\d/, ''), t = +k.slice(-1);
-          return '<div class="soul-item' + (t >= 2 ? ' rare' : '') + '">' + monSvg(el, t, 24) + MM.speciesName(el, t) + ' ×' + R.r.drops[k] +
-            ' <span class="muted small">(' + (S.souls[k] || 0) + '/10)</span></div>';
-        }).join('') : '<span class="muted">이번에는 소울이 나오지 않았어요</span>') + '</div></div>';
-      html += '<div class="card"><div class="cost-line" style="border:0"><span>골드</span><span>+' + R.r.gold + ' G</span></div>' +
-        '<div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + R.r.exp + '</span></div>' +
-        R.r.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
-      var ready = MM.ALL_SPECIES.filter(function (sp) { return MM.canSummon(S, sp.key); });
-      if (ready.length) html += '<button class="btn block" style="margin-bottom:10px;border-color:var(--accent)" data-act="tab" data-tab="monsters" data-mon="souls">★ 소환할 수 있는 소울이 있어요</button>';
+    var html = '', again = '';
+    if (R.repeat) {
+      var ss = R.session;
+      var list = Object.keys(ss.drops).map(function (k) { var p = MM.parseKey(k); return { key: k, el: p.el, tier: p.tier, count: ss.drops[k], added: ss.drops[k], wasted: 0, first: !!ss.firsts[k] }; })
+        .sort(function (a, b) { return b.tier - a.tier || b.count - a.count; });
+      html = '<div class="reward-title win">자동 반복 끝</div><div class="muted" style="text-align:center;margin-bottom:14px">' + elName(R.el) + ' ' + R.tier + '단계 · ' + ss.runs + '판 (승 ' + ss.wins + ' · 패 ' + ss.losses + ')</div>' +
+        '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(list) + '</div>' + (ss.wasted ? '<div class="lack small" style="margin-top:8px">소울이 가득 차서 ' + ss.wasted + '개가 버려졌어요 (종별 최대 ' + BAL().SOUL_CAP + '개)</div>' : '') + '</div>' +
+        '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(ss.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(ss.exp) + '</span></div>' +
+        Object.keys(ss.levelUps).map(function (id) { var u = ss.levelUps[id]; return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
+      again = '<button class="btn good block" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 다시 · 오늘 ' + MM.autoLeft(S, Date.now()) + '판 남음</button>';
     } else {
-      html += '<div class="card muted">잃은 것은 없어요. 레벨을 올리거나 한 단계 낮은 스테이지에서 파티를 키워 보세요.</div>';
+      var label = R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
+      html = '<div class="reward-title ' + (R.win ? 'win' : 'lose') + '">' + (R.win ? '클리어!' : '패배…') + '</div><div class="muted" style="text-align:center;margin-bottom:14px">' + label + '</div>';
+      if (R.win) {
+        html += '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(R.r.drops) + '</div></div>' +
+          '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(R.r.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(R.r.exp) + '</span></div>' +
+          R.r.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
+      } else {
+        html += '<div class="card muted">잃은 것은 없어요. 레벨을 올리거나 상성이 유리한 몬스터로 파티를 바꿔 보세요.</div>';
+      }
+      if (R.kind === 'dungeon') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="dungeon">던전으로</button>';
+      else again = '<button class="btn primary block" data-act="again">다시 도전</button>' +
+        (S.cleared[MM.speciesKey(R.el, R.tier)] ? '<button class="btn good block" style="margin-top:10px" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 시작 · 오늘 ' + MM.autoLeft(S, Date.now()) + '판 남음</button>' : '');
     }
-    html += '<button class="btn primary block" data-act="again">다시 도전</button>' +
-      '<div class="grid2" style="margin-top:10px"><button class="btn" data-act="tab" data-tab="stages">스테이지 목록</button><button class="btn" data-act="tab" data-tab="fusion">합성하러</button></div>';
-    return html;
+    var ready = MM.allSpecies().filter(function (sp) { return MM.canSummon(S, sp.key); });
+    if (ready.length) html += '<button class="btn block" style="margin-bottom:10px;border-color:var(--accent)" data-act="tab" data-tab="monsters" data-mon="souls">★ 소환할 수 있는 소울이 있어요</button>';
+    return html + again + '<div class="grid2" style="margin-top:10px"><button class="btn" data-act="tab" data-tab="stages">전투 목록</button><button class="btn" data-act="tab" data-tab="fusion">합성하러</button></div>';
   };
 
-  // ---------------- 몬스터 ----------------
+  // ================= 희귀 드랍 연출 =================
+  function sparks(n, now) {
+    var cols = ['#ffcf4a', '#ff8a5c', '#8f7cff', '#5fd38d', '#fff', '#ff5c8a'], s = '';
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2, d = 70 + Math.random() * 110;
+      s += '<i class="spark" style="background:' + cols[i % cols.length] + ';--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d) + 'px;animation-delay:' + ((now ? 0.05 : 0.9) + Math.random() * 0.15).toFixed(2) + 's"></i>';
+    }
+    return s;
+  }
+  function raysClass(tier) { return 'rays reveal now' + (tier >= 5 ? ' t5' : tier >= 4 ? ' t4' : ''); }
+
+  function showRareDrops(list) {
+    var d = list[0];
+    showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + raysClass(d.tier) + '"></div><div class="flash now"></div>' + sparks(10 + d.tier * 4 + d.count * 4, true) +
+      '<div class="pop now" style="position:relative">' + monSvg(d.el, d.tier, 110 + d.tier * 6) + (d.count > 1 ? '<span class="count-badge">×' + d.count + '</span>' : '') + '</div></div>' +
+      '<div class="reveal now"><div class="big ok">' + d.tier + '단계 소울!</div><div class="sub">' + MM.speciesName(d.el, d.tier) + ' 소울 ×' + d.count + '</div>' + (d.first ? '<div class="new">첫 획득!</div>' : '') +
+      (list.length > 1 ? '<div class="sub">+ ' + list.slice(1).map(function (x) { return MM.speciesName(x.el, x.tier) + ' ×' + x.count; }).join(', ') + '</div>' : '') +
+      '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div></div>');
+  }
+
+  var bannerQueue = [];
+  function showBanner(d) {
+    bannerQueue.push(d);
+    if (bannerQueue.length === 1) nextBanner();
+  }
+  function nextBanner() {
+    var d = bannerQueue[0], el = $('banner');
+    if (!d) { el.hidden = true; return; }
+    el.className = d.tier >= 5 ? 't5' : '';
+    el.innerHTML = monSvg(d.el, d.tier, 36) + '<div><b>' + d.tier + '단계 소울' + (d.first ? ' 첫 획득!' : '!') + '</b><div class="small">' + MM.speciesName(d.el, d.tier) + ' 소울 ×' + d.count + '</div></div>';
+    el.hidden = false;
+    setTimeout(function () { bannerQueue.shift(); el.hidden = true; setTimeout(nextBanner, 150); }, 1800 + d.tier * 250);
+  }
+
+  // ================= 몬스터 / 소울 =================
   SCREENS.monsters = function () {
-    var html = '<div class="seg"><button class="' + (view.monTab === 'list' ? 'on' : '') + '" data-act="montab" data-v="list">몬스터 ' + S.monsters.length + '</button>' +
-      '<button class="' + (view.monTab === 'souls' ? 'on' : '') + '" data-act="montab" data-v="souls">소울</button></div>';
-    if (view.monTab === 'list') {
-      html += '<div class="muted small" style="margin-bottom:10px">파티 ' + S.party.length + '/3 · 버튼으로 파티에 넣고 빼요</div>';
+    var html = '<div class="seg"><button class="' + (view.monSeg === 'list' ? 'on' : '') + '" data-act="monSeg" data-v="list">몬스터 ' + S.monsters.length + '</button>' +
+      '<button class="' + (view.monSeg === 'souls' ? 'on' : '') + '" data-act="monSeg" data-v="souls">소울</button></div>';
+    if (view.monSeg === 'list') {
+      var pm = partyMons();
+      html += '<div class="row between" style="margin-bottom:10px"><span class="muted small">파티 ' + S.party.length + '/3</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</div>';
       html += sortMons(S.monsters).map(function (m) {
-        var inParty = S.party.indexOf(m.id) >= 0, maxed = m.level >= MM.BALANCE.MAX_LEVEL;
+        var inParty = S.party.indexOf(m.id) >= 0, maxed = m.level >= BAL().MAX_LEVEL;
         var st = MM.calcStats(m.el, m.tier, m.level);
-        return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row" style="gap:6px"><span class="nm">' + name(m) + '</span><span class="muted small">Lv ' + m.level + (maxed ? ' (최대)' : '') + '</span>' +
-          (inParty ? '<span class="chip party">파티</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') + '</div>' +
-          '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + '</div>' +
+        var req = m.tier < T() ? MM.fuseLevelReq(m.tier) : null;
+        return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + name(m) + '</span><span class="muted small">Lv ' + m.level + (maxed ? ' (최대)' : '') + '</span>' +
+          (inParty ? '<span class="chip party">파티</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') +
+          (req ? '<span class="chip' + (m.level >= req ? ' adv' : '') + '">합성 Lv' + req + (m.level >= req ? ' ✓' : '') + '</span>' : '') + '</div>' +
+          '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 크리 ' + Math.round(st.crit * 100) + '%</div>' +
           '<div class="expbar"><i style="width:' + (maxed ? 100 : m.exp / MM.expToNext(m.level) * 100) + '%"></i></div></div>' +
-          '<button class="btn sm" data-act="party" data-id="' + m.id + '">' + (inParty ? '빼기' : '넣기') + '</button></div>';
+          '<div class="acts"><button class="btn sm" data-act="party" data-id="' + m.id + '">' + (inParty ? '빼기' : '넣기') + '</button>' +
+          (inParty ? '' : '<button class="btn sm danger" data-act="decompMon" data-id="' + m.id + '">분해</button>') + '</div></div>';
       }).join('');
     } else {
-      html += '<div class="muted small" style="margin-bottom:10px">같은 종 소울 ' + MM.BALANCE.SOULS_PER_SUMMON + '개 = 몬스터 1마리. 노란 칸을 누르면 소환해요.</div>';
-      html += '<div class="soul-grid"><div></div>' + [1, 2, 3, 4, 5].map(function (t) { return '<div class="muted small" style="text-align:center">' + t + '단계</div>'; }).join('');
+      html += '<div class="muted small" style="margin-bottom:10px">같은 종 소울 ' + BAL().SOULS_PER_SUMMON + '개 = 몬스터 1마리 · 종별 최대 ' + BAL().SOUL_CAP + '개 (' + BAL().SOUL_WARN + '개부터 주의) · 칸을 누르면 소환·분해</div>';
+      html += '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
       MM.RING.forEach(function (el) {
-        html += '<div class="el" style="font-weight:700;font-size:13px">' + elName(el) + '</div>';
-        for (var t = 1; t <= 5; t++) {
-          var key = MM.speciesKey(el, t), n = S.souls[key] || 0, ready = MM.canSummon(S, key);
-          html += '<div class="soul-cell' + (ready ? ' ready' : '') + '"' + (ready ? ' data-act="summon" data-el="' + el + '" data-tier="' + t + '"' : '') + '><b>' + n + '</b>' + (ready ? '소환!' : '/' + MM.BALANCE.SOULS_PER_SUMMON) + '</div>';
-        }
+        html += '<div class="el">' + elName(el) + '</div>';
+        MM.tiers().forEach(function (t) {
+          var key = MM.speciesKey(el, t), n = S.souls[key] || 0, k = Math.floor(n / BAL().SOULS_PER_SUMMON);
+          var warn = n >= BAL().SOUL_WARN;
+          html += '<button class="soul-cell' + (k ? ' ready' : '') + (warn ? ' warn' : '') + '" data-act="soulCell" data-el="' + el + '" data-tier="' + t + '"><b>' + n + '개</b>' +
+            (warn ? '가득 주의' : k ? '소환 ' + k + '회' : (BAL().SOULS_PER_SUMMON - n) + '개 더') + '</button>';
+        });
       });
-      html += '</div>';
+      html += '</div></div>';
     }
     return html;
   };
 
-  // ---------------- 합성 ----------------
+  function soulSheet(el, tier) {
+    var key = MM.speciesKey(el, tier), n = S.souls[key] || 0, per = BAL().SOULS_PER_SUMMON;
+    var html = '<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.speciesName(el, tier) + ' 소울</b><div class="muted small">보유 ' + n + '개 / 최대 ' + BAL().SOUL_CAP + '개</div></div></div>' +
+      '<div class="pick-list" style="margin-top:14px">' +
+      '<button class="pick" data-act="summon" data-el="' + el + '" data-tier="' + tier + '"' + (n >= per ? '' : ' disabled') + '><b>소환</b><span class="muted small">소울 ' + per + '개 → ' + MM.speciesName(el, tier) + ' Lv ' + MM.summonLevel(tier) + '</span></button>';
+    if (tier > 1) {
+      var low = MM.speciesName(el, tier - 1);
+      html += '<button class="pick" data-act="decompSoul" data-el="' + el + '" data-tier="' + tier + '" data-n="1"' + (n >= 1 ? '' : ' disabled') + '><b>분해 1개</b><span class="muted small">→ ' + low + ' 소울 ' + BAL().DECOMPOSE_SOUL_SOULS + '개</span></button>' +
+        '<button class="pick" data-act="decompSoul" data-el="' + el + '" data-tier="' + tier + '" data-n="5"' + (n >= 5 ? '' : ' disabled') + '><b>분해 5개</b><span class="muted small">→ ' + low + ' 소울 ' + BAL().DECOMPOSE_SOUL_SOULS * 5 + '개</span></button>';
+    } else {
+      html += '<div class="muted small">1단계 소울은 분해할 수 없어요</div>';
+    }
+    html += '</div><div class="muted small" style="margin-top:10px">분해는 손해를 보는 교환이에요. 합성 비용 소울이 급할 때 쓰세요.</div>';
+    openSheet(html);
+  }
+
+  // ================= 합성 =================
   function fusionSel() {
     var f = view.fusion;
     var main = f.mainId && MM.getMonster(S, f.mainId), sub = f.subId && MM.getMonster(S, f.subId);
-    if (!main) { f.mainId = null; f.subId = null; main = null; sub = null; }
-    if (sub && !MM.canFuse(main, sub)) { f.subId = null; sub = null; }
+    if (!main) { f.mainId = null; main = null; }
+    if (sub && (!main || !MM.isPair(main, sub))) { f.subId = null; sub = null; }
     return { main: main, sub: sub };
   }
-  function subsFor(main) { return sortMons(S.monsters.filter(function (m) { return MM.canFuse(main, m); })); }
-
-  function fuseSlot(m, label) {
-    if (!m) return '<div class="fuse-slot empty">' + label + '</div>';
-    return '<div class="fuse-slot">' + monSvg(m.el, m.tier, 46) + '<div>' + name(m) + '</div>' + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '<span class="muted small">Lv ' + m.level + '</span>') + '</div>';
+  function slotHtml(m, label, act) {
+    if (!m) return '<div class="fuse-slot empty tap" data-act="' + act + '">' + label + '<span class="swap">눌러서 고르기</span></div>';
+    var req = MM.fuseLevelReq(view.fusion.mainId === m.id ? m.tier : MM.getMonster(S, view.fusion.mainId).tier);
+    return '<div class="fuse-slot tap" data-act="' + act + '">' + monSvg(m.el, m.tier, 46) + '<div>' + name(m) + '</div>' +
+      '<span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '</span>' + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') + '<span class="swap">눌러서 바꾸기</span></div>';
   }
 
   SCREENS.fusion = function () {
     var sel = fusionSel(), main = sel.main, sub = sel.sub, f = view.fusion;
-    var resultSlot = main ? '<div class="fuse-slot">' + monSvg(main.el, main.tier + 1, 46, !S.dex[MM.speciesKey(main.el, main.tier + 1)]) + '<div>' + MM.speciesName(main.el, main.tier + 1) + '</div>' +
+    var res = main ? '<div class="fuse-slot">' + monSvg(main.el, main.tier + 1, 46, !S.dex[MM.speciesKey(main.el, main.tier + 1)]) + '<div>' + MM.speciesName(main.el, main.tier + 1) + '</div>' +
       (!S.dex[MM.speciesKey(main.el, main.tier + 1)] ? '<span class="chip">미발견</span>' : '') + '</div>' : '<div class="fuse-slot empty">결과</div>';
-    var html = '<h2>합성</h2><div class="fuse-box">' + fuseSlot(main, '주재료') + '<div class="fuse-op">+</div>' + fuseSlot(sub, '부재료') + '<div class="fuse-op">=</div>' + resultSlot + '</div>';
+    var html = '<h2>합성</h2><div class="fuse-box">' + slotHtml(main, '주재료', 'pickMainSheet') + '<div class="fuse-op">+</div>' + slotHtml(sub, '부재료', 'pickSubSheet') + '<div class="fuse-op">=</div>' + res + '</div>';
 
-    if (!main) {
-      var cands = sortMons(S.monsters.filter(MM.canBeMain));
-      html += '<h3>주재료 고르기 · 결과 속성은 주재료를 따라요</h3><div class="pick-list">' + (cands.length ? cands.map(function (m) {
-        var n = subsFor(m).length;
-        return '<button class="pick" data-act="pickMain" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 36) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + '</span>' + (m.stack ? ' <span class="chip stack">스택 ' + m.stack + '</span>' : '') +
-          '<div class="muted small">부재료 가능 ' + n + '마리 · 기본 성공률 ' + pct(MM.successRate(m.tier, m.stack)) + '</div></div></button>';
-      }).join('') : '<div class="muted">합성할 몬스터가 없어요</div>') + '</div>';
-      html += '<div class="card muted small" style="margin-top:12px;line-height:1.7">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계<br>부재료는 같은 속성이거나 원형 이웃 속성 (불-풀-물-빛-어둠-불)<br>실패해도 재료는 남고, 주재료의 성공률이 점점 올라가요.</div>';
-      return html;
+    if (main && sub) {
+      var chk = MM.fusionCheck(S, main, sub, f.soulEl), cost = chk.cost;
+      if (cost.soulTier && cost.soulOptions.indexOf(f.soulEl) < 0) {
+        f.soulEl = cost.soulOptions.slice().sort(function (a, b) { return (S.souls[MM.speciesKey(b, cost.soulTier)] || 0) - (S.souls[MM.speciesKey(a, cost.soulTier)] || 0); })[0];
+        chk = MM.fusionCheck(S, main, sub, f.soulEl);
+      }
+      var rate = MM.successRate(main.tier, main.stack), next = MM.successRate(main.tier, main.stack + 1);
+      var meter = '';
+      for (var i = 1; i <= BAL().STACK_GUARANTEE; i++) meter += '<i class="' + (i <= main.stack ? 'on' : '') + '"></i>';
+      var nextGold = Math.round(MM.tierVal(BAL().FUSION_GOLD, main.tier) * (1 + BAL().FUSION_GOLD_STACK_UP * (main.stack + 1)) / 10) * 10;
+      html += '<div class="card" style="margin-top:14px"><div class="rate-big">' + pct(rate) + '</div>' +
+        '<div class="rate-sub">성공률' + (main.stack ? ' (기본 ' + pct(MM.tierVal(BAL().BASE_SUCCESS, main.tier)) + ' + 실패 스택 ' + main.stack + ')' : '') + '</div><div class="stack-meter">' + meter + '</div>' +
+        '<div class="rate-sub">' + (rate >= 1 ? '이번엔 반드시 성공해요' : '실패해도 재료는 그대로 · 실패하면 다음 시도 <b style="color:var(--text)">' + pct(next) + '</b> (골드 ' + fmt(nextGold) + ')') + '</div></div>';
+      var req = chk.req;
+      html += '<div class="card"><b>조건</b>' +
+        '<div class="cost-line" style="margin-top:6px"><span>' + name(main) + ' Lv ' + req + ' 이상</span><span class="' + (main.level >= req ? 'okc' : 'lack') + '">' + (main.level >= req ? '✓' : 'Lv ' + main.level) + '</span></div>' +
+        '<div class="cost-line"><span>' + name(sub) + ' Lv ' + req + ' 이상</span><span class="' + (sub.level >= req ? 'okc' : 'lack') + '">' + (sub.level >= req ? '✓' : 'Lv ' + sub.level) + '</span></div>' +
+        '<div class="cost-line"><span>몬스터 4마리 이상</span><span class="' + (S.monsters.length >= BAL().MIN_MONSTERS_TO_FUSE ? 'okc' : 'lack') + '">' + S.monsters.length + '마리</span></div></div>';
+      html += '<div class="card"><b>비용</b><div class="cost-line" style="margin-top:6px"><span>골드' + (main.stack ? ' (스택 +' + Math.round(BAL().FUSION_GOLD_STACK_UP * main.stack * 100) + '%)' : '') + '</span><span class="' + (S.gold >= cost.gold ? '' : 'lack') + '">' + fmt(cost.gold) + ' G</span></div>';
+      if (cost.soulTier) {
+        var have = S.souls[MM.speciesKey(f.soulEl, cost.soulTier)] || 0;
+        html += '<div class="cost-line"><span>' + cost.soulTier + '단계 소울 1개</span><span class="' + (have ? '' : 'lack') + '">보유 ' + have + '</span></div>';
+        if (cost.soulOptions.length > 1) html += '<div class="soul-choice">' + cost.soulOptions.map(function (el) {
+          return '<button class="' + (el === f.soulEl ? 'on' : '') + '" data-act="soulEl" data-el="' + el + '">' + MM.speciesName(el, cost.soulTier) + ' (' + (S.souls[MM.speciesKey(el, cost.soulTier)] || 0) + ')</button>';
+        }).join('') + '</div>';
+      }
+      html += '</div>';
+    } else {
+      var ready = readyPairs(6);
+      if (ready.length) {
+        html += '<h3>지금 합성할 수 있는 조합</h3><div class="pick-list">' + ready.map(function (p) {
+          return '<button class="pick" data-act="quickPair" data-main="' + p.main.id + '" data-sub="' + p.sub.id + '">' + monSvg(p.main.el, p.main.tier, 30) + '<b>' + name(p.main) + '</b> + ' + monSvg(p.sub.el, p.sub.tier, 26) + name(p.sub) +
+            '<span class="muted small" style="margin-left:auto">' + pct(MM.successRate(p.main.tier, p.main.stack)) + '</span></button>';
+        }).join('') + '</div>';
+      }
     }
-
-    var p = MM.partnersOf(main.el), subTier = MM.subTierFor(main.tier);
-    if (!sub) {
-      var subs = subsFor(main);
-      html += '<h3>부재료 고르기 · ' + subTier + '단계 ' + [main.el].concat(p).map(function (e) { return MM.ELEMENTS[e].name; }).join('/') + '</h3>';
-      html += subs.length ? '<div class="pick-list">' + subs.map(function (m) {
-        return '<button class="pick" data-act="pickSub" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 36) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + '</div></button>';
-      }).join('') + '</div>' : '<div class="card muted">부재료로 쓸 수 있는 몬스터가 없어요.<br>' + subTier + '단계 ' + [main.el].concat(p).map(function (e) { return MM.ELEMENTS[e].name; }).join('·') + ' 몬스터가 필요해요. 스테이지에서 소울을 모아 소환해 보세요.</div>';
-      html += '<button class="btn block" style="margin-top:12px" data-act="resetFusion">주재료 다시 고르기</button>';
-      return html;
-    }
-
-    var cost = MM.fusionCost(main, sub);
-    if (cost.soulTier && cost.soulOptions.indexOf(f.soulEl) < 0) {
-      // 가진 소울이 많은 쪽을 기본 선택
-      f.soulEl = cost.soulOptions.slice().sort(function (a, b) { return (S.souls[MM.speciesKey(b, cost.soulTier)] || 0) - (S.souls[MM.speciesKey(a, cost.soulTier)] || 0); })[0];
-    }
-    var rate = MM.successRate(main.tier, main.stack), next = MM.successRate(main.tier, main.stack + 1);
-    var goldOk = S.gold >= cost.gold, soulKey = cost.soulTier ? MM.speciesKey(f.soulEl, cost.soulTier) : null;
-    var soulHave = soulKey ? (S.souls[soulKey] || 0) : 0, soulOk = !soulKey || soulHave > 0;
-    var meter = '';
-    for (var i = 1; i <= MM.BALANCE.STACK_GUARANTEE; i++) meter += '<i class="' + (i <= main.stack ? 'on' : '') + '"></i>';
-    html += '<div class="card" style="margin-top:14px"><div class="rate-big">' + pct(rate) + '</div>' +
-      '<div class="rate-sub">성공률' + (main.stack ? ' (기본 ' + pct(MM.BALANCE.BASE_SUCCESS[main.tier - 1]) + ' + 실패 스택 ' + main.stack + ')' : '') + '</div>' +
-      '<div class="stack-meter">' + meter + '</div>' +
-      '<div class="rate-sub">' + (rate >= 1 ? '이번엔 반드시 성공해요' : '실패해도 재료는 그대로 · 실패하면 다음 시도 <b style="color:var(--text)">' + pct(next) + '</b>') + '</div></div>';
-    html += '<div class="card"><b>비용</b><div class="cost-line" style="border:0;margin-top:6px"><span>골드</span><span class="' + (goldOk ? '' : 'lack') + '">' + fmt(cost.gold) + ' G (보유 ' + fmt(S.gold) + ')</span></div>';
-    if (cost.soulTier) {
-      html += '<div class="cost-line"><span>' + cost.soulTier + '단계 소울 1개</span><span class="' + (soulOk ? '' : 'lack') + '">보유 ' + soulHave + '</span></div>';
-      if (cost.soulOptions.length > 1) html += '<div class="soul-choice">' + cost.soulOptions.map(function (el) {
-        return '<button class="' + (el === f.soulEl ? 'on' : '') + '" data-act="soulEl" data-el="' + el + '">' + MM.speciesName(el, cost.soulTier) + ' 소울 (' + (S.souls[MM.speciesKey(el, cost.soulTier)] || 0) + ')</button>';
-      }).join('') + '</div>';
-    }
-    html += '</div>';
-    var why = !goldOk ? '골드가 부족해요' : !soulOk ? MM.speciesName(f.soulEl, cost.soulTier) + ' 소울이 필요해요' : '';
-    html += '<button class="btn primary block" data-act="fuse"' + (why ? ' disabled' : '') + '>' + (why || '합성 시도') + '</button>' +
-      '<div class="grid2" style="margin-top:10px"><button class="btn" data-act="clearSub">부재료 바꾸기</button><button class="btn" data-act="resetFusion">처음부터</button></div>';
+    html += '<div class="card muted small lh" style="margin-top:12px">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계 · 결과 속성은 주재료<br>부재료는 원형 이웃 속성만 (불-풀-물-빛-어둠-불) · 같은 속성은 안 돼요<br>재료 둘 다 조건 레벨 이상 · 결과 레벨은 두 재료의 평균<br>실패해도 재료는 남고 성공률이 올라요 (' + BAL().STACK_GUARANTEE + '스택이면 100%)</div>';
     return html;
   };
+  DOCKS.fusion = function () {
+    var sel = fusionSel();
+    if (!sel.main || !sel.sub) return '';
+    var chk = MM.fusionCheck(S, sel.main, sel.sub, view.fusion.soulEl);
+    return '<button class="btn primary block" data-act="fuse"' + (chk.ok ? '' : ' disabled') + '>' + (chk.ok ? '합성 시도 · ' + pct(MM.successRate(sel.main.tier, sel.main.stack)) : chk.reasons[0]) + '</button>';
+  };
 
-  function sparks(n) {
-    var cols = ['#ffcf4a', '#ff8a5c', '#8f7cff', '#5fd38d', '#fff'], s = '';
-    for (var i = 0; i < n; i++) {
-      var a = Math.random() * Math.PI * 2, d = 70 + Math.random() * 90;
-      s += '<i class="spark" style="background:' + cols[i % cols.length] + ';--dx:' + Math.round(Math.cos(a) * d) + 'px;--dy:' + Math.round(Math.sin(a) * d) + 'px;animation-delay:' + (0.9 + Math.random() * 0.15).toFixed(2) + 's"></i>';
-    }
-    return s;
+  function mainSheet() {
+    var cands = sortMons(S.monsters.filter(MM.canBeMain));
+    openSheet('<b>주재료 고르기</b><div class="muted small" style="margin:4px 0 10px">결과 속성은 주재료를 따라요</div><div class="pick-list">' + (cands.length ? cands.map(function (m) {
+      var subs = S.monsters.filter(function (x) { return MM.isPair(m, x); }).length, req = MM.fuseLevelReq(m.tier);
+      return '<button class="pick' + (view.fusion.mainId === m.id ? ' sel' : '') + (subs ? '' : ' dim') + '" data-act="pickMain" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 34) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '/' + req + '</span>' + (m.stack ? ' <span class="chip stack">스택 ' + m.stack + '</span>' : '') +
+        '<div class="muted small">부재료 후보 ' + subs + '마리 · 성공률 ' + pct(MM.successRate(m.tier, m.stack)) + '</div></div></button>';
+    }).join('') : '<div class="muted">합성할 몬스터가 없어요</div>') + '</div>');
+  }
+  function subSheet() {
+    var main = MM.getMonster(S, view.fusion.mainId);
+    if (!main) { mainSheet(); return; }
+    var subs = sortMons(S.monsters.filter(function (x) { return MM.isPair(main, x); })), req = MM.fuseLevelReq(main.tier);
+    var p = MM.partnersOf(main.el).map(function (e) { return MM.ELEMENTS[e].name; }).join('·');
+    openSheet('<b>부재료 고르기</b><div class="muted small" style="margin:4px 0 10px">' + MM.subTierFor(main.tier) + '단계 ' + p + ' · Lv ' + req + ' 이상</div><div class="pick-list">' + (subs.length ? subs.map(function (m) {
+      return '<button class="pick' + (view.fusion.subId === m.id ? ' sel' : '') + '" data-act="pickSub" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 34) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '/' + req + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + '</div></button>';
+    }).join('') : '<div class="muted">맞는 부재료가 없어요. ' + MM.subTierFor(main.tier) + '단계 ' + p + ' 몬스터가 필요해요.</div>') + '</div>');
   }
 
   function showOverlay(html) { var o = $('overlay'); o.innerHTML = html; o.hidden = false; }
   function hideOverlay() { $('overlay').hidden = true; $('overlay').innerHTML = ''; }
+  function openSheet(html) { var s = $('sheet'); s.innerHTML = '<div class="sheet-body">' + html + '</div>'; s.hidden = false; }
+  function closeSheet() { $('sheet').hidden = true; $('sheet').innerHTML = ''; }
+
+  function successOverlay(m, line, dex, acts, mainSnap, subSnap) {
+    var charge = mainSnap ? '<div class="charge">' + monSvg(mainSnap.el, mainSnap.tier, 64) + monSvg(subSnap.el, subSnap.tier, 64) + '</div>' : '';
+    showOverlay('<div class="result ok"><div class="stage-anim">' + charge + '<div class="' + (mainSnap ? 'rays reveal' : raysClass(m.tier)) + (m.tier >= 5 ? ' t5' : m.tier >= 4 ? ' t4' : '') + '"></div><div class="flash' + (mainSnap ? '' : ' now') + '"></div>' + sparks(18 + m.tier * 2, !mainSnap) +
+      '<div class="pop' + (mainSnap ? '' : ' now') + '">' + monSvg(m.el, m.tier, 130) + '</div></div>' +
+      '<div class="reveal' + (mainSnap ? '' : ' now') + '"><div class="big ok">' + line.title + '</div><div class="sub">' + line.sub + '</div>' +
+      (dex ? '<div class="new">도감 새 등록! 보상: ' + MM.speciesName(m.el, m.tier) + ' 소울 ' + dex.soul + '개</div>' : '') +
+      '<div class="acts">' + acts + '</div></div></div>');
+  }
 
   function doFuse() {
     var sel = fusionSel(); if (!sel.main || !sel.sub) return;
@@ -402,72 +662,215 @@
     var res = MM.attemptFusion(S, sel.main.id, sel.sub.id, view.fusion.soulEl);
     if (res.error) { toast(res.error); render(); return; }
     save();
-    var charge = '<div class="charge">' + monSvg(mainSnap.el, mainSnap.tier, 64) + monSvg(subSnap.el, subSnap.tier, 64) + '</div>';
     if (res.success) {
       var m = res.monster;
       view.fusion = { mainId: null, subId: null, soulEl: null };
-      showOverlay('<div class="result ok"><div class="stage-anim">' + charge + '<div class="rays reveal"></div><div class="flash"></div>' + sparks(18) +
-        '<div class="pop">' + monSvg(m.el, m.tier, 130) + '</div></div>' +
-        '<div class="reveal"><div class="big ok">합성 성공!</div><div class="sub">' + name(m) + ' 탄생 · 성공률 ' + pct(res.rate) + (res.spentStack ? ' · 실패 ' + res.spentStack + '번 끝에' : '') + '</div>' +
-        (res.isNewSpecies ? '<div class="new">도감 새 등록!</div>' : '') +
-        '<div class="acts"><button class="btn primary block" data-act="closeOverlay" data-tab="fusion">계속 합성</button><button class="btn block" data-act="closeOverlay" data-tab="monsters">몬스터 보기</button></div></div></div>');
+      successOverlay(m, { title: '합성 성공!', sub: name(m) + ' 탄생 · Lv ' + m.level + ' · 성공률 ' + pct(res.rate) + (res.spentStack ? ' · 실패 ' + res.spentStack + '번 끝에' : '') }, res.dex,
+        '<button class="btn primary block" data-act="closeOverlay" data-tab="fusion">계속 합성</button><button class="btn block" data-act="closeOverlay" data-tab="monsters">몬스터 보기</button>', mainSnap, subSnap);
     } else {
       var main = MM.getMonster(S, view.fusion.mainId), sub = MM.getMonster(S, view.fusion.subId);
-      var cost = MM.fusionCost(main, sub), soulKey = cost.soulTier ? MM.speciesKey(view.fusion.soulEl, cost.soulTier) : null;
-      var canRetry = S.gold >= cost.gold && (!soulKey || (S.souls[soulKey] || 0) > 0);
-      showOverlay('<div class="result fail"><div class="stage-anim">' + charge + '<div class="fizzle">💨</div><div class="reveal">' + monSvg(mainSnap.el, mainSnap.tier, 90) + '</div></div>' +
+      var chk = MM.fusionCheck(S, main, sub, view.fusion.soulEl);
+      showOverlay('<div class="result fail"><div class="stage-anim"><div class="charge">' + monSvg(mainSnap.el, mainSnap.tier, 64) + monSvg(subSnap.el, subSnap.tier, 64) + '</div><div class="fizzle">💨</div><div class="reveal">' + monSvg(mainSnap.el, mainSnap.tier, 90) + '</div></div>' +
         '<div class="reveal"><div class="big no">실패…</div><div class="sub">재료는 그대로 남았어요</div>' +
         '<div class="sub">실패 스택 ' + res.stack + ' → 다음 성공률 <b style="color:var(--accent);font-size:20px">' + pct(res.nextRate) + '</b></div>' +
-        '<div class="acts">' + (canRetry ? '<button class="btn primary block" data-act="retryFuse">한 번 더 (' + fmt(cost.gold) + ' G' + (soulKey ? ' + 소울 1' : '') + ')</button>' : '<div class="muted small">다시 하려면 ' + (S.gold < cost.gold ? '골드' : '소울') + '가 더 필요해요</div>') +
+        '<div class="acts">' + (chk.ok ? '<button class="btn primary block" data-act="retryFuse">한 번 더 (' + fmt(chk.cost.gold) + ' G' + (chk.cost.soulTier ? ' + 소울 1' : '') + ')</button>' : '<div class="muted small">' + chk.reasons[0] + '</div>') +
         '<button class="btn block" data-act="closeOverlay" data-tab="fusion">그만하기</button></div></div></div>');
     }
     render();
   }
 
-  // ---------------- 도감 ----------------
+  // ================= 도감 / 기록 =================
   SCREENS.dex = function () {
-    var have = MM.ALL_SPECIES.filter(function (sp) { return S.dex[sp.key]; }).length, g = goalCount();
-    var html = '<h2>도감</h2><div class="card"><div class="row between"><b>수집률</b><span>' + have + ' / 25</span></div><div class="progress"><i style="width:' + have / 25 * 100 + '%"></i></div>' +
-      '<div class="row between" style="margin-top:12px"><b>1차 목표 · 5단계 5종</b><span style="color:var(--accent)">' + g + ' / 5</span></div><div class="progress"><i style="width:' + g / 5 * 100 + '%"></i></div></div>';
-    html += '<div class="dex-grid"><div></div>' + [1, 2, 3, 4, 5].map(function (t) { return '<div class="muted small" style="text-align:center">' + t + '단계' + (t === 5 ? ' ★' : '') + '</div>'; }).join('');
+    var html = '<div class="seg"><button class="' + (view.dexSeg === 'dex' ? 'on' : '') + '" data-act="dexSeg" data-v="dex">도감</button><button class="' + (view.dexSeg === 'rec' ? 'on' : '') + '" data-act="dexSeg" data-v="rec">희귀 획득 기록 ' + S.records.length + '</button></div>';
+    if (view.dexSeg === 'rec') return html + recordsHtml();
+    var all = MM.allSpecies(), have = all.filter(function (sp) { return S.dex[sp.key]; }).length, g = goalCount();
+    html += '<div class="card"><div class="row between"><b>수집률</b><span>' + have + ' / ' + all.length + '</span></div><div class="progress"><i style="width:' + have / all.length * 100 + '%"></i></div>' +
+      '<div class="row between" style="margin-top:12px"><b>1차 목표 · ' + T() + '단계 5종</b><span style="color:var(--accent)">' + g + ' / 5</span></div><div class="progress"><i style="width:' + g / 5 * 100 + '%"></i></div></div>';
+    html += '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계' + (t === T() ? ' ★' : '') + '</div>'; }).join('');
     MM.RING.forEach(function (el) {
-      html += '<div style="font-weight:700;font-size:13px">' + elName(el) + '</div>';
-      for (var t = 1; t <= 5; t++) {
+      html += '<div class="el">' + elName(el) + '</div>';
+      MM.tiers().forEach(function (t) {
         var got = !!S.dex[MM.speciesKey(el, t)];
-        html += '<div class="dex-cell' + (t === 5 ? ' goal' : '') + (t === 5 && got ? ' have' : '') + '">' + monSvg(el, t, 34, !got) + '</div>';
-      }
+        html += '<div class="dex-cell' + (t === T() ? ' goal' : '') + (t === T() && got ? ' have' : '') + '">' + monSvg(el, t, 34, !got) + '</div>';
+      });
     });
-    return html + '</div><div class="muted small" style="margin-top:12px">한 번이라도 가졌던 종은 도감에 남아요.</div>';
+    return html + '</div></div><div class="muted small" style="margin-top:12px">처음 등록하면 그 몬스터 소울 ' + BAL().FIRST_DEX_SOUL + '개를 받아요. 한 번이라도 가졌던 종은 도감에 남아요.</div>';
   };
 
-  // ---------------- 설정 ----------------
+  function recLine(r) {
+    if (r.type === 'soul') return { title: r.tier + '단계 소울' + (r.first ? ' 첫 획득!' : ''), sub: MM.speciesName(r.el, r.tier) + ' 소울 ×' + r.count };
+    return { title: '합성 성공!', sub: MM.speciesName(r.el, r.tier) + ' 탄생' + (r.rate ? ' · 성공률 ' + pct(r.rate) : '') + (r.spent ? ' · 실패 ' + r.spent + '번 끝에' : '') + (r.first ? ' · 도감 첫 등록' : '') };
+  }
+  function recordsHtml() {
+    if (S.settings.recordOn === false) return '<div class="card muted">기록이 꺼져 있어요. 설정에서 켤 수 있어요.</div>';
+    if (!S.records.length) return '<div class="card muted">아직 기록이 없어요. ' + BAL().RECORD_MIN_SOUL_TIER + '단계 이상 소울, 도감 첫 등록 합성, ' + BAL().RECORD_MIN_SOUL_TIER + '단계 이상 합성이 자동으로 남아요.</div>';
+    return S.records.map(function (r, i) {
+      var l = recLine(r);
+      return '<button class="rec-row" data-act="recOpen" data-i="' + i + '">' + monSvg(r.el, r.tier, 38) + '<div style="flex:1"><b>' + l.title + '</b><div class="muted small">' + l.sub + '</div></div><span class="when">' + timeText(r.t) + '</span></button>';
+    }).join('');
+  }
+  function recordOverlay(i) {
+    var r = S.records[i]; if (!r) return;
+    var l = recLine(r);
+    showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + raysClass(r.tier) + '"></div><div class="flash now"></div>' + sparks(16 + r.tier * 3, true) +
+      '<div class="pop now" style="position:relative">' + monSvg(r.el, r.tier, 120) + (r.count > 1 ? '<span class="count-badge">×' + r.count + '</span>' : '') + '</div></div>' +
+      '<div class="reveal now"><div class="big ok">' + l.title + '</div><div class="sub">' + l.sub + '</div><div class="sub">' + new Date(r.t).toLocaleString('ko-KR') + '</div>' +
+      '<div class="acts"><button class="btn primary block" data-act="recImage" data-i="' + i + '">이미지로 저장</button><button class="btn block" data-act="closeOverlay">닫기</button></div></div></div>');
+  }
+
+  // 기록 카드를 PNG로 저장
+  function saveRecordImage(i) {
+    var r = S.records[i]; if (!r) return;
+    var l = recLine(r), W = 1080, H = 1350, color = MM.ELEMENTS[r.el].color;
+    var rays = '';
+    for (var k = 0; k < 18; k++) {
+      var a = k * Math.PI / 9;
+      rays += '<polygon points="540,620 ' + (540 + Math.cos(a - 0.08) * 700).toFixed(0) + ',' + (620 + Math.sin(a - 0.08) * 700).toFixed(0) + ' ' + (540 + Math.cos(a + 0.08) * 700).toFixed(0) + ',' + (620 + Math.sin(a + 0.08) * 700).toFixed(0) + '" fill="rgba(255,207,74,0.13)"/>';
+    }
+    var esc = function (t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<defs><radialGradient id="g" cx="50%" cy="46%" r="65%"><stop offset="0" stop-color="#3a2f5e"/><stop offset="1" stop-color="#14112a"/></radialGradient></defs>' +
+      '<rect width="100%" height="100%" fill="url(#g)"/>' + rays +
+      '<circle cx="540" cy="620" r="300" fill="' + color + '" opacity="0.12"/>' +
+      '<g transform="translate(340,420) scale(4)">' + monInner(r.el, r.tier, false) + '</g>' +
+      (r.count > 1 ? '<rect x="760" y="380" rx="40" width="170" height="90" fill="#ffcf4a"/><text x="845" y="445" text-anchor="middle" font-size="56" font-weight="900" fill="#2a2000" font-family="sans-serif">×' + r.count + '</text>' : '') +
+      '<text x="540" y="1010" text-anchor="middle" font-size="84" font-weight="900" fill="#ffcf4a" font-family="sans-serif">' + esc(l.title) + '</text>' +
+      '<text x="540" y="1090" text-anchor="middle" font-size="44" fill="#e9e4ff" font-family="sans-serif">' + esc(l.sub) + '</text>' +
+      '<text x="540" y="1160" text-anchor="middle" font-size="34" fill="#a9a2cc" font-family="sans-serif">' + esc(new Date(r.t).toLocaleString('ko-KR')) + '</text>' +
+      '<text x="540" y="1280" text-anchor="middle" font-size="34" font-weight="800" fill="#6f679e" font-family="sans-serif">몬스터 믹스</text></svg>';
+    var img = new Image();
+    img.onload = function () {
+      var c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.getContext('2d').drawImage(img, 0, 0);
+      c.toBlob(function (blob) {
+        if (!blob) { toast('이미지를 만들지 못했어요'); return; }
+        var url = URL.createObjectURL(blob), a = document.createElement('a');
+        a.href = url; a.download = 'monster-mix-' + MM.speciesName(r.el, r.tier) + '-' + r.t + '.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        toast('이미지를 저장했어요');
+      }, 'image/png');
+    };
+    img.onerror = function () { toast('이미지를 만들지 못했어요'); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  // ================= 설정 =================
   SCREENS.settings = function () {
+    var off = S.offline.stage;
+    function sw(k, title, desc) { return '<div class="card"><div class="switch-row"><div><b>' + title + '</b><div class="muted small">' + desc + '</div></div><button class="switch' + (S.settings[k] ? ' on' : '') + '" data-act="setting" data-k="' + k + '"></button></div></div>'; }
     return '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2 style="margin-top:12px">설정</h2>' +
-      '<div class="card"><div class="switch-row"><div><b>빠른 테스트</b><div class="muted small">소울 드랍률 ×' + MM.BALANCE.FAST_TEST_DROP_MULT + '. 10분 체험용이에요. 실제 템포를 보려면 꺼 두세요.</div></div><button class="switch' + (S.settings.fastTest ? ' on' : '') + '" data-act="setting" data-k="fastTest"></button></div></div>' +
-      '<div class="card"><div class="switch-row"><div><b>전투 시작 시 자동</b><div class="muted small">켜 두면 전투가 처음부터 자동으로 진행돼요.</div></div><button class="switch' + (S.settings.autoBattle ? ' on' : '') + '" data-act="setting" data-k="autoBattle"></button></div></div>' +
-      '<div class="card"><b>데이터</b><div class="muted small" style="margin:6px 0 10px">진행 상황은 이 브라우저에 자동 저장돼요.</div><button class="btn block" style="color:var(--bad)" data-act="reset">데이터 초기화</button></div>' +
-      '<a class="btn block" href="test.html" style="text-decoration:none">규칙 테스트 결과 보기</a>';
+      sw('autoBattle', '전투 자동', '한 번 켜면 다음 전투에도 계속 자동이에요. 전투 화면의 자동 버튼과 같아요.') +
+      sw('recordOn', '희귀 획득 기록', BAL().RECORD_MIN_SOUL_TIER + '단계 이상 소울, 도감 첫 등록 등을 자동으로 남겨요.') +
+      sw('fastTest', '빠른 테스트', '소울이 ' + BAL().FAST_TEST_DROP_MULT + '배 잘 나와요. 실제 템포를 보려면 꺼 두세요.') +
+      '<div class="card"><b>오프라인 보상</b><div class="muted small lh" style="margin-top:6px">' + (off && MM.offlineStageValid(S) ? '지정: ' + MM.speciesName(off.el, off.tier) + ' 스테이지' : '지정한 스테이지가 없어요. 클리어한 스테이지 화면에서 지정하세요.') + '<br>게임을 안 하는 동안 최대 ' + BAL().OFFLINE_MAX_HOURS + '시간, 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%</div></div>' +
+      '<div class="card"><b>데이터</b><div class="muted small" style="margin:6px 0 10px">진행 상황은 이 브라우저에 자동 저장돼요.</div><button class="btn block danger" data-act="reset">데이터 초기화</button></div>' +
+      '<div class="muted small" style="text-align:center">몬스터 믹스 시제품 v2</div>';
   };
 
-  // ---------------- 입력 ----------------
+  // ================= 오프라인 보상 =================
+  function checkOffline() {
+    if (!S.tutorial.done) return;
+    var res = MM.claimOffline(S, Date.now());
+    save();
+    if (!res) return;
+    var h = res.hours >= 1 ? Math.floor(res.hours) + '시간 ' + Math.round((res.hours % 1) * 60) + '분' : Math.round(res.hours * 60) + '분';
+    showOverlay('<div class="result"><div class="big ok">자는 동안 얻은 것</div><div class="sub">' + MM.speciesName(res.stage.el, res.stage.tier) + ' 스테이지 · ' + h + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + '</div>' +
+      '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(res.drops) + '</div></div>' +
+      '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' +
+      res.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>' +
+      '<div class="acts"><button class="btn primary block" data-act="closeOverlay">받기</button></div></div>');
+    render();
+  }
+
+  // ================= 튜토리얼 =================
+  function showTutorial() {
+    var st = S.tutorial.step;
+    document.body.classList.add('in-tutorial');
+    if (st === 0) {
+      var picks = view.tut.picks;
+      showOverlay('<div class="tut"><h2>몬스터 믹스에 온 걸 환영해요</h2>' +
+        '<p>소울을 모아 몬스터를 소환하고,<br>두 몬스터를 <b style="color:var(--accent)">합성</b>해 더 높은 단계로 키우는 게임이에요.</p>' +
+        '<p>먼저 함께할 <b>1단계 몬스터 3마리</b>를 골라 주세요.<br><span class="small">서로 다른 속성으로 3개</span></p>' +
+        '<div class="el-pick">' + MM.RING.map(function (el) {
+          var on = picks.indexOf(el) >= 0;
+          return '<button class="' + (on ? 'on' : '') + '" data-act="tutPick" data-el="' + el + '"' + (!on && picks.length >= 3 ? ' disabled' : '') + '>' + monSvg(el, 1, 40) + '<div>' + MM.ELEMENTS[el].name + '</div></button>';
+        }).join('') + '</div>' + elChart() +
+        '<div class="acts" style="margin-top:18px"><button class="btn primary block" data-act="tutStart"' + (picks.length === 3 ? '' : ' disabled') + '>이 3마리로 시작 (' + picks.length + '/3)</button></div></div>');
+    } else if (st === 1) {
+      showOverlay('<div class="tut"><h2>첫 전투</h2><p>전투는 턴제예요. 내 차례에 <b>공격할 적을 누르면</b> 공격해요.<br><b style="color:var(--good)">▲</b> 표시는 상성이 유리한 적이에요.</p>' +
+        '<p>이기면 <b>소울</b>, 골드, 경험치를 얻어요.</p><div class="acts"><button class="btn primary block" data-act="tutBattle">전투 시작</button></div></div>');
+    } else if (st === 2) {
+      showOverlay('<div class="tut"><h2>잘했어요!</h2><p>파티가 <b>Lv ' + BAL().TUTORIAL_LEVEL + '</b>가 됐어요.</p>' +
+        '<p><b>소울</b>: 같은 몬스터 소울 ' + BAL().SOULS_PER_SUMMON + '개를 모으면 그 몬스터를 소환해요. 도감에 처음 등록할 때도 소울 1개를 받아요.</p>' +
+        '<p><b>합성</b>: 재료 두 마리가 조건 레벨 이상이어야 해요. 결과 몬스터는 두 재료의 평균 레벨로 태어나요.</p>' +
+        '<div class="acts"><button class="btn primary block" data-act="tutNext">다음</button></div></div>');
+    } else if (st === 3) {
+      var opts = MM.tutorialFourthOptions(S);
+      showOverlay('<div class="tut"><h2>선물: 한 마리 더</h2><p>합성은 몬스터가 <b>4마리 이상</b>일 때 할 수 있어요 (합성하면 2마리가 1마리가 되니까요).<br>남은 속성 중 한 마리를 골라 주세요.</p>' +
+        '<div class="row" style="justify-content:center;gap:12px;margin:16px 0">' + opts.map(function (el) {
+          return '<button class="btn" style="flex-direction:column;padding:14px 22px" data-act="tutFourth" data-el="' + el + '">' + monSvg(el, 1, 54) + '<div>' + MM.ELEMENTS[el].name + '1 · Lv ' + BAL().TUTORIAL_LEVEL + '</div></button>';
+        }).join('') + '</div></div>');
+    } else if (st === 4) {
+      var pair = null;
+      S.monsters.forEach(function (a) { S.monsters.forEach(function (b) { if (!pair && MM.fusionCheck(S, a, b).ok) pair = { main: a, sub: b }; }); });
+      if (!pair) { MM.finishTutorial(S); save(); hideOverlay(); document.body.classList.remove('in-tutorial'); render(); return; }
+      view.tut.pair = pair;
+      showOverlay('<div class="tut"><h2>첫 합성</h2><p><b>주재료</b> + <b>부재료</b> = 한 단계 위 몬스터. 결과 속성은 주재료를 따라요.<br>부재료는 원형에서 <b>이웃한 속성</b>만 쓸 수 있어요.</p>' +
+        '<div class="fuse-box" style="margin:14px 0"><div class="fuse-slot">' + monSvg(pair.main.el, 1, 46) + '<div>' + name(pair.main) + '</div></div><div class="fuse-op">+</div><div class="fuse-slot">' + monSvg(pair.sub.el, 1, 46) + '<div>' + name(pair.sub) + '</div></div><div class="fuse-op">=</div><div class="fuse-slot">' + monSvg(pair.main.el, 2, 46, true) + '<div>' + MM.speciesName(pair.main.el, 2) + '</div></div></div>' +
+        '<p class="small">원형: 불 - 풀 - 물 - 빛 - 어둠 - (다시 불)<br>보통은 실패할 수도 있지만, 실패해도 재료는 남고 다음 성공률이 올라요.<br>이번 첫 합성은 반드시 성공해요!</p>' +
+        '<div class="acts"><button class="btn primary block" data-act="tutFuse">합성!</button></div></div>');
+    }
+  }
+
+  // ================= 입력 =================
   var ACTIONS = {
-    tab: function (d) { if (d.mon) view.monTab = d.mon; go(d.tab); },
+    tab: function (d) { if (d.mon) view.monSeg = d.mon; if (d.seg) view.stageSeg = d.seg; go(d.tab); },
+    stageSeg: function (d) { view.stageSeg = d.v; render(); },
+    monSeg: function (d) { view.monSeg = d.v; render(); },
+    dexSeg: function (d) { view.dexSeg = d.v; render(); },
+    records: function () { view.dexSeg = 'rec'; go('dex'); },
     stage: function (d) { view.stage = { el: d.el, tier: +d.tier }; go('stageDetail'); },
-    startBattle: startBattle,
-    again: function () { if (view.reward) { view.stage = { el: view.reward.el, tier: view.reward.tier }; startBattle(); } },
+    startStage: function () { startBattle('stage', { el: view.stage.el, tier: view.stage.tier }); },
+    startRepeat: function () { if (view.battle) view.battle = null; startBattle('stage', { el: view.stage.el, tier: view.stage.tier, repeat: true }); },
+    setOffline: function () { S.offline.stage = { el: view.stage.el, tier: view.stage.tier }; save(); toast('오프라인 보상 스테이지로 지정했어요'); render(); },
+    again: function () { var R = view.reward; if (R) { view.stage = { el: R.el, tier: R.tier }; startBattle('stage', { el: R.el, tier: R.tier }); } },
+    againRepeat: function () { var R = view.reward; if (R) { view.stage = { el: R.el, tier: R.tier }; view.battle = null; startBattle('stage', { el: R.el, tier: R.tier, repeat: true }); } },
+    dEl: function (d) {
+      var i = view.dungeonEls.indexOf(d.el);
+      if (i >= 0) view.dungeonEls.splice(i, 1); else if (view.dungeonEls.length < 3) view.dungeonEls.push(d.el);
+      S.dungeon.weekendEls = view.dungeonEls.slice(); save();
+      render();
+    },
+    startDungeon: function (d) {
+      var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice();
+      if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 입장 횟수를 다 썼어요'); return; }
+      startBattle('dungeon', { tier: +d.tier, els: els });
+    },
+    sweepDungeon: function (d) {
+      var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice(), tier = +d.tier;
+      if (!S.dungeon.cleared[tier]) return;
+      if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 입장 횟수를 다 썼어요'); return; }
+      var en = MM.dungeonEnemies(els, tier), r = MM.grantDungeonWin(S, tier, en);
+      save();
+      view.reward = { win: true, kind: 'dungeon', tier: tier, els: els, r: r };
+      view.tab = 'reward'; render();
+      var rare = rareOf(r.drops); if (rare.length) showRareDrops(rare);
+    },
     hit: function (d) {
-      var B = view.battle; if (!B || B.busy) return;
-      var actor = MM.currentActor(B.bt);
+      var Bt = view.battle; if (!Bt || Bt.busy) return;
+      var actor = MM.currentActor(Bt.bt);
       if (!actor || actor.side !== 'p') return;
-      B.busy = true; doAct(+d.uid);
+      Bt.busy = true; doAct(+d.uid);
     },
     auto: function () {
-      var B = view.battle; if (!B) return;
-      B.auto = !B.auto;
-      clearTimeout(B.timer); B.busy = false; battleTick();
+      var Bt = view.battle; if (!Bt) return;
+      Bt.auto = !Bt.auto; S.settings.autoBattle = Bt.auto; save();
+      clearTimeout(Bt.timer); Bt.busy = false; battleTick();
     },
-    flee: function () { if (confirm('나가면 이번 판 보상은 없어요. 나갈까요?')) go('stageDetail'); },
-    montab: function (d) { view.monTab = d.v; render(); },
+    stopAfter: function () { if (view.battle) { view.battle.stopAfter = !view.battle.stopAfter; render(); } },
+    stopNow: function () { endRepeat(); },
+    flee: function () { if (confirm('나가면 이번 판 보상은 없어요. 나갈까요?')) go(view.battle && view.battle.kind === 'dungeon' ? 'stages' : 'stageDetail'); },
     party: function (d) {
       var id = +d.id, i = S.party.indexOf(id);
       if (i >= 0) S.party.splice(i, 1);
@@ -475,44 +878,93 @@
       else S.party.push(id);
       save(); render();
     },
+    decompMon: function (d) {
+      var m = MM.getMonster(S, +d.id), why = MM.canDecomposeMonster(S, m);
+      if (why) { toast(why); return; }
+      if (!confirm(MM.josa(name(m), '을', '를') + ' (Lv ' + m.level + ') 분해할까요?\n→ ' + name(m) + ' 소울 ' + BAL().DECOMPOSE_MONSTER_SOULS + '개 (소환에는 ' + BAL().SOULS_PER_SUMMON + '개 필요)')) return;
+      var r = MM.decomposeMonster(S, m.id);
+      save(); toast(r.error || ('소울 ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개는 가득 차서 버려짐)' : ''))); render();
+    },
+    soulCell: function (d) { soulSheet(d.el, +d.tier); },
     summon: function (d) {
+      closeSheet();
       var r = MM.summon(S, d.el, +d.tier); if (!r) return;
       if (S.party.length < 3) S.party.push(r.monster.id);
       save();
       var m = r.monster;
-      showOverlay('<div class="result ok"><div class="stage-anim"><div class="rays"></div>' + sparks(12).replace(/animation-delay:[^"]+/g, 'animation-delay:0s') +
-        '<div class="pop" style="animation-delay:0s">' + monSvg(m.el, m.tier, 120) + '</div></div><div class="big ok">소환!</div><div class="sub">' + name(m) + (S.party.indexOf(m.id) >= 0 ? ' · 파티에 들어갔어요' : '') + '</div>' +
-        (r.isNewSpecies ? '<div class="new">도감 새 등록!</div>' : '') + '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div>');
+      successOverlay(m, { title: '소환!', sub: name(m) + ' Lv ' + m.level + (S.party.indexOf(m.id) >= 0 ? ' · 파티에 들어갔어요' : '') }, r.dex, '<button class="btn primary block" data-act="closeOverlay">확인</button>');
       render();
     },
-    pickMain: function (d) { view.fusion = { mainId: +d.id, subId: null, soulEl: null }; render(); },
-    pickSub: function (d) { view.fusion.subId = +d.id; view.fusion.soulEl = null; render(); },
-    clearSub: function () { view.fusion.subId = null; render(); },
-    resetFusion: function () { view.fusion = { mainId: null, subId: null, soulEl: null }; render(); },
+    decompSoul: function (d) {
+      var r = MM.decomposeSoul(S, d.el, +d.tier, +d.n);
+      save(); closeSheet();
+      toast(r.error || (MM.speciesName(d.el, d.tier - 1) + ' 소울 ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개 버려짐)' : '')));
+      render();
+    },
+    pickMainSheet: mainSheet,
+    pickSubSheet: function () { if (!view.fusion.mainId) mainSheet(); else subSheet(); },
+    pickMain: function (d) {
+      var f = view.fusion; f.mainId = +d.id;
+      var main = MM.getMonster(S, f.mainId), sub = f.subId && MM.getMonster(S, f.subId);
+      if (!sub || !MM.isPair(main, sub)) f.subId = null;
+      f.soulEl = null; closeSheet(); render();
+      if (!f.subId) subSheet();
+    },
+    pickSub: function (d) { view.fusion.subId = +d.id; view.fusion.soulEl = null; closeSheet(); render(); },
+    quickPair: function (d) { view.fusion = { mainId: +d.main, subId: +d.sub, soulEl: null }; render(); },
     soulEl: function (d) { view.fusion.soulEl = d.el; render(); },
     fuse: doFuse,
     retryFuse: function () { hideOverlay(); doFuse(); },
     closeOverlay: function (d) { hideOverlay(); if (d.tab) go(d.tab); else render(); },
+    recOpen: function (d) { recordOverlay(+d.i); },
+    recImage: function (d) { saveRecordImage(+d.i); },
     setting: function (d) { S.settings[d.k] = !S.settings[d.k]; save(); render(); },
     reset: function () {
       if (!confirm('모든 진행 상황을 지우고 처음부터 시작할까요?')) return;
-      S = MM.newState(); save();
-      view.fusion = { mainId: null, subId: null, soulEl: null };
-      toast('초기화했어요'); go('home');
+      S = MM.newState(Date.now()); save();
+      view.fusion = { mainId: null, subId: null, soulEl: null }; view.tut = { picks: [] };
+      go('home'); showTutorial();
+    },
+    // 튜토리얼
+    tutPick: function (d) { var p = view.tut.picks, i = p.indexOf(d.el); if (i >= 0) p.splice(i, 1); else if (p.length < 3) p.push(d.el); showTutorial(); },
+    tutStart: function () { if (MM.tutorialPickStarters(S, view.tut.picks)) { save(); render(); showTutorial(); } },
+    tutBattle: function () { hideOverlay(); startBattle('tutorial', {}); },
+    tutNext: function () { S.tutorial.step = 3; save(); showTutorial(); },
+    tutFourth: function (d) { MM.tutorialPickFourth(S, d.el); save(); render(); showTutorial(); },
+    tutFuse: function () {
+      var p = view.tut.pair; if (!p) return;
+      var ms = { el: p.main.el, tier: 1 }, ss = { el: p.sub.el, tier: 1 };
+      var r = MM.attemptFusion(S, p.main.id, p.sub.id, null, null, { force: true });
+      MM.finishTutorial(S);
+      if (S.party.length < 3) S.monsters.forEach(function (m) { if (S.party.length < 3 && S.party.indexOf(m.id) < 0) S.party.push(m.id); });
+      save();
+      document.body.classList.remove('in-tutorial');
+      successOverlay(r.monster, { title: '합성 성공!', sub: name(r.monster) + ' 탄생 · Lv ' + r.monster.level }, r.dex,
+        '<div class="muted small lh">이제 전투 탭에서 스테이지를 깨고 소울을 모아 보세요.<br>한 번 깬 스테이지는 자동 반복할 수 있어요.</div><button class="btn primary block" data-act="closeOverlay" data-tab="home">시작하기</button>', ms, ss);
+      render();
     }
   };
 
   document.addEventListener('click', function (e) {
     var tabBtn = e.target.closest('#tabs button');
     if (tabBtn) { go(tabBtn.dataset.tab); return; }
+    if (e.target.id === 'sheet') { closeSheet(); return; }
     var el = e.target.closest('[data-act]');
-    if (!el) return;
+    if (!el || el.disabled) return;
     var fn = ACTIONS[el.dataset.act];
     if (fn) fn(el.dataset);
   });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') { S.offline.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+    else if ($('overlay').hidden && view.tab !== 'battle') checkOffline();
+  });
 
   load();
+  view.dungeonEls = S.dungeon.weekendEls || [];
   render();
-  // 콘솔에서 확인할 수 있게 (디버그)
+  if (!S.tutorial.done) showTutorial();
+  else checkOffline();
+  if (view.migrated) toast('새 버전이라 처음부터 시작해요. 이전 기록은 따로 보관했어요');
   MM._state = function () { return S; };
+  MM._view = function () { return view; };
 })((typeof globalThis !== 'undefined' ? globalThis : window).MM);
