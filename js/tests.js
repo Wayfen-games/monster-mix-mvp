@@ -57,9 +57,9 @@
   check('1+1 비용은 골드만', MM.fusionCost(a, b).soulTier === null);
   a.stack = 2;
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
-  a.stack = 0; a.level = 20; b.level = 8;
+  a.stack = 0; a.level = 20; b.level = 7;
   var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
-  check('성공: 결과 레벨 = 평균 내림 (20+8)/2=14', fr.success && fr.monster.level === 14 && fr.monster.tier === 2 && fr.monster.el === 'fire');
+  check('성공: 결과 레벨 = 평균 올림 (20+7)/2=13.5→14', fr.success && fr.monster.level === 14 && fr.monster.tier === 2 && fr.monster.el === 'fire');
   check('성공: 도감 첫 등록 소울 1개', fr.dex && s.souls.fire2 === 1);
   // 실패
   s = MM.newState(); s.gold = 1e6;
@@ -124,6 +124,11 @@
   check('토요일은 직접 선택', MM.dungeonElementFor(t0 + 5 * 86400000) === null);
   check('던전 하루 2판', MM.useDungeonEntry(s, t0) && MM.useDungeonEntry(s, t0) && !MM.useDungeonEntry(s, t0));
   check('다음 날 초기화 (이월 없음)', MM.dungeonLeft(s, t0 + 86400000) === 2);
+  var sa = MM.newState(t0);
+  check('자동 반복 첫날 500판', MM.autoLeft(sa, t0) === 500);
+  for (i = 0; i < 100; i++) MM.useAutoRun(sa, t0);
+  check('자동 반복 이월: 400 + 500 = 900', MM.autoLeft(sa, t0 + 86400000) === 900);
+  check('자동 반복 최대 3,000판', MM.autoLeft(sa, t0 + 30 * 86400000) === 3000);
 
   // ---- 오프라인 ----
   s = MM.newState(t0); s.offline.stage = { el: 'fire', tier: 1 };

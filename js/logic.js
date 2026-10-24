@@ -13,7 +13,7 @@
       version: MM.SAVE_VERSION, gold: B().START_GOLD, nextId: 1,
       monsters: [], souls: {}, soulSeen: {}, party: [], dex: {}, cleared: {},
       dungeon: { cleared: {}, day: '', used: 0 },
-      autoRepeat: { day: '', used: 0 },
+      autoRepeat: { day: '', bank: null },
       offline: { stage: null, lastSeen: now },
       tutorial: { step: 0, done: false },
       records: [],
@@ -147,8 +147,8 @@
     var r = tv(b.BASE_SUCCESS, mainTier) + MM.stackBonus(stack);
     return Math.min(1, Math.round(r * 1000) / 1000);
   };
-  // 합성 결과 레벨 = 두 재료의 평균 (내림)
-  MM.fusionResultLevel = function (main, sub) { return Math.floor((main.level + sub.level) / 2); };
+  // 합성 결과 레벨 = 두 재료의 평균 (올림, 확정)
+  MM.fusionResultLevel = function (main, sub) { return Math.ceil((main.level + sub.level) / 2); };
   MM.subTierFor = function (mainTier) { return mainTier === 1 ? 1 : mainTier - 1; };
   MM.fuseLevelReq = function (tier) { return Math.round(tv(B().FUSE_LEVEL_REQ, tier)); };
   MM.subLevelReq = function (tier) { return MM.summonLevel(tier); }; // 부재료는 소환 레벨이면 바로 가능
@@ -260,13 +260,21 @@
 
   MM.dungeonElementFor = function (ms) { return B().DUNGEON_DAY_ELEMENT[MM.weekday(ms)]; };
   MM.dungeonUnlocked = function (s, tier) { return tier === 1 || !!s.dungeon.cleared[tier - 1]; };
+  // 하루 기준 초기화. 자동 반복은 하루 AUTO_REPEAT_DAILY판씩 쌓이고 못 쓴 판은 AUTO_REPEAT_MAX까지 이월 (확정)
   MM.refreshDaily = function (s, now) {
-    var d = MM.dayKey(now || Date.now());
+    var b = B(), d = MM.dayKey(now || Date.now());
     if (s.dungeon.day !== d) { s.dungeon.day = d; s.dungeon.used = 0; }
-    if (s.autoRepeat.day !== d) { s.autoRepeat.day = d; s.autoRepeat.used = 0; }
+    var ar = s.autoRepeat;
+    if (ar.bank == null) { ar.bank = Math.max(0, Math.min(b.AUTO_REPEAT_MAX, b.AUTO_REPEAT_DAILY - (ar.day === d ? (ar.used || 0) : 0))); ar.day = d; }
+    if (ar.day !== d) {
+      var days = ar.day ? Math.max(1, Math.round((Date.parse(d) - Date.parse(ar.day)) / 86400000)) : 1;
+      ar.bank = Math.min(b.AUTO_REPEAT_MAX, ar.bank + b.AUTO_REPEAT_DAILY * days);
+      ar.day = d;
+    }
   };
   MM.dungeonLeft = function (s, now) { MM.refreshDaily(s, now); return Math.max(0, B().DUNGEON_DAILY - s.dungeon.used); };
-  MM.autoLeft = function (s, now) { MM.refreshDaily(s, now); return Math.max(0, B().AUTO_REPEAT_DAILY - s.autoRepeat.used); };
+  MM.autoLeft = function (s, now) { MM.refreshDaily(s, now); return Math.max(0, s.autoRepeat.bank); };
+  MM.useAutoRun = function (s, now) { if (MM.autoLeft(s, now) <= 0) return false; s.autoRepeat.bank--; return true; };
 
   // ================= 드랍 =================
   MM.rollSoulCount = function (rng) {

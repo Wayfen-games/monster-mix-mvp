@@ -166,7 +166,7 @@
     return '<div class="card"><div class="row between"><b>1차 목표: ' + T() + '단계 5종 모으기</b><span class="chip">' + g + ' / 5</span></div><div class="goal-stars">' + stars + '</div></div>' +
       '<div class="card"><b>오늘</b><div class="today" style="margin-top:10px">' +
       '<div>요일 던전<b>' + (dEl ? MM.ELEMENTS[dEl].name : '주말 선택') + ' ' + MM.dungeonLeft(S, now) + '/' + BAL().DUNGEON_DAILY + '</b></div>' +
-      '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b></div>' +
+      '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b><span class="small">하루 +' + BAL().AUTO_REPEAT_DAILY + ' · 최대 ' + fmt(BAL().AUTO_REPEAT_MAX) + '</span></div>' +
       '<div>오프라인 보상<b>' + (off && MM.offlineStageValid(S) ? MM.speciesName(off.el, off.tier) + ' 스테이지' : '미지정') + '</b></div></div></div>' +
       '<div class="card"><b>다음 할 일</b><div class="muted" style="margin-top:6px">' + hint() + '</div></div>' +
       '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
@@ -237,7 +237,7 @@
     html += '<button class="btn primary block" data-act="startStage"' + (pm.length ? '' : ' disabled') + '>도전</button>';
     if (cleared) {
       var left = MM.autoLeft(S, now);
-      html += '<button class="btn good block" style="margin-top:10px" data-act="startRepeat"' + (left && pm.length ? '' : ' disabled') + '>자동 반복 시작 · 오늘 ' + left + '판 남음</button>' +
+      html += '<button class="btn good block" style="margin-top:10px" data-act="startRepeat"' + (left && pm.length ? '' : ' disabled') + '>자동 반복 시작 · ' + left + '판 남음</button>' +
         '<button class="btn block" style="margin-top:10px" data-act="setOffline"' + (isOff ? ' disabled' : '') + '>' + (isOff ? '✓ 오프라인 보상 스테이지' : '오프라인 보상 스테이지로 지정') + '</button>' +
         '<div class="muted small" style="margin-top:6px;text-align:center">게임을 안 하는 동안 최대 ' + BAL().OFFLINE_MAX_HOURS + '시간, 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%로 보상이 쌓여요</div>';
     } else {
@@ -284,8 +284,7 @@
     var prev = view.battle;
     var repeat = !!opts.repeat;
     if (repeat) {
-      if (MM.autoLeft(S, Date.now()) <= 0) { toast('오늘 자동 반복 판수를 다 썼어요'); endRepeat(); return; }
-      S.autoRepeat.used++;
+      if (!MM.useAutoRun(S, Date.now())) { toast('자동 반복 판수를 다 썼어요'); endRepeat(); return; }
     }
     view.battle = {
       kind: kind, el: opts.el, tier: opts.tier, els: opts.els, enemies: enemies,
@@ -446,7 +445,7 @@
       }
       checkReadyBanner(Bt);
       if (Bt.stopAfter || MM.autoLeft(S, Date.now()) <= 0) {
-        if (MM.autoLeft(S, Date.now()) <= 0) toast('오늘 자동 반복 판수를 다 썼어요');
+        if (MM.autoLeft(S, Date.now()) <= 0) toast('자동 반복 판수를 다 썼어요');
         endRepeat(); return;
       }
       render();
@@ -488,7 +487,7 @@
         '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(list) + '</div>' + (ss.wasted ? '<div class="lack small" style="margin-top:8px">소울이 가득 차서 ' + ss.wasted + '개가 버려졌어요 (종별 최대 ' + BAL().SOUL_CAP + '개)</div>' : '') + '</div>' +
         '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(ss.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(ss.exp) + '</span></div>' +
         Object.keys(ss.levelUps).map(function (id) { var u = ss.levelUps[id]; return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
-      again = '<button class="btn good block" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 다시 · 오늘 ' + MM.autoLeft(S, Date.now()) + '판 남음</button>';
+      again = '<button class="btn good block" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 다시 · ' + MM.autoLeft(S, Date.now()) + '판 남음</button>';
     } else {
       var label = R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
       html = '<div class="reward-title ' + (R.win ? 'win' : 'lose') + '">' + (R.win ? '클리어!' : '패배…') + '</div><div class="muted" style="text-align:center;margin-bottom:14px">' + label + '</div>';
@@ -502,7 +501,7 @@
       }
       if (R.kind === 'dungeon') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="dungeon">' + (R.win ? '던전으로' : '던전으로 (횟수 그대로, 다시 도전 가능)') + '</button>';
       else again = '<button class="btn primary block" data-act="again">다시 도전</button>' +
-        (S.cleared[MM.speciesKey(R.el, R.tier)] ? '<button class="btn good block" style="margin-top:10px" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 시작 · 오늘 ' + MM.autoLeft(S, Date.now()) + '판 남음</button>' : '');
+        (S.cleared[MM.speciesKey(R.el, R.tier)] ? '<button class="btn good block" style="margin-top:10px" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 시작 · ' + MM.autoLeft(S, Date.now()) + '판 남음</button>' : '');
     }
     var ready = MM.allSpecies().filter(function (sp) { return MM.canSummon(S, sp.key); });
     if (ready.length) html += '<button class="btn block" style="margin-bottom:10px;border-color:var(--accent)" data-act="tab" data-tab="monsters" data-mon="souls">★ 소환할 수 있는 소울이 있어요</button>';
@@ -714,7 +713,7 @@
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
     var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 1개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
-      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionResultLevel(sel.main, sel.sub) + '</b> <span class="small">(평균, 내림)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
+      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionResultLevel(sel.main, sel.sub) + '</b> <span class="small">(평균, 올림)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
   }
 
   function doFuse() {
