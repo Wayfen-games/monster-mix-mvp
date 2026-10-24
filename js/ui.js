@@ -618,6 +618,7 @@
   SCREENS.fusion = function () {
     var sel = fusionSel(), main = sel.main, sub = sel.sub, f = view.fusion;
     var res = main ? '<div class="fuse-slot">' + monSvg(main.el, main.tier + 1, 46, !S.dex[MM.speciesKey(main.el, main.tier + 1)]) + '<div>' + MM.speciesName(main.el, main.tier + 1) + '</div>' +
+      (sub ? '<span class="small" style="color:var(--accent)">Lv ' + MM.fusionResultLevel(main, sub) + '</span>' : '') +
       (!S.dex[MM.speciesKey(main.el, main.tier + 1)] ? '<span class="chip">미발견</span>' : '') + '</div>' : '<div class="fuse-slot empty">결과</div>';
     var html = '<h2>합성</h2><div class="fuse-box">' + slotHtml(main, '주재료', 'pickMainSheet') + '<div class="fuse-op">+</div>' + slotHtml(sub, '부재료', 'pickSubSheet') + '<div class="fuse-op">=</div>' + res + '</div>';
 
@@ -713,7 +714,7 @@
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
     var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 1개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
-      name(sel.main) + ' + ' + name(sel.sub) + ' → ' + MM.speciesName(sel.main.el, sel.main.tier + 1) + '<br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
+      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionResultLevel(sel.main, sel.sub) + '</b> <span class="small">(평균, 내림)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
   }
 
   function doFuse() {

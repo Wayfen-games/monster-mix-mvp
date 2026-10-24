@@ -147,6 +147,8 @@
     var r = tv(b.BASE_SUCCESS, mainTier) + MM.stackBonus(stack);
     return Math.min(1, Math.round(r * 1000) / 1000);
   };
+  // 합성 결과 레벨 = 두 재료의 평균 (내림)
+  MM.fusionResultLevel = function (main, sub) { return Math.floor((main.level + sub.level) / 2); };
   MM.subTierFor = function (mainTier) { return mainTier === 1 ? 1 : mainTier - 1; };
   MM.fuseLevelReq = function (tier) { return Math.round(tv(B().FUSE_LEVEL_REQ, tier)); };
   MM.subLevelReq = function (tier) { return MM.summonLevel(tier); }; // 부재료는 소환 레벨이면 바로 가능
@@ -208,7 +210,7 @@
     var success = opts.force || R(rng)() < rate;
     if (success) {
       var el = main.el, tier = main.tier + 1;
-      var level = Math.floor((main.level + sub.level) / 2);
+      var level = MM.fusionResultLevel(main, sub);
       var slot = s.party.indexOf(main.id) >= 0 ? s.party.indexOf(main.id) : s.party.indexOf(sub.id);
       var spent = main.stack;
       MM.removeMonster(s, main.id);
