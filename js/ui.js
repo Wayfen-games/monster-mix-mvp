@@ -974,6 +974,17 @@
   });
 
   load();
+  // 테스트용: 주소 뒤 ?dev=refund-dungeon → 오늘 던전 횟수 1회 돌려주기 (시제품 전용)
+  (function devHooks() {
+    var q = new URLSearchParams(location.search).get('dev');
+    if (!q) return;
+    if (q === 'refund-dungeon') {
+      MM.refreshDaily(S, Date.now());
+      if (S.dungeon.used > 0) { S.dungeon.used--; save(); setTimeout(function () { toast('요일 던전 횟수를 1회 돌려드렸어요'); }, 300); }
+      else setTimeout(function () { toast('돌려드릴 던전 횟수가 없어요'); }, 300);
+    }
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  })();
   view.dungeonEls = S.dungeon.weekendEls || [];
   render();
   if (!S.tutorial.done) showTutorial();
