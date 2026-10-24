@@ -59,7 +59,14 @@
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
   a.stack = 0; a.level = 20; b.level = 7;
   var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
-  check('성공: 결과 레벨 = 평균 올림 (20+7)/2=13.5→14', fr.success && fr.monster.level === 14 && fr.monster.tier === 2 && fr.monster.el === 'fire');
+  check('성공: 결과 레벨 = 평균 올림 14 + 1~3 → 15~17', fr.success && fr.monster.level >= 15 && fr.monster.level <= 17 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
+  (function () {
+    var seen = {}, mm = { level: 5 }, ss = { level: 1 };
+    for (var i = 0; i < 300; i++) seen[MM.fusionResultLevel(mm, ss)] = 1;
+    check('결과 레벨 보너스 1~3 모두 나옴 (5+1 → 4,5,6)', Object.keys(seen).sort().join() === '4,5,6', Object.keys(seen).join());
+    check('결과 레벨은 최대 레벨을 넘지 않음', MM.fusionResultLevel({ level: 30 }, { level: 30 }, function () { return 0.99; }) === B.MAX_LEVEL);
+    check('범위 표시 4~6', MM.fusionRangeText(mm, ss) === '4~6');
+  })();
   check('성공: 도감 첫 등록 소울 1개', fr.dex && s.souls.fire2 === 1);
   // 실패
   s = MM.newState(); s.gold = 1e6;

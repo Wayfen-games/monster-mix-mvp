@@ -713,7 +713,7 @@
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
     var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 1개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
-      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionResultLevel(sel.main, sel.sub) + '</b> <span class="small">(평균, 올림)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
+      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
   }
 
   function doFuse() {

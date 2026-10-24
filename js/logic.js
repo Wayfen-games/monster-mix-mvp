@@ -148,7 +148,21 @@
     return Math.min(1, Math.round(r * 1000) / 1000);
   };
   // 합성 결과 레벨 = 두 재료의 평균 (올림, 확정)
-  MM.fusionResultLevel = function (main, sub) { return Math.ceil((main.level + sub.level) / 2); };
+  // 결과 레벨 = 평균(올림) + 보너스(1~3 랜덤), 최대 레벨 이하
+  MM.fusionResultBase = function (main, sub) { return Math.ceil((main.level + sub.level) / 2); };
+  MM.fusionResultRange = function (main, sub) {
+    var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS, mx = MM.BALANCE.MAX_LEVEL;
+    return [Math.min(mx, b + bo[0]), Math.min(mx, b + bo[1])];
+  };
+  MM.fusionResultLevel = function (main, sub, rng) {
+    var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS;
+    var bonus = bo[0] + Math.floor(R(rng)() * (bo[1] - bo[0] + 1));
+    return Math.min(MM.BALANCE.MAX_LEVEL, b + bonus);
+  };
+  MM.fusionRangeText = function (main, sub) {
+    var r = MM.fusionResultRange(main, sub);
+    return r[0] === r[1] ? String(r[0]) : r[0] + '~' + r[1];
+  };
   MM.subTierFor = function (mainTier) { return mainTier === 1 ? 1 : mainTier - 1; };
   MM.fuseLevelReq = function (tier) { return Math.round(tv(B().FUSE_LEVEL_REQ, tier)); };
   MM.subLevelReq = function (tier) { return MM.summonLevel(tier); }; // 부재료는 소환 레벨이면 바로 가능
@@ -210,7 +224,7 @@
     var success = opts.force || R(rng)() < rate;
     if (success) {
       var el = main.el, tier = main.tier + 1;
-      var level = MM.fusionResultLevel(main, sub);
+      var level = MM.fusionResultLevel(main, sub, rng);
       var slot = s.party.indexOf(main.id) >= 0 ? s.party.indexOf(main.id) : s.party.indexOf(sub.id);
       var spent = main.stack;
       MM.removeMonster(s, main.id);
