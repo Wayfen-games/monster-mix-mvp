@@ -211,8 +211,8 @@
     var pm = partyMons();
     if (!pm.length) return '<span class="muted">파티가 비어 있어요</span>';
     return pm.map(function (m) {
-      var adv = targetEls.some(function (e) { return MM.beats(m.el, e); });
-      return '<div style="text-align:center;position:relative">' + monSvg(m.el, m.tier, 40) + (adv ? '<span class="adv-mark">▲</span>' : '') + '<div class="small">' + name(m) + ' Lv' + m.level + '</div></div>';
+      var adv = targetEls.some(function (e) { return MM.beats(m.el, e); }), dis = targetEls.some(function (e) { return MM.beats(e, m.el); });
+      return '<div style="text-align:center;position:relative">' + monSvg(m.el, m.tier, 40) + (adv || dis ? '<span class="adv-mark">' + (adv ? '▲' : '') + (dis ? '<span class="dis-mark">▼</span>' : '') + '</span>' : '') + '<div class="small">' + name(m) + ' Lv' + m.level + '</div></div>';
     }).join('');
   }
 
@@ -229,7 +229,7 @@
       '<div>' + unknownSvg(46) + '<div>' + st.tier + '단계 쫄</div><div class="muted small">랜덤</div></div>' +
       '</div><div class="muted small">쫄 2마리는 매 판 바뀌어요 (서로 다르고 보스와도 다른 속성)</div></div>';
     html += '<div class="card">' + elChart() + '</div>';
-    html += '<div class="card"><div class="row between"><span class="muted small">출전 파티 (▲ = 보스에게 유리)</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</div>' +
+    html += '<div class="card"><div class="row between"><span class="muted small">출전 파티 (▲ 보스에게 유리 · <span style="color:var(--bad)">▼</span> 불리)</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</div>' +
       '<div class="row" style="justify-content:space-around;margin-top:8px">' + partyAdvRow([st.el]) + '</div>' +
       '<div class="muted small" style="margin-top:8px">권장: ' + st.tier + '단계 3마리</div></div>';
     html += '<div class="card"><b>나올 수 있는 소울</b>' + possibleSouls(st.el, st.tier) + '</div>';
@@ -304,7 +304,10 @@
     var r = u.hp / u.maxHp;
     var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.boss ? ' bossu' : '') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 ? ' pickable' : '');
     var adv = '';
-    if (u.side === 'e' && actor && actor.side === 'p' && MM.beats(actor.el, u.el)) adv = '<span class="adv-mark">▲</span>';
+    if (u.side === 'e' && actor && actor.side === 'p') {
+      var up = MM.beats(actor.el, u.el), down = MM.beats(u.el, actor.el);
+      if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
+    }
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
       monSvg(u.el, u.tier, u.boss ? 60 : 50) + '<div class="nm">' + u.name + (u.boss ? ' 보스' : '') + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.side === 'e' ? weakText(u.el) : '') +
@@ -324,7 +327,7 @@
     var msg = '', sub = '';
     if (bt.result === 'win') msg = '승리!';
     else if (bt.result === 'lose') msg = '패배…';
-    else if (myTurn) { msg = actor.name + '의 차례'; sub = '공격할 적을 누르세요 (▲ = 상성 유리)'; }
+    else if (myTurn) { msg = actor.name + '의 차례'; sub = '공격할 적을 누르세요 (▲ 유리 · ▼ 불리)'; }
     else if (actor) msg = (actor.side === 'e' ? '적 ' : '') + actor.name + '의 공격';
     if (Bt.last && !myTurn && !bt.result) {
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
