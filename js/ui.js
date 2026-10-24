@@ -225,13 +225,14 @@
       '<h2 style="margin-top:12px">' + elName(st.el) + ' ' + st.tier + '단계 스테이지</h2>' +
       '<div class="card"><div class="muted small">등장하는 적 (보스 Lv ' + Math.round(MM.tierVal(BAL().STAGE_ENEMY_LEVEL, st.tier)) + ')</div><div class="enemy-row">' +
       '<div>' + unknownSvg(46) + '<div>' + st.tier + '단계 쫄</div><div class="muted small">랜덤</div></div>' +
-      '<div class="boss">' + monSvg(st.el, bossT, 66) + '<div>' + MM.speciesName(st.el, bossT) + ' 보스</div>' + weakText(st.el) + '</div>' +
+      '<div class="boss">' + monSvg(st.el, bossT, 66) + '<div>보스 ' + MM.speciesName(st.el, bossT) + '</div>' + weakText(st.el) + '</div>' +
       '<div>' + unknownSvg(46) + '<div>' + st.tier + '단계 쫄</div><div class="muted small">랜덤</div></div>' +
       '</div><div class="muted small">쫄 2마리는 매 판 바뀌어요 (서로 다르고 보스와도 다른 속성)</div></div>';
     html += '<div class="card">' + elChart() + '</div>';
     html += '<div class="card"><div class="row between"><span class="muted small">출전 파티 (▲ 보스에게 유리 · <span style="color:var(--bad)">▼</span> 불리)</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</div>' +
       '<div class="row" style="justify-content:space-around;margin-top:8px">' + partyAdvRow([st.el]) + '</div>' +
       '<div class="muted small" style="margin-top:8px">권장: ' + st.tier + '단계 3마리</div></div>';
+    if (!cleared) { var fcN = Math.round(MM.tierVal(BAL().FIRST_CLEAR_SOULS, st.tier)); if (fcN) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상</b><div class="row" style="gap:8px;margin-top:8px">' + monSvg(st.el, Math.min(bossT, T()), 28) + MM.speciesName(st.el, Math.min(bossT, T())) + ' 소울 ' + fcN + '개 확정</div></div>'; }
     html += '<div class="card"><b>나올 수 있는 소울</b>' + possibleSouls(st.el, st.tier) + '</div>';
     html += '<button class="btn primary block" data-act="startStage"' + (pm.length ? '' : ' disabled') + '>도전</button>';
     if (cleared) {
@@ -309,7 +310,7 @@
       if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
     }
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
-      monSvg(u.el, u.tier, u.boss ? 60 : 50) + '<div class="nm">' + u.name + (u.boss ? ' 보스' : '') + '</div><div class="lv">Lv ' + u.level + '</div>' +
+      monSvg(u.el, u.tier, u.boss ? 60 : 50) + '<div class="nm">' + (u.boss ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.side === 'e' ? weakText(u.el) : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
       '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u) + '</div>';
@@ -431,7 +432,7 @@
     view.reward = { win: win, kind: Bt.kind, el: Bt.el, tier: Bt.tier, els: Bt.els, r: r };
     view.battle = null; view.tab = 'reward';
     render();
-    if (r) { var rare = rareOf(r.drops); if (rare.length) showRareDrops(rare); }
+    if (r) { var rare = rareOf(r.drops.concat(r.firstClear ? [r.firstClear] : [])); if (rare.length) showRareDrops(rare); }
   }
 
   function endRepeat() {
@@ -468,6 +469,7 @@
       var label = R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
       html = '<div class="reward-title ' + (R.win ? 'win' : 'lose') + '">' + (R.win ? '클리어!' : '패배…') + '</div><div class="muted" style="text-align:center;margin-bottom:14px">' + label + '</div>';
       if (R.win) {
+        if (R.r.firstClear) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상!</b><div class="soul-list" style="margin-top:10px">' + dropsHtml([R.r.firstClear]) + '</div></div>';
         html += '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(R.r.drops) + '</div></div>' +
           '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(R.r.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(R.r.exp) + '</span></div>' +
           R.r.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';

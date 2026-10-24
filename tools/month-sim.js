@@ -28,7 +28,7 @@ function simulatePlayer(seed) {
   const t0 = Date.UTC(2026, 10, 2, 0); // 2026-11-02 월요일 09시 KST
   const s = MM.newState(t0);
   const cache = makeCache();
-  const log = { e5Day: {}, goalDay: null, fusions: 0, fails: 0, goldBlocked: 0, soulBlocked: 0, levelBlocked: 0,
+  const log = { t3Day: null, t2Day: null, e5Day: {}, goalDay: null, fusions: 0, fails: 0, goldBlocked: 0, soulBlocked: 0, levelBlocked: 0,
     actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0 };
 
   // ---- 튜토리얼 ----
@@ -104,6 +104,7 @@ function simulatePlayer(seed) {
         return c; // 막힌 후보 → 파티로 키우기
       }
       const r = MM.attemptFusion(s, c.main.id, c.sub.id, soulEl, rng);
+      if (r.success && r.monster.tier >= 3 && log.t3Day == null) log.t3Day = (now - t0) / 86400000;
       if (r.success) { log.fusions++; if (r.monster.tier === T && log.e5Day[r.monster.el] == null) log.e5Day[r.monster.el] = (now - t0) / 86400000; }
       else log.fails++;
     }
@@ -162,7 +163,7 @@ function simulatePlayer(seed) {
     let stage = chooseStage(party);
     for (let run = 0; run < B.AUTO_REPEAT_DAILY; run++) {
       if (run % 20 === 19) {
-        blocked = manage(dayStart + run * 30000);
+        blocked = manage(dayStart + run / B.AUTO_REPEAT_DAILY * 86400000 * 0.999);
         pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
         party = s.party.map(id => MM.getMonster(s, id));
         stage = chooseStage(party);
@@ -191,6 +192,8 @@ const days = res.map(r => r.goalDay == null ? MAX_DAYS + 1 : r.goalDay).sort((a,
 const med = days[Math.floor(days.length / 2)];
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 console.log('5단계 5종 완성일:', days.map(d => d > MAX_DAYS ? '미완' : d).join(', '), '| 중앙값', med > MAX_DAYS ? '미완' : med + '일');
+const t3 = res.map(r => r.t3Day == null ? 99 : r.t3Day).sort((a, b) => a - b);
+console.log('첫 3단계 획득(일, 0.5 = 첫날 자동 반복 절반):', t3.map(x => x.toFixed(2)).join(', '));
 console.log('5단계 속성별 첫 완성일(평균):', MM.RING.map(e => e + ' ' + avg(r => r.e5Day[e] == null ? MAX_DAYS : r.e5Day[e]).toFixed(1)).join(' / '));
 console.log('판당 평균 행동 수:', avg(r => r.actions / Math.max(1, r.battles)).toFixed(1), '| 패배율', (avg(r => r.losses / Math.max(1, r.battles)) * 100).toFixed(1) + '%');
 console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1));

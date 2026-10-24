@@ -17,7 +17,7 @@
       offline: { stage: null, lastSeen: now },
       tutorial: { step: 0, done: false },
       records: [],
-      settings: { autoBattle: false, recordOn: true, fastTest: false },
+      settings: { autoBattle: true, recordOn: true, fastTest: false },
       stats: { fusionTries: 0, fusionSuccess: 0, battlesWon: 0, battlesLost: 0, startedAt: now }
     };
   };
@@ -114,7 +114,7 @@
   };
 
   MM.expToNext = function (level) { return Math.round(B().EXP_A * Math.pow(B().EXP_R, level - 1)); };
-  MM.winExp = function (stageTier) { return Math.round(B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, stageTier - 1)); };
+  MM.winExp = function (stageTier) { return Math.round(B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, stageTier - 1) * tv(B().EXP_EARLY_MULT || [1], stageTier)); };
 
   MM.giveExp = function (m, amount) {
     var ups = 0, max = B().MAX_LEVEL;
@@ -336,9 +336,19 @@
     var exp = MM.winExp(tier);
     var ups = partyExp(s, exp);
     var key = MM.speciesKey(el, tier);
+    // 스테이지 첫 클리어 보상: 보스 소울 확정
+    var firstClear = null;
+    if (!s.cleared[key]) {
+      var boss = enemies.filter(function (e) { return e.boss; })[0] || enemies[1];
+      var bt = Math.min(boss.tier, b.MAX_TIER), n = Math.round(tv(b.FIRST_CLEAR_SOULS || [0], tier));
+      if (n > 0) {
+        var fc = MM.applyDrops(s, (function () { var o = {}; o[MM.speciesKey(boss.el, bt)] = n; return o; })());
+        firstClear = fc[0];
+      }
+    }
     s.cleared[key] = (s.cleared[key] || 0) + 1;
     s.stats.battlesWon++;
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear };
   };
 
   // 던전 승리 보상 (소탕도 같은 보상). 맨 위 단계 던전은 1~5단계 소울 조금 더 (덤).
