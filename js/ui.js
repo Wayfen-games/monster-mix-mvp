@@ -689,6 +689,13 @@
   function hideOverlay() { $('overlay').hidden = true; $('overlay').innerHTML = ''; }
   function openSheet(html) { var s = $('sheet'); s.innerHTML = '<div class="sheet-body">' + html + '</div>'; s.hidden = false; }
   function closeSheet() { $('sheet').hidden = true; $('sheet').innerHTML = ''; }
+  // 게임 안 확인 창: 예/아니오
+  var pendingYes = null;
+  function askConfirm(title, body, yesLabel, onYes) {
+    pendingYes = onYes;
+    openSheet('<b style="font-size:17px">' + title + '</b><div class="muted lh" style="margin:10px 0 16px">' + body + '</div>' +
+      '<div class="grid2"><button class="btn" data-act="confirmNo">아니오</button><button class="btn primary" data-act="confirmYes">' + (yesLabel || '예') + '</button></div>');
+  }
 
   function successOverlay(m, line, dex, acts, mainSnap, subSnap) {
     var charge = mainSnap ? '<div class="charge">' + monSvg(mainSnap.el, mainSnap.tier, 64) + monSvg(subSnap.el, subSnap.tier, 64) + '</div>' : '';
@@ -697,6 +704,16 @@
       '<div class="reveal' + (mainSnap ? '' : ' now') + '"><div class="big ok">' + line.title + '</div><div class="sub">' + line.sub + '</div>' +
       (dex ? '<div class="new">도감 새 등록! 보상: ' + MM.speciesName(m.el, m.tier) + ' 소울 ' + dex.soul + '개</div>' : '') +
       '<div class="acts">' + acts + '</div></div></div>');
+  }
+
+  function confirmFuse() {
+    var sel = fusionSel(); if (!sel.main || !sel.sub) return;
+    var chk = MM.fusionCheck(S, sel.main, sel.sub, view.fusion.soulEl);
+    if (!chk.ok) { toast(chk.reasons[0]); return; }
+    var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
+    var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 1개' : '');
+    askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
+      name(sel.main) + ' + ' + name(sel.sub) + ' → ' + MM.speciesName(sel.main.el, sel.main.tier + 1) + '<br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
   }
 
   function doFuse() {
@@ -931,9 +948,10 @@
     decompMon: function (d) {
       var m = MM.getMonster(S, +d.id), why = MM.canDecomposeMonster(S, m);
       if (why) { toast(why); return; }
-      if (!confirm(MM.josa(name(m), '을', '를') + ' (Lv ' + m.level + ') 분해할까요?\n→ ' + name(m) + ' 소울 ' + BAL().DECOMPOSE_MONSTER_SOULS + '개 (소환에는 ' + BAL().SOULS_PER_SUMMON + '개 필요)')) return;
-      var r = MM.decomposeMonster(S, m.id);
-      save(); toast(r.error || ('소울 ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개는 가득 차서 버려짐)' : ''))); render();
+      askConfirm('정말 분해할까요?', '<div style="text-align:center;margin-bottom:8px">' + monSvg(m.el, m.tier, 48) + '</div>' + MM.josa(name(m), '을', '를') + ' (Lv ' + m.level + ') 분해하면<br>' + name(m) + ' 소울 <b>' + BAL().DECOMPOSE_MONSTER_SOULS + '개</b>를 받아요 (소환에는 ' + BAL().SOULS_PER_SUMMON + '개 필요)<br><span class="small" style="color:var(--bad)">되돌릴 수 없어요</span>', '분해', function () {
+        var r = MM.decomposeMonster(S, m.id);
+        save(); toast(r.error || ('소울 ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개는 가득 차서 버려짐)' : ''))); render();
+      });
     },
     soulCell: function (d) { soulSheet(d.el, +d.tier); },
     summon: function (d) {
@@ -946,10 +964,13 @@
       render();
     },
     decompSoul: function (d) {
-      var r = MM.decomposeSoul(S, d.el, +d.tier, +d.n);
-      save(); closeSheet();
-      toast(r.error || (MM.speciesName(d.el, d.tier - 1) + ' 소울 ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개 버려짐)' : '')));
-      render();
+      var t = +d.tier, n = +d.n;
+      askConfirm('정말 분해할까요?', MM.speciesName(d.el, t) + ' 소울 <b>' + n + '개</b> → ' + MM.speciesName(d.el, t - 1) + ' 소울 <b>' + n * BAL().DECOMPOSE_SOUL_SOULS + '개</b><br><span class="small" style="color:var(--bad)">되돌릴 수 없어요</span>', '분해', function () {
+        var r = MM.decomposeSoul(S, d.el, t, n);
+        save();
+        toast(r.error || (MM.speciesName(d.el, t - 1) + ' 소울 ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개 버려짐)' : '')));
+        render();
+      });
     },
     pickMainSheet: mainSheet,
     pickSubSheet: function () { if (!view.fusion.mainId) mainSheet(); else subSheet(); },
@@ -963,8 +984,10 @@
     pickSub: function (d) { view.fusion.subId = +d.id; view.fusion.soulEl = null; closeSheet(); render(); },
     quickPair: function (d) { view.fusion = { mainId: +d.main, subId: +d.sub, soulEl: null }; render(); },
     soulEl: function (d) { view.fusion.soulEl = d.el; render(); },
-    fuse: doFuse,
-    retryFuse: function () { hideOverlay(); doFuse(); },
+    fuse: function () { confirmFuse(); },
+    retryFuse: function () { hideOverlay(); confirmFuse(); },
+    confirmYes: function () { var f = pendingYes; pendingYes = null; closeSheet(); if (f) f(); },
+    confirmNo: function () { pendingYes = null; closeSheet(); },
     closeOverlay: function (d) { hideOverlay(); if (d.tab) go(d.tab); else render(); },
     recOpen: function (d) { recordOverlay(+d.i); },
     recImage: function (d) { saveRecordImage(+d.i); },
