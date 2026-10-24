@@ -1,120 +1,175 @@
-// 규칙 테스트. 브라우저(test.html)와 Node(node js/tests.js) 둘 다에서 돈다.
+// 규칙 테스트 (v2). 브라우저(test.html)와 Node(node js/tests.js) 둘 다에서 돈다.
 (function () {
   var G = typeof globalThis !== 'undefined' ? globalThis : window;
   if (typeof require !== 'undefined' && !G.MM) {
     require('./balance.js'); require('./data.js'); require('./logic.js');
   }
-  var MM = G.MM, results = [];
-  function check(name, cond, detail) { results.push({ name: name, ok: !!cond, detail: detail || '' }); }
+  var MM = G.MM, B = MM.BALANCE, results = [];
+  function check(name, cond, detail) { results.push({ name: name, ok: !!cond, detail: detail === undefined ? '' : String(detail) }); }
   function close(a, b) { return Math.abs(a - b) < 1e-9; }
+  var ALWAYS = function () { return 0; }, NEVER = function () { return 0.999999; };
 
-  // ---- 부재료 짝 (원형 배치) ----
-  var expectPartners = { fire: ['dark', 'grass'], grass: ['fire', 'water'], water: ['grass', 'light'], light: ['water', 'dark'], dark: ['light', 'fire'] };
-  Object.keys(expectPartners).forEach(function (el) {
-    var got = MM.partnersOf(el).slice().sort().join(','), want = expectPartners[el].slice().sort().join(',');
-    check('부재료 짝: ' + el, got === want, got);
+  // ---- 부재료 짝: 양옆만, 같은 속성 불가 ----
+  check('불의 짝 = 풀·어둠', MM.partnersOf('fire').slice().sort().join() === 'dark,grass');
+  check('같은 속성은 부재료 불가', !MM.elementCompatible('fire', 'fire'));
+  check('불 주재료에 물 부재료 불가', !MM.elementCompatible('fire', 'water'));
+
+  // ---- 상성 ----
+  check('풀 → 물 1.3배', MM.elementMult('grass', 'water') === 1.3);
+  check('물 → 불 1.3배', MM.elementMult('water', 'fire') === 1.3);
+  check('불 → 풀 1.3배', MM.elementMult('fire', 'grass') === 1.3);
+  check('물 → 풀 0.8배', MM.elementMult('water', 'grass') === 0.8);
+  check('어둠 → 빛 1.3배', MM.elementMult('dark', 'light') === 1.3);
+  check('빛 → 어둠 1.3배 (서로 강함)', MM.elementMult('light', 'dark') === 1.3);
+  check('불 → 빛 보통', MM.elementMult('fire', 'light') === 1);
+
+  // ---- 능력치 ----
+  var s1 = MM.calcStats('fire', 1, 1), s2 = MM.calcStats('fire', 2, 1), s30 = MM.calcStats('fire', 1, 30);
+  check('단계당 ×1.5', Math.abs(s2.hp / s1.hp - 1.5) < 0.05, (s2.hp / s1.hp).toFixed(2));
+  check('레벨당 +1% (Lv30 = 1.29배)', Math.abs(MM.levelMult(30) - 1.29) < 1e-9);
+  check('만렙 아래 단계 < 다음 단계 Lv1', MM.tierMult(1) * MM.levelMult(30) < MM.tierMult(2) * MM.levelMult(1));
+  check('크리티컬 1단계 4%, 5단계 8%', close(MM.calcStats('fire', 1, 1).crit, 0.04) && close(MM.calcStats('fire', 5, 1).crit, 0.08));
+  check('파티 보너스: 서로 다른 3속성', MM.partyHasBonus([{ el: 'fire' }, { el: 'grass' }, { el: 'dark' }]) && !MM.partyHasBonus([{ el: 'fire' }, { el: 'fire' }, { el: 'dark' }]));
+
+  // ---- 경험치 ----
+  var inc = true;
+  for (var L = 1; L < B.MAX_LEVEL - 1; L++) if (MM.expToNext(L + 1) <= MM.expToNext(L)) inc = false;
+  check('필요 경험치는 레벨마다 증가', inc);
+  var m = { level: 1, exp: 0 }; MM.giveExp(m, 1e9);
+  check('만렙 30에서 멈춤', m.level === 30 && m.exp === 0);
+
+  // ---- 합성 ----
+  check('스택 2 → +12%p', close(MM.stackBonus(2), 0.12));
+  check('8스택이면 100%', MM.successRate(4, 8) === 1);
+  var s = MM.newState(); s.gold = 1e6;
+  var a = MM.addMonster(s, 'fire', 1, 5), b = MM.addMonster(s, 'grass', 1, 5), c = MM.addMonster(s, 'dark', 1, 5);
+  var chk = MM.fusionCheck(s, a, b);
+  check('3마리면 합성 불가', !chk.ok && /4마리/.test(chk.reasons.join()), chk.reasons.join(' / '));
+  var d = MM.addMonster(s, 'water', 1, 2);
+  check('4마리 + Lv5 짝이면 1+1 합성 가능', MM.fusionCheck(s, a, b).ok, MM.fusionCheck(s, a, b).reasons.join());
+  var lowChk = MM.fusionCheck(s, b, d);
+  check('부재료 레벨 미달이면 불가 (이유 표시)', !lowChk.ok && /Lv 5 필요/.test(lowChk.reasons.join()), lowChk.reasons.join(' / '));
+  check('1+1 비용은 골드만', MM.fusionCost(a, b).soulTier === null);
+  a.stack = 2;
+  check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
+  a.stack = 0; a.level = 20; b.level = 8;
+  var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
+  check('성공: 결과 레벨 = 평균 내림 (20+8)/2=14', fr.success && fr.monster.level === 14 && fr.monster.tier === 2 && fr.monster.el === 'fire');
+  check('성공: 도감 첫 등록 소울 1개', fr.dex && s.souls.fire2 === 1);
+  // 실패
+  s = MM.newState(); s.gold = 1e6;
+  var w2 = MM.addMonster(s, 'water', 2, 10), g1 = MM.addMonster(s, 'grass', 1, 10); MM.addMonster(s, 'fire', 1); MM.addMonster(s, 'dark', 1);
+  s.souls.grass1 = 2;
+  var gold0 = s.gold, f2 = MM.attemptFusion(s, w2.id, g1.id, 'grass', NEVER);
+  check('실패: 재료 유지, 스택 +1', !f2.success && MM.getMonster(s, w2.id) && MM.getMonster(s, g1.id) && w2.stack === 1);
+  check('실패해도 비용 지불', s.gold === gold0 - B.FUSION_GOLD[1] && s.souls.grass1 === 1);
+  check('튜토리얼 확정 성공', MM.attemptFusion(s, w2.id, g1.id, 'grass', NEVER, { force: true }).success);
+
+  // ---- 소울: 상한·분해·소환 ----
+  s = MM.newState();
+  var r = MM.addSouls(s, 'fire1', 130);
+  check('소울 상한 100, 넘치면 버려짐', s.souls.fire1 === 100 && r.wasted === 30);
+  s.souls.fire3 = 1;
+  var ds = MM.decomposeSoul(s, 'fire', 3);
+  check('소울 분해: 3단계 1개 → 2단계 2개', s.souls.fire3 === 0 && s.souls.fire2 === 2, JSON.stringify(ds));
+  check('1단계 소울은 분해 불가', !!MM.decomposeSoul(s, 'fire', 1).error);
+  [1, 2, 3, 4].forEach(function () { MM.addMonster(s, 'water', 2); });
+  s.party = [s.monsters[0].id];
+  check('파티 몬스터 분해 불가', !!MM.decomposeMonster(s, s.monsters[0].id).error);
+  var dm = MM.decomposeMonster(s, s.monsters[1].id);
+  check('몬스터 분해 → 같은 단계 소울 3개', !dm.error && dm.added === 3);
+  while (s.monsters.length > 3) s.monsters.pop();
+  check('3마리 이하면 몬스터 분해 불가', !!MM.decomposeMonster(s, s.monsters[2].id).error);
+  check('분해는 손해: 몬스터→소울 3개 < 소환 10개', B.DECOMPOSE_MONSTER_SOULS < B.SOULS_PER_SUMMON);
+  s.souls.light3 = 10;
+  var sm = MM.summon(s, 'light', 3);
+  check('소환 레벨은 단계별 고정, 합성 조건보다 낮음', sm.monster.level === MM.summonLevel(3) && MM.summonLevel(3) < MM.fuseLevelReq(3));
+
+  // ---- 드랍 ----
+  var mono = true;
+  for (var k = 1; k < B.MAX_TIER; k++) if (MM.soulDropAvg(k + 1) >= MM.soulDropAvg(k)) mono = false;
+  check('높은 단계 소울일수록 드랍률이 낮음', mono);
+  check('개수 분포 평균 1.38', Math.abs(MM.meanSoulCount() - 1.38) < 1e-9);
+  var rng = MM.seededRng(7), total = 0, N = 40000;
+  for (var i = 0; i < N; i++) { var dd = MM.rollDrops([{ el: 'fire', tier: 1 }], rng); total += dd.fire1 || 0; }
+  check('1단계 소울 평균 개수 유지', Math.abs(total / N - MM.soulDropAvg(1)) < 0.01, (total / N).toFixed(3));
+  total = 0;
+  for (i = 0; i < N; i++) { dd = MM.rollDrops([{ el: 'fire', tier: 1 }], rng, 10); total += dd.fire1 || 0; }
+  check('던전 10배도 평균 유지', Math.abs(total / N / 10 - MM.soulDropAvg(1)) < 0.01, (total / N).toFixed(2));
+  var six = MM.rollDrops([{ el: 'fire', tier: 6 }], ALWAYS, 1);
+  check('6단계 적은 6단계 소울을 주지 않음', !six.fire6 && six.fire5 > 0);
+
+  // ---- 스테이지·던전 구성 ----
+  var ok = true;
+  for (i = 0; i < 300; i++) {
+    var en = MM.stageEnemies('water', 2, rng), els = en.map(function (e) { return e.el; });
+    if (!(en[1].boss && en[1].el === 'water' && en[1].tier === 3 && en[0].tier === 2 && en[2].tier === 2 && new Set(els).size === 3)) ok = false;
+  }
+  check('스테이지: 가운데 보스 (n+1)단계 + 쫄 n단계 2, 셋 다 다른 속성', ok);
+  var top = MM.stageEnemies('fire', 5, rng);
+  check('맨 위 스테이지는 5단계 3마리', top.every(function (e) { return e.tier === 5; }));
+  check('5단계 던전 = 6단계 3마리', MM.dungeonEnemies(['dark'], 5).every(function (e) { return e.tier === 6 && e.el === 'dark'; }));
+  s = MM.newState();
+  check('던전 해금: 1단계만 처음 열림', MM.dungeonUnlocked(s, 1) && !MM.dungeonUnlocked(s, 2));
+  var t0 = Date.UTC(2026, 9, 26, 3); // 2026-10-26 월요일 12시 KST
+  check('월요일 던전 = 빛', MM.dungeonElementFor(t0) === 'light');
+  check('토요일은 직접 선택', MM.dungeonElementFor(t0 + 5 * 86400000) === null);
+  check('던전 하루 2판', MM.useDungeonEntry(s, t0) && MM.useDungeonEntry(s, t0) && !MM.useDungeonEntry(s, t0));
+  check('다음 날 초기화 (이월 없음)', MM.dungeonLeft(s, t0 + 86400000) === 2);
+
+  // ---- 오프라인 ----
+  s = MM.newState(t0); s.offline.stage = { el: 'fire', tier: 1 };
+  check('클리어 안 한 스테이지는 오프라인 보상 없음', MM.claimOffline(s, t0 + 3600000, rng) === null);
+  s.cleared.fire1 = 1; s.offline.lastSeen = t0;
+  var off = MM.claimOffline(s, t0 + 24 * 3600000, rng);
+  var expRuns = 12 * 3600 / B.AVG_RUN_SEC * B.OFFLINE_RATE;
+  check('오프라인: 최대 12시간, 효율 5%', off && off.capped && Math.abs(off.runs - expRuns) <= 1, off && off.runs);
+
+  // ---- 조사 ----
+  check('조사: 소울이 / 골드가', MM.josa('소울', '이', '가') === '소울이' && MM.josa('골드', '이', '가') === '골드가');
+
+  // ---- 튜토리얼 ----
+  s = MM.newState();
+  check('튜토리얼: 같은 속성 선택 불가', !MM.tutorialPickStarters(s, ['fire', 'fire', 'dark']));
+  var allOk = true;
+  var combos = [];
+  for (var x = 0; x < 5; x++) for (var y = x + 1; y < 5; y++) for (var z = y + 1; z < 5; z++) combos.push([MM.RING[x], MM.RING[y], MM.RING[z]]);
+  combos.forEach(function (els) {
+    var st = MM.newState(); st.gold = 1000;
+    MM.tutorialPickStarters(st, els); MM.tutorialBattleReward(st);
+    MM.tutorialFourthOptions(st).forEach(function (el4) {
+      var st2 = JSON.parse(JSON.stringify(st)); MM.tutorialPickFourth(st2, el4);
+      var found = false;
+      st2.monsters.forEach(function (p) { st2.monsters.forEach(function (q) { if (MM.fusionCheck(st2, p, q).ok) found = true; }); });
+      if (!found) allOk = false;
+    });
   });
+  check('튜토리얼: 어떤 3속성+4번째를 골라도 첫 합성 가능 (20가지 모두)', allOk);
 
-  // ---- 성공률과 스택 ----
-  check('기본 성공률 1단계 80%', MM.successRate(1, 0) === 0.8);
-  check('기본 성공률 4단계 25%', MM.successRate(4, 0) === 0.25);
-  check('스택 1: +5%p', close(MM.stackBonus(1), 0.05));
-  check('스택 2: +12%p (5+7)', close(MM.stackBonus(2), 0.12));
-  check('스택 3: +21%p (5+7+9)', close(MM.stackBonus(3), 0.21));
-  check('2단계 주재료 스택 2 → 72%', MM.successRate(2, 2) === 0.72, MM.successRate(2, 2));
-  check('8스택이면 4단계도 100%', MM.successRate(4, 8) === 1);
-  for (var t = 1; t <= 4; t++) for (var k = 0; k < 8; k++) {
-    if (MM.successRate(t, k + 1) < MM.successRate(t, k)) check('스택이 늘면 성공률이 줄지 않음', false, t + '/' + k);
-  }
-  check('스택이 늘면 성공률이 줄지 않음 (전 단계)', true);
-
-  // ---- 합성 조건 ----
-  var s = MM.newState();
-  var f1 = MM.addMonster(s, 'fire', 1), g1 = MM.addMonster(s, 'grass', 1), w1 = MM.addMonster(s, 'water', 1);
-  check('불1+풀1 가능 (짝)', MM.canFuse(f1, g1));
-  check('불1+물1 불가 (짝 아님)', !MM.canFuse(f1, w1));
-  var f2 = MM.addMonster(s, 'fire', 2), f3 = MM.addMonster(s, 'fire', 3), f5 = MM.addMonster(s, 'fire', 5), d4 = MM.addMonster(s, 'dark', 4);
-  check('불2+불1 가능', MM.canFuse(f2, f1));
-  check('불2+불2 불가 (부재료는 한 단계 아래)', !MM.canFuse(f2, MM.addMonster(s, 'fire', 2)));
-  check('불3+불1 불가', !MM.canFuse(f3, f1));
-  check('5단계는 주재료 불가', !MM.canFuse(f5, d4));
-  check('불5 부재료로 불가 (단계 불일치)', !MM.canFuse(d4, f5));
-  check('1단계끼리 비용은 골드만', MM.fusionCost(f1, g1).soulTier === null);
-  var c = MM.fusionCost(f3, MM.addMonster(s, 'dark', 2));
-  check('3단계 주재료 비용: 2단계 소울, 불/어둠 중 선택', c.soulTier === 2 && c.soulOptions.join() === 'fire,dark', JSON.stringify(c));
-
-  // ---- 합성 실행: 실패 ----
-  s = MM.newState(); s.gold = 10000;
-  var a = MM.addMonster(s, 'water', 2), b = MM.addMonster(s, 'light', 1);
-  var noSoul = MM.attemptFusion(s, a.id, b.id, 'water', function () { return 0.99; });
-  check('소울 없으면 합성 거절', !!noSoul.error, noSoul.error);
-  s.souls.water1 = 3;
-  var goldBefore = s.gold;
-  var r = MM.attemptFusion(s, a.id, b.id, 'water', function () { return 0.99; });
-  check('실패: 재료 둘 다 남음', !r.success && MM.getMonster(s, a.id) && MM.getMonster(s, b.id));
-  check('실패: 주재료 스택 +1', MM.getMonster(s, a.id).stack === 1);
-  check('실패: 다음 성공률 65%', r.nextRate === 0.65, r.nextRate);
-  check('실패해도 비용 지불 (골드·소울)', s.gold === goldBefore - MM.BALANCE.FUSION_GOLD[1] && s.souls.water1 === 2);
-
-  // ---- 합성 실행: 성공 ----
-  s.souls.light1 = 1;
-  r = MM.attemptFusion(s, a.id, b.id, 'light', function () { return 0; });
-  check('성공: 결과는 주재료 속성, 한 단계 위', r.success && r.monster.el === 'water' && r.monster.tier === 3);
-  check('성공: 재료 소멸', !MM.getMonster(s, a.id) && !MM.getMonster(s, b.id));
-  check('성공: 도감 등록', s.dex.water3 === true);
-  check('부재료 속성(빛) 소울을 고르면 빛 소울이 빠짐', s.souls.light1 === 0 && s.souls.water1 === 2);
-
-  // ---- 소울 소환 ----
-  s = MM.newState(); s.souls.fire2 = 9;
-  check('소울 9개로는 소환 불가', MM.summon(s, 'fire', 2) === null);
-  s.souls.fire2 = 10;
-  var sm = MM.summon(s, 'fire', 2);
-  check('소울 10개 = 1마리', sm && sm.monster.tier === 2 && s.souls.fire2 === 0);
-
-  // ---- 스테이지와 드랍 ----
-  var en = MM.stageEnemies('fire', 3);
-  check('3단계 스테이지: 불3 + 짝 속성 2단계 2마리', en[0].el === 'fire' && en[0].tier === 3 && en[1].tier === 2 && en[2].tier === 2 && MM.partnersOf('fire').indexOf(en[1].el) >= 0 && MM.partnersOf('fire').indexOf(en[2].el) >= 0);
-  var e1 = MM.stageEnemies('water', 1);
-  check('1단계 스테이지: 1단계 3마리', e1.every(function (e) { return e.tier === 1; }));
-  var allDrop = MM.rollDrops([{ el: 'light', tier: 4 }], function () { return 0; });
-  check('4단계 적은 1~4단계 소울을 각각 굴림', Object.keys(allDrop).sort().join() === 'light1,light2,light3,light4');
-  var none = MM.rollDrops([{ el: 'light', tier: 4 }], function () { return 0.999; });
-  check('운 없으면 드랍 없음', Object.keys(none).length === 0);
-  // 드랍률 통계 확인
-  var rng = MM.seededRng(7), cnt = 0, N = 50000;
-  for (var i = 0; i < N; i++) if (MM.rollDrops([{ el: 'fire', tier: 1 }], rng).fire1) cnt++;
-  check('1단계 소울 드랍률 약 16%', Math.abs(cnt / N - 0.16) < 0.01, (cnt / N * 100).toFixed(1) + '%');
-
-  // ---- 난이도 시뮬레이션: n단계 스테이지는 (n-1)단계 3마리가 있어야 ----
-  function winRate(stageTier, partyTier, level, n) {
-    var rr = MM.seededRng(stageTier * 100 + partyTier * 10 + level), w = 0;
-    for (var j = 0; j < n; j++) {
-      var party = [0, 1, 2].map(function () { return { el: MM.RING[Math.floor(rr() * 5)], tier: partyTier, level: level }; });
-      if (MM.simulateBattle(party, MM.stageEnemies(MM.RING[j % 5], stageTier), rr).result === 'win') w++;
-    }
-    return w / n;
-  }
+  // ---- 난이도 ----
+  function winRate(fn, n) { var w = 0, rr = MM.seededRng(n * 7 + 3); for (var j = 0; j < n; j++) if (fn(rr, j).result === 'win') w++; return w / n; }
+  function trio(tier, level, j) { var e = [MM.RING[j % 5], MM.RING[(j + 1) % 5], MM.RING[(j + 3) % 5]]; return e.map(function (el) { return { el: el, tier: tier, level: level }; }); }
   var table = [];
-  check('시작 파티(1단계 Lv1)로 1단계 스테이지를 깸', winRate(1, 1, 1, 300) > 0.9);
-  for (var st = 2; st <= 5; st++) {
-    var low = winRate(st, st - 1, 1, 300), mid = winRate(st, st - 1, 7, 300), high = winRate(st, st - 1, 10, 300);
-    var under = st >= 3 ? winRate(st, st - 2, 10, 300) : 0;
-    table.push(st + '단계 스테이지: ' + (st - 1) + '단계 3마리 Lv1 ' + Math.round(low * 100) + '% / Lv7 ' + Math.round(mid * 100) + '% / Lv10 ' + Math.round(high * 100) + '%' + (st >= 3 ? ' · ' + (st - 2) + '단계 만렙 ' + Math.round(under * 100) + '%' : ''));
-    check(st + '단계 스테이지: 아래 단계 Lv1로는 거의 못 깸', low < 0.1, Math.round(low * 100) + '%');
-    check(st + '단계 스테이지: 아래 단계 만렙이면 깸', high > 0.85, Math.round(high * 100) + '%');
-    if (st >= 3) check(st + '단계 스테이지: 두 단계 아래로는 못 깸', under < 0.05, Math.round(under * 100) + '%');
+  check('튜토리얼 전투는 쉬움', winRate(function (rr) { return MM.simulateBattle(trio(1, 1, 0), MM.tutorialEnemies(['fire', 'water', 'light']), rr); }, 200) > 0.95);
+  for (var st = 1; st <= B.MAX_TIER; st++) {
+    var req = st < B.MAX_TIER ? MM.fuseLevelReq(st) : 20;
+    var lo = winRate(function (rr, j) { return MM.simulateBattle(trio(st, MM.summonLevel(st), j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300);
+    var hi = winRate(function (rr, j) { return MM.simulateBattle(trio(st, B.MAX_LEVEL, j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300);
+    var under = st > 1 ? winRate(function (rr, j) { return MM.simulateBattle(trio(st - 1, B.MAX_LEVEL, j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300) : 0;
+    table.push(st + '단계 스테이지: ' + st + '단계 3마리 소환Lv' + MM.summonLevel(st) + ' ' + Math.round(lo * 100) + '% / Lv30 ' + Math.round(hi * 100) + '%' + (st > 1 ? ' · ' + (st - 1) + '단계 Lv30 ' + Math.round(under * 100) + '%' : ''));
+    check(st + '단계 스테이지: 같은 단계 만렙이면 깸', hi > 0.9, Math.round(hi * 100) + '%');
+    if (st > 1) check(st + '단계 스테이지: 아래 단계 만렙으로는 어려움', under < 0.35, Math.round(under * 100) + '%');
   }
 
   // ---- 출력 ----
   var pass = results.filter(function (x) { return x.ok; }).length;
   var summary = '통과 ' + pass + ' / ' + results.length;
   if (typeof document !== 'undefined' && document.getElementById('out')) {
-    var out = document.getElementById('out');
-    out.innerHTML = '<h2>' + summary + '</h2>' + results.map(function (x) {
+    document.getElementById('out').innerHTML = '<h2>' + summary + '</h2>' + results.map(function (x) {
       return '<div class="' + (x.ok ? 'ok' : 'bad') + '">' + (x.ok ? '✓ ' : '✗ ') + x.name + (x.detail ? ' <small>(' + x.detail + ')</small>' : '') + '</div>';
-    }).join('') + '<h3>난이도 시뮬레이션</h3>' + table.map(function (t) { return '<div>' + t + '</div>'; }).join('');
+    }).join('') + '<h3>난이도</h3>' + table.map(function (t) { return '<div>' + t + '</div>'; }).join('');
   } else {
-    results.forEach(function (x) { console.log((x.ok ? 'PASS ' : 'FAIL ') + x.name + (x.detail ? ' (' + x.detail + ')' : '')); });
+    results.forEach(function (x) { if (!x.ok || (typeof process !== 'undefined' && process.env.VERBOSE)) console.log((x.ok ? 'PASS ' : 'FAIL ') + x.name + (x.detail ? ' (' + x.detail + ')' : '')); });
     table.forEach(function (t) { console.log(t); });
     console.log(summary);
     if (typeof process !== 'undefined' && pass !== results.length) process.exitCode = 1;
