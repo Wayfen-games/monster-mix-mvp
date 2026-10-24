@@ -149,6 +149,7 @@
   };
   MM.subTierFor = function (mainTier) { return mainTier === 1 ? 1 : mainTier - 1; };
   MM.fuseLevelReq = function (tier) { return Math.round(tv(B().FUSE_LEVEL_REQ, tier)); };
+  MM.subLevelReq = function (tier) { return MM.summonLevel(tier); }; // 부재료는 소환 레벨이면 바로 가능
   MM.canBeMain = function (m) { return m.tier < B().MAX_TIER; };
   MM.elementCompatible = function (mainEl, subEl) { return MM.partnersOf(mainEl).indexOf(subEl) >= 0; };
 
@@ -174,9 +175,10 @@
     var reasons = [];
     if (!MM.isPair(main, sub)) return { ok: false, reasons: ['이 두 몬스터는 합성할 수 없어요'] };
     if (s.monsters.length < B().MIN_MONSTERS_TO_FUSE) reasons.push('몬스터가 4마리 이상일 때 합성할 수 있어요');
-    var req = MM.fuseLevelReq(main.tier);
+    // 주재료 = 합성 조건 레벨, 부재료 = 그 단계 소환 레벨 (확정)
+    var req = MM.fuseLevelReq(main.tier), subReq = MM.subLevelReq(sub.tier);
     if (main.level < req) reasons.push(MM.speciesName(main.el, main.tier) + ' Lv ' + req + ' 필요 (현재 ' + main.level + ')');
-    if (sub.level < req) reasons.push(MM.speciesName(sub.el, sub.tier) + ' Lv ' + req + ' 필요 (현재 ' + sub.level + ')');
+    if (sub.level < subReq) reasons.push(MM.speciesName(sub.el, sub.tier) + ' Lv ' + subReq + ' 필요 (현재 ' + sub.level + ')');
     var cost = MM.fusionCost(main, sub);
     if (s.gold < cost.gold) reasons.push(MM.josa('골드', '이', '가') + ' 부족해요');
     if (cost.soulTier) {
@@ -184,7 +186,7 @@
       var key = MM.speciesKey(el, cost.soulTier);
       if ((s.souls[key] || 0) < 1) reasons.push(MM.josa(MM.speciesName(el, cost.soulTier) + ' 소울', '이', '가') + ' 필요해요');
     }
-    return { ok: reasons.length === 0, reasons: reasons, cost: cost, req: req };
+    return { ok: reasons.length === 0, reasons: reasons, cost: cost, req: req, subReq: subReq };
   };
 
   // 합성 시도. opts.force = 튜토리얼 확정 성공

@@ -147,7 +147,7 @@
     var ready = MM.allSpecies().filter(function (sp) { return MM.canSummon(S, sp.key); });
     if (ready.length) return '소환할 수 있는 소울이 있어요 (몬스터 → 소울)';
     var mt = maxPartyTier();
-    return mt + '단계 스테이지에서 소울과 경험치를 모으세요. 합성하려면 재료 두 마리가 Lv ' + MM.fuseLevelReq(Math.min(mt, T() - 1)) + ' 이상이어야 해요.';
+    return mt + '단계 스테이지에서 소울과 경험치를 모으세요. 합성하려면 주재료가 Lv ' + MM.fuseLevelReq(Math.min(mt, T() - 1)) + ' 이상이어야 해요.';
   }
 
   SCREENS.home = function () {
@@ -561,7 +561,7 @@
         var req = m.tier < T() ? MM.fuseLevelReq(m.tier) : null;
         return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + name(m) + '</span><span class="muted small">Lv ' + m.level + (maxed ? ' (최대)' : '') + '</span>' +
           (inParty ? '<span class="chip party">파티</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') +
-          (req ? '<span class="chip' + (m.level >= req ? ' adv' : '') + '">합성 Lv' + req + (m.level >= req ? ' ✓' : '') + '</span>' : '') + '</div>' +
+          (req ? '<span class="chip' + (m.level >= req ? ' adv' : '') + '">주재료 Lv' + req + (m.level >= req ? ' ✓' : '') + '</span>' : '') + '</div>' +
           '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 크리 ' + Math.round(st.crit * 100) + '%</div>' +
           '<div class="expbar"><i style="width:' + (maxed ? 100 : m.exp / MM.expToNext(m.level) * 100) + '%"></i></div></div>' +
           '<div class="acts"><button class="btn sm" data-act="party" data-id="' + m.id + '">' + (inParty ? '빼기' : '넣기') + '</button>' +
@@ -610,7 +610,7 @@
   }
   function slotHtml(m, label, act) {
     if (!m) return '<div class="fuse-slot empty tap" data-act="' + act + '">' + label + '<span class="swap">눌러서 고르기</span></div>';
-    var req = MM.fuseLevelReq(view.fusion.mainId === m.id ? m.tier : MM.getMonster(S, view.fusion.mainId).tier);
+    var req = view.fusion.mainId === m.id ? MM.fuseLevelReq(m.tier) : MM.subLevelReq(m.tier);
     return '<div class="fuse-slot tap" data-act="' + act + '">' + monSvg(m.el, m.tier, 46) + '<div>' + name(m) + '</div>' +
       '<span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '</span>' + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') + '<span class="swap">눌러서 바꾸기</span></div>';
   }
@@ -636,8 +636,8 @@
         '<div class="rate-sub">' + (rate >= 1 ? '이번엔 반드시 성공해요' : '실패해도 재료는 그대로 · 실패하면 다음 시도 <b style="color:var(--text)">' + pct(next) + '</b> (골드 ' + fmt(nextGold) + ')') + '</div></div>';
       var req = chk.req;
       html += '<div class="card"><b>조건</b>' +
-        '<div class="cost-line" style="margin-top:6px"><span>' + name(main) + ' Lv ' + req + ' 이상</span><span class="' + (main.level >= req ? 'okc' : 'lack') + '">' + (main.level >= req ? '✓' : 'Lv ' + main.level) + '</span></div>' +
-        '<div class="cost-line"><span>' + name(sub) + ' Lv ' + req + ' 이상</span><span class="' + (sub.level >= req ? 'okc' : 'lack') + '">' + (sub.level >= req ? '✓' : 'Lv ' + sub.level) + '</span></div>' +
+        '<div class="cost-line" style="margin-top:6px"><span>' + name(main) + ' (주재료) Lv ' + req + ' 이상</span><span class="' + (main.level >= req ? 'okc' : 'lack') + '">' + (main.level >= req ? '✓' : 'Lv ' + main.level) + '</span></div>' +
+        '<div class="cost-line"><span>' + name(sub) + ' (부재료) Lv ' + chk.subReq + ' 이상</span><span class="' + (sub.level >= chk.subReq ? 'okc' : 'lack') + '">' + (sub.level >= chk.subReq ? '✓' : 'Lv ' + sub.level) + '</span></div>' +
         '<div class="cost-line"><span>몬스터 4마리 이상</span><span class="' + (S.monsters.length >= BAL().MIN_MONSTERS_TO_FUSE ? 'okc' : 'lack') + '">' + S.monsters.length + '마리</span></div></div>';
       html += '<div class="card"><b>비용</b><div class="cost-line" style="margin-top:6px"><span>골드' + (main.stack ? ' (스택 +' + Math.round(BAL().FUSION_GOLD_STACK_UP * main.stack * 100) + '%)' : '') + '</span><span class="' + (S.gold >= cost.gold ? '' : 'lack') + '">' + fmt(cost.gold) + ' G</span></div>';
       if (cost.soulTier) {
@@ -657,7 +657,7 @@
         }).join('') + '</div>';
       }
     }
-    html += '<div class="card muted small lh" style="margin-top:12px">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계 · 결과 속성은 주재료<br>부재료는 원형 이웃 속성만 (불-풀-물-빛-어둠-불) · 같은 속성은 안 돼요<br>재료 둘 다 조건 레벨 이상 · 결과 레벨은 두 재료의 평균<br>실패해도 재료는 남고 성공률이 올라요 (' + BAL().STACK_GUARANTEE + '스택이면 100%)</div>';
+    html += '<div class="card muted small lh" style="margin-top:12px">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계 · 결과 속성은 주재료<br>부재료는 원형 이웃 속성만 (불-풀-물-빛-어둠-불) · 같은 속성은 안 돼요<br>주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상 · 결과 레벨은 두 재료의 평균<br>실패해도 재료는 남고 성공률이 올라요 (' + BAL().STACK_GUARANTEE + '스택이면 100%)</div>';
     return html;
   };
   DOCKS.fusion = function () {
@@ -678,7 +678,7 @@
   function subSheet() {
     var main = MM.getMonster(S, view.fusion.mainId);
     if (!main) { mainSheet(); return; }
-    var subs = sortMons(S.monsters.filter(function (x) { return MM.isPair(main, x); })), req = MM.fuseLevelReq(main.tier);
+    var subs = sortMons(S.monsters.filter(function (x) { return MM.isPair(main, x); })), req = MM.subLevelReq(MM.subTierFor(main.tier));
     var p = MM.partnersOf(main.el).map(function (e) { return MM.ELEMENTS[e].name; }).join('·');
     openSheet('<b>부재료 고르기</b><div class="muted small" style="margin:4px 0 10px">' + MM.subTierFor(main.tier) + '단계 ' + p + ' · Lv ' + req + ' 이상</div><div class="pick-list">' + (subs.length ? subs.map(function (m) {
       return '<button class="pick' + (view.fusion.subId === m.id ? ' sel' : '') + '" data-act="pickSub" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 34) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '/' + req + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + '</div></button>';
@@ -863,7 +863,7 @@
     } else if (st === 2) {
       showOverlay('<div class="tut"><h2>잘했어요!</h2><p>파티가 <b>Lv ' + BAL().TUTORIAL_LEVEL + '</b>가 됐어요.</p>' +
         '<p><b>소울</b>: 같은 몬스터 소울 ' + BAL().SOULS_PER_SUMMON + '개를 모으면 그 몬스터를 소환해요. 도감에 처음 등록할 때도 소울 1개를 받아요.</p>' +
-        '<p><b>합성</b>: 재료 두 마리가 조건 레벨 이상이어야 해요. 결과 몬스터는 두 재료의 평균 레벨로 태어나요.</p>' +
+        '<p><b>합성</b>: 주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상이면 돼요. 결과 몬스터는 두 재료의 평균 레벨로 태어나요.</p>' +
         '<div class="acts"><button class="btn primary block" data-act="tutNext">다음</button></div></div>');
     } else if (st === 3) {
       var opts = MM.tutorialFourthOptions(S);

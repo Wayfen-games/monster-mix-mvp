@@ -47,8 +47,13 @@
   check('3마리면 합성 불가', !chk.ok && /4마리/.test(chk.reasons.join()), chk.reasons.join(' / '));
   var d = MM.addMonster(s, 'water', 1, 2);
   check('4마리 + Lv5 짝이면 1+1 합성 가능', MM.fusionCheck(s, a, b).ok, MM.fusionCheck(s, a, b).reasons.join());
-  var lowChk = MM.fusionCheck(s, b, d);
-  check('부재료 레벨 미달이면 불가 (이유 표시)', !lowChk.ok && /Lv 5 필요/.test(lowChk.reasons.join()), lowChk.reasons.join(' / '));
+  var lowChk = MM.fusionCheck(s, d, b);
+  check('주재료 레벨 미달이면 불가 (이유 표시)', !lowChk.ok && /Lv 5 필요/.test(lowChk.reasons.join()), lowChk.reasons.join(' / '));
+  var s3 = MM.newState(); s3.gold = 1e6; s3.souls.fire2 = 1;
+  var m3 = MM.addMonster(s3, 'fire', 3, MM.fuseLevelReq(3)), sub2 = MM.addMonster(s3, 'grass', 2, MM.summonLevel(2)); MM.addMonster(s3, 'water', 1); MM.addMonster(s3, 'dark', 1);
+  check('부재료는 소환 레벨이면 바로 합성 가능', MM.fusionCheck(s3, m3, sub2, 'fire').ok, MM.fusionCheck(s3, m3, sub2, 'fire').reasons.join());
+  sub2.level = MM.summonLevel(2) - 1;
+  check('부재료가 소환 레벨보다 낮으면 불가', !MM.fusionCheck(s3, m3, sub2, 'fire').ok);
   check('1+1 비용은 골드만', MM.fusionCost(a, b).soulTier === null);
   a.stack = 2;
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
