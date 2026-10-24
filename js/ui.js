@@ -251,12 +251,12 @@
     var html = '<div class="card"><div class="row between"><b>' + MM.WEEKDAY_NAMES[wd] + '요일 던전</b><span class="chip gold">오늘 ' + left + '/' + BAL().DUNGEON_DAILY + '판</span></div>' +
       '<div class="muted small lh" style="margin-top:6px">하루 ' + BAL().DUNGEON_DAILY + '판 · 소울이 스테이지보다 훨씬 잘 나와요 · 한 번 깬 단계는 소탕 가능 · 앞 단계를 깨야 다음 단계가 열려요<br>월 빛 · 화 불 · 수 물 · 목 풀 · 금 어둠 · 주말은 속성 3개 선택</div></div>';
     if (!dEl) {
-      html += '<div class="card"><b>주말: 서로 다른 속성 3개 고르기</b><div class="el-pick" style="margin:10px 0 0">' + MM.RING.map(function (el) {
+      html += '<div class="card"><b>주말: 서로 다른 속성 3개 고르기 (' + view.dungeonEls.length + '/3)</b><div class="el-pick" style="margin:10px 0 0">' + MM.RING.map(function (el) {
         var on = view.dungeonEls.indexOf(el) >= 0;
         return '<button class="' + (on ? 'on' : '') + '" data-act="dEl" data-el="' + el + '">' + monSvg(el, 2, 28) + '<div>' + MM.ELEMENTS[el].name + '</div></button>';
       }).join('') + '</div></div>';
     }
-    var ready = els.length === 1 || els.length === 3;
+    var ready = dEl ? true : els.length === 3; // 주말은 서로 다른 3속성을 다 골라야 함
     MM.tiers().forEach(function (t) {
       var unlocked = MM.dungeonUnlocked(S, t), cleared = !!S.dungeon.cleared[t];
       var icons = ready ? (els.length === 1 ? [els[0], els[0], els[0]] : els).map(function (e) { return monSvg(e, t + 1, 34); }).join('') : unknownSvg(34) + unknownSvg(34) + unknownSvg(34);
@@ -844,11 +844,13 @@
     },
     startDungeon: function (d) {
       var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice();
+      if (!dEl && els.length !== 3) { toast('주말에는 속성 3개를 골라 주세요'); return; }
       if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 입장 횟수를 다 썼어요'); return; }
       startBattle('dungeon', { tier: +d.tier, els: els });
     },
     sweepDungeon: function (d) {
       var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice(), tier = +d.tier;
+      if (!dEl && els.length !== 3) { toast('주말에는 속성 3개를 골라 주세요'); return; }
       if (!S.dungeon.cleared[tier]) return;
       if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 입장 횟수를 다 썼어요'); return; }
       var en = MM.dungeonEnemies(els, tier), r = MM.grantDungeonWin(S, tier, en);
