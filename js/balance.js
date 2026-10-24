@@ -77,7 +77,7 @@ MM.BALANCE = {
   SOUL_COUNT_DIST: [0.70, 0.22, 0.08],
   FAST_TEST_DROP_MULT: 5,
   FIRST_DEX_SOUL: 1,    // [확정] 도감 첫 등록 시 그 몬스터 소울 1개
-  FIRST_CLEAR_SOULS: [2, 1, 0, 0, 0], // [조정] 스테이지 첫 클리어 시 보스 소울 확정 (초반 1·2단계 스테이지만)
+  FIRST_CLEAR_SOULS: [2, 1, 1, 1, 1], // [확정] 모든 스테이지 첫 클리어 시 보스 소울 확정 (1단계 스테이지만 2개)
 
   // 분해 [확정: 손해 보게]
   DECOMPOSE_MONSTER_SOULS: 3, // 몬스터 1마리 → 같은 단계 소울 3개 (소환은 10개)
