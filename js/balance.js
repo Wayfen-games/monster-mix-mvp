@@ -83,6 +83,10 @@ MM.BALANCE = {
   DECOMPOSE_MONSTER_SOULS: 3, // 몬스터 1마리 → 같은 단계 소울 3개 (소환은 10개)
   DECOMPOSE_SOUL_SOULS: 2,    // 소울 1개 → 한 단계 아래 소울 2개
 
+  // 소울 먹이기 [확정: 같은 속성 몬스터에게만, 높은 단계 소울일수록 경험치 많이]
+  // 소울 1개 경험치 = 그 단계 스테이지 승리 SOUL_FEED_WINS판 분량 (초반 가속 배수 제외) [조정]
+  SOUL_FEED_WINS: 3,
+
   // ---------- 골드 ----------
   START_GOLD: 300,
   CLEAR_GOLD: [30, 60, 120, 240, 450],  // [조정] 스테이지 단계별 (던전은 ×DUNGEON_GOLD_MULT)

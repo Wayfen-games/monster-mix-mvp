@@ -181,6 +181,24 @@
     if (st > 1) check(st + '단계 스테이지: 아래 단계 만렙으로는 어려움', under < 0.35, Math.round(under * 100) + '%');
   }
 
+  // ---- 소울 먹이기 ----
+  (function () {
+    var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);
+    s.souls.fire1 = 5; s.souls.fire2 = 3; s.souls.water2 = 3;
+    check('소울 경험치: 높은 단계일수록 많음', MM.soulExp(1) < MM.soulExp(2) && MM.soulExp(2) < MM.soulExp(3));
+    check('다른 속성 소울은 못 먹임', !!MM.canFeed(s, m, 'water', 2));
+    var before = m.exp, r = MM.feedSouls(s, m.id, 1, 2);
+    check('같은 속성 소울 2개 먹이면 2개 소모 + 경험치', r.used === 2 && s.souls.fire1 === 3 && r.exp === MM.soulExp(1) * 2);
+    var p = MM.feedPreview(m, 2, 3), r2 = MM.feedSouls(s, m.id, 2, 3);
+    check('미리보기와 실제 결과가 같음', p.level === r2.level && p.used === r2.used);
+    var mx = MM.addMonster(s, 'fire', 1, B.MAX_LEVEL - 1); mx.exp = MM.expToNext(B.MAX_LEVEL - 1) - 1; s.souls.fire5 = 50;
+    var r3 = MM.feedSouls(s, mx.id, 5, 50);
+    check('최대 레벨이 되면 멈추고 남은 소울은 안 씀', mx.level === B.MAX_LEVEL && r3.used === 1 && s.souls.fire5 === 49);
+    check('최대 레벨이면 먹일 수 없음', !!MM.feedSouls(s, mx.id, 5, 1).error);
+    var have1 = s.souls.fire1, r4 = MM.feedSouls(s, m.id, 1, 99);
+    check('가진 것보다 많이 요청하면 가진 만큼만', r4.used === have1 && s.souls.fire1 === 0, JSON.stringify(r4));
+  })();
+
   // ---- 출력 ----
   var pass = results.filter(function (x) { return x.ok; }).length;
   var summary = '통과 ' + pass + ' / ' + results.length;

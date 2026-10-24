@@ -5,6 +5,7 @@
 const MM = require('./load');
 const B = MM.BALANCE, T = B.MAX_TIER;
 const PLAYERS = +process.argv[2] || 12, MAX_DAYS = +process.argv[3] || 60;
+const FEED_KEEP = +(process.env.FEED_KEEP || 20);
 const OFFLINE_CLAIMS_PER_DAY = +(process.env.OFFLINE_CLAIMS || 1);
 // 실험용 덮어쓰기: DROP=드랍 배율, EXPA, EXPP, EXPW=승리 경험치 배율, OVR='{"키":값}'
 if (process.env.DROP) B.SOUL_DROP_AVG = B.SOUL_DROP_AVG.map(v => v * +process.env.DROP);
@@ -29,7 +30,7 @@ function simulatePlayer(seed) {
   const s = MM.newState(t0);
   const cache = makeCache();
   const log = { t3Day: null, t2Day: null, e5Day: {}, goalDay: null, fusions: 0, fails: 0, goldBlocked: 0, soulBlocked: 0, levelBlocked: 0,
-    actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0 };
+    actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0 };
 
   // ---- 튜토리얼 ----
   const shuffled = MM.RING.slice().sort(() => rng() - 0.5);
@@ -80,6 +81,18 @@ function simulatePlayer(seed) {
         if (sp.tier === T && s.monsters.some(m => m.el === sp.el && m.tier === T)) break;
         if (s.monsters.filter(m => m.el === sp.el && m.tier === sp.tier).length >= 3) break; // 같은 종 3마리까지만
         MM.summon(s, sp.el, sp.tier); log.summons++;
+      }
+    }
+    // 1.5) 소울 먹이기: 소환용으로 FEED_KEEP개는 남기고, 나머지를 같은 속성 중 합성 조건 레벨이 모자란 몬스터에게
+    if (!process.env.NOFEED) for (const sp of MM.allSpecies()) {
+      let extra = (s.souls[sp.key] || 0) - FEED_KEEP;
+      if (extra <= 0) continue;
+      const targets = s.monsters.filter(m => m.el === sp.el && m.level < B.MAX_LEVEL && m.tier <= sp.tier + 1)
+        .map(m => ({ m, req: m.tier < T ? Math.max(MM.fuseLevelReq(m.tier), 0) : B.MAX_LEVEL }))
+        .filter(x => x.m.level < x.req).sort((a, b) => b.m.tier - a.m.tier);
+      for (const x of targets) {
+        while (extra > 0 && x.m.level < x.req) { const r = MM.feedSouls(s, x.m.id, sp.tier, 1); if (r.error) break; extra -= r.used; log.fed += r.used; }
+        if (extra <= 0) break;
       }
     }
     // 2) 합성 반복
@@ -196,7 +209,7 @@ const t3 = res.map(r => r.t3Day == null ? 99 : r.t3Day).sort((a, b) => a - b);
 console.log('첫 3단계 획득(일, 0.5 = 첫날 자동 반복 절반):', t3.map(x => x.toFixed(2)).join(', '));
 console.log('5단계 속성별 첫 완성일(평균):', MM.RING.map(e => e + ' ' + avg(r => r.e5Day[e] == null ? MAX_DAYS : r.e5Day[e]).toFixed(1)).join(' / '));
 console.log('판당 평균 행동 수:', avg(r => r.actions / Math.max(1, r.battles)).toFixed(1), '| 패배율', (avg(r => r.losses / Math.max(1, r.battles)) * 100).toFixed(1) + '%');
-console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1));
+console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1));
 console.log('막힘(관리 시점 횟수): 골드', avg(r => r.goldBlocked).toFixed(1), '소울', avg(r => r.soulBlocked).toFixed(1), '레벨', avg(r => r.levelBlocked).toFixed(1));
 console.log('최대 보유 골드', avg(r => r.maxGold).toFixed(0), '| 마지막 골드', avg(r => r.gold).toFixed(0), '| 최고 던전', avg(r => r.dungeonTop).toFixed(1));
 console.log('예시 마지막 몬스터:', res[0].levels);

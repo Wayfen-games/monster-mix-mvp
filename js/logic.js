@@ -97,6 +97,35 @@
     return { key: low, added: r.added, wasted: r.wasted };
   };
 
+  // ================= 소울 먹이기 =================
+  // 같은 속성 몬스터에게 소울을 먹여 경험치를 준다. 최대 레벨이 되면 거기서 멈추고 남은 소울은 안 씀.
+  MM.soulExp = function (tier) { return Math.round(B().SOUL_FEED_WINS * B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, tier - 1)); };
+  MM.canFeed = function (s, m, el, tier) {
+    if (!m) return '몬스터가 없어요';
+    if (m.el !== el) return '같은 속성 소울만 먹일 수 있어요';
+    if (m.level >= B().MAX_LEVEL) return '이미 최대 레벨이에요';
+    if ((s.souls[MM.speciesKey(el, tier)] || 0) < 1) return '소울이 부족해요';
+    return null;
+  };
+  // 미리보기: count개를 먹이면 (실제로 쓰는 개수, 결과 레벨, 경험치)
+  MM.feedPreview = function (m, tier, count) {
+    var c = { level: m.level, exp: m.exp }, used = 0, per = MM.soulExp(tier);
+    while (used < count && c.level < B().MAX_LEVEL) { used++; MM.giveExp(c, per); }
+    return { used: used, level: c.level, exp: c.exp, gained: used * per };
+  };
+  MM.feedSouls = function (s, monId, tier, count) {
+    var m = MM.getMonster(s, monId);
+    var why = MM.canFeed(s, m, m && m.el, tier);
+    if (why) return { error: why };
+    var key = MM.speciesKey(m.el, tier), have = s.souls[key] || 0;
+    count = Math.min(count || 1, have);
+    var before = m.level, used = 0, per = MM.soulExp(tier);
+    while (used < count && m.level < B().MAX_LEVEL) { used++; MM.giveExp(m, per); }
+    s.souls[key] -= used;
+    s.stats.soulsFed = (s.stats.soulsFed || 0) + used;
+    return { used: used, exp: used * per, before: before, level: m.level, ups: m.level - before };
+  };
+
   // ================= 능력치 =================
   MM.tierMult = function (tier) { return Math.pow(B().TIER_GROWTH, tier - 1); };
   MM.levelMult = function (level) { return 1 + B().LEVEL_GROWTH * (level - 1); };

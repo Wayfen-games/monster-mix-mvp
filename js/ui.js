@@ -564,6 +564,7 @@
           '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 크리 ' + Math.round(st.crit * 100) + '%</div>' +
           '<div class="expbar"><i style="width:' + (maxed ? 100 : m.exp / MM.expToNext(m.level) * 100) + '%"></i></div></div>' +
           '<div class="acts"><button class="btn sm" data-act="party" data-id="' + m.id + '">' + (inParty ? '빼기' : '넣기') + '</button>' +
+          (maxed ? '' : '<button class="btn sm" data-act="feedSheet" data-id="' + m.id + '">먹이기</button>') +
           (inParty ? '' : '<button class="btn sm danger" data-act="decompMon" data-id="' + m.id + '">분해</button>') + '</div></div>';
       }).join('');
     } else {
@@ -583,6 +584,28 @@
     return html;
   };
 
+  function feedSheet(id) {
+    var m = MM.getMonster(S, id); if (!m) return;
+    var html = '<div class="row" style="gap:12px">' + monSvg(m.el, m.tier, 52) + '<div><b>' + name(m) + '에게 소울 먹이기</b><div class="muted small">Lv ' + m.level + ' / ' + BAL().MAX_LEVEL + ' · ' + elName(m.el) + ' 소울만 먹일 수 있어요</div></div></div>' +
+      '<div class="expbar" style="margin:10px 0 4px"><i style="width:' + (m.exp / MM.expToNext(m.level) * 100) + '%"></i></div>' +
+      '<div class="muted small" style="margin-bottom:10px">다음 레벨까지 EXP ' + fmt(MM.expToNext(m.level) - m.exp) + '</div><div class="pick-list">';
+    var any = false;
+    MM.tiers().forEach(function (t) {
+      var n = S.souls[MM.speciesKey(m.el, t)] || 0;
+      if (!n) return;
+      any = true;
+      var opts = [1, 10, n].filter(function (c, i, a) { return c <= n && a.indexOf(c) === i; });
+      html += '<div class="pick" style="display:block"><div class="row between"><b>' + MM.speciesName(m.el, t) + ' 소울 ' + n + '개</b><span class="muted small">1개 EXP ' + fmt(MM.soulExp(t)) + '</span></div><div class="row wrap" style="gap:6px;margin-top:8px">' +
+        opts.map(function (c) {
+          var p = MM.feedPreview(m, t, c);
+          return '<button class="btn sm" data-act="feed" data-id="' + m.id + '" data-tier="' + t + '" data-n="' + c + '">' + (c === n && c > 10 ? '전부' : c + '개') + ' → Lv ' + p.level + (p.used < c ? ' (' + p.used + '개만)' : '') + '</button>';
+        }).join('') + '</div></div>';
+    });
+    if (!any) html += '<div class="muted small">' + elName(m.el) + ' 소울이 없어요</div>';
+    html += '</div><div class="muted small" style="margin-top:10px">높은 단계 소울일수록 경험치가 많아요. 최대 레벨이 되면 남은 소울은 쓰지 않아요.</div>';
+    openSheet(html);
+  }
+
   function soulSheet(el, tier) {
     var key = MM.speciesKey(el, tier), n = S.souls[key] || 0, per = BAL().SOULS_PER_SUMMON;
     var html = '<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.speciesName(el, tier) + ' 소울</b><div class="muted small">보유 ' + n + '개 / 최대 ' + BAL().SOUL_CAP + '개</div></div></div>' +
@@ -595,7 +618,7 @@
     } else {
       html += '<div class="muted small">1단계 소울은 분해할 수 없어요</div>';
     }
-    html += '</div><div class="muted small" style="margin-top:10px">분해는 손해를 보는 교환이에요. 합성 비용 소울이 급할 때 쓰세요.</div>';
+    html += '</div><div class="muted small" style="margin-top:10px">분해는 손해를 보는 교환이에요. 합성 비용 소울이 급할 때 쓰세요.<br>남는 소울은 몬스터 목록의 "먹이기"로 같은 속성 몬스터에게 경험치로 줄 수 있어요 (1개 EXP ' + fmt(MM.soulExp(tier)) + ').</div>';
     openSheet(html);
   }
 
@@ -954,6 +977,16 @@
       });
     },
     soulCell: function (d) { soulSheet(d.el, +d.tier); },
+    feedSheet: function (d) { feedSheet(+d.id); },
+    feed: function (d) {
+      var r = MM.feedSouls(S, +d.id, +d.tier, +d.n);
+      if (r.error) { toast(r.error); return; }
+      save();
+      toast('소울 ' + r.used + '개 · EXP +' + fmt(r.exp) + (r.ups ? ' · Lv ' + r.before + ' → ' + r.level : ''));
+      render();
+      var m = MM.getMonster(S, +d.id);
+      if (m && m.level < BAL().MAX_LEVEL) feedSheet(m.id); else closeSheet();
+    },
     summon: function (d) {
       closeSheet();
       var r = MM.summon(S, d.el, +d.tier); if (!r) return;
