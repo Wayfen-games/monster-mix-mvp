@@ -108,7 +108,10 @@
   check('스테이지: 가운데 보스 (n+1)단계 + 쫄 n단계 2, 셋 다 다른 속성', ok);
   var top = MM.stageEnemies('fire', 5, rng);
   check('맨 위 스테이지는 5단계 3마리', top.every(function (e) { return e.tier === 5; }));
-  check('5단계 던전 = 6단계 3마리', MM.dungeonEnemies(['dark'], 5).every(function (e) { return e.tier === 6 && e.el === 'dark'; }));
+  check('n단계 던전 = n단계 3마리 (6단계 없음)', MM.dungeonEnemies(['dark'], 5).every(function (e) { return e.tier === 5 && e.el === 'dark'; }));
+  var guaranteedOk = true;
+  for (i = 0; i < 500; i++) { var gd = MM.rollDrops(MM.dungeonEnemies(['fire', 'grass', 'dark'], 3), rng, 10); if (!(gd.fire1 >= 1 && gd.grass1 >= 1 && gd.dark1 >= 1)) guaranteedOk = false; }
+  check('던전은 적마다 1단계 소울 확정 (한 판 최소 3개)', guaranteedOk);
   s = MM.newState();
   check('던전 해금: 1단계만 처음 열림', MM.dungeonUnlocked(s, 1) && !MM.dungeonUnlocked(s, 2));
   var t0 = Date.UTC(2026, 9, 26, 3); // 2026-10-26 월요일 12시 KST

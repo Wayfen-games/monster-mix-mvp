@@ -16,13 +16,13 @@ function search(get, set, rateFn, target) {
   set(+((lo + hi) / 2).toFixed(3));
 }
 const sm = [], dm = [];
-B.STAGE_ENEMY_MULT = Array(T).fill(1); B.DUNGEON_ENEMY_MULT = Array(T).fill(1);
+if (!process.env.DUNGEON_ONLY) B.STAGE_ENEMY_MULT = Array(T).fill(1); B.DUNGEON_ENEMY_MULT = Array(T).fill(1);
 for (let st = 1; st <= T; st++) {
   const lv = st < T ? MM.fuseLevelReq(st) : 22;
-  search(null, v => B.STAGE_ENEMY_MULT[st - 1] = v, () => stageRate(st, st, lv, 11 * st, N), 0.6);
+  if (!process.env.DUNGEON_ONLY) search(null, v => B.STAGE_ENEMY_MULT[st - 1] = v, () => stageRate(st, st, lv, 11 * st, N), 0.6);
   sm.push(B.STAGE_ENEMY_MULT[st - 1]);
-  const tgt = st < T ? 0.75 : 0.6;
-  search(null, v => B.DUNGEON_ENEMY_MULT[st - 1] = v, () => dungeonRate(st, st, B.MAX_LEVEL, 17 * st, N), tgt);
+  // 던전: n단계 3마리가 합성 조건 레벨(맨 위는 22)에서 85% (첫날에도 무리 없이)
+  search(null, v => B.DUNGEON_ENEMY_MULT[st - 1] = v, () => dungeonRate(st, st, lv, 17 * st, N), 0.85);
   dm.push(B.DUNGEON_ENEMY_MULT[st - 1]);
 }
 console.log('STAGE_ENEMY_MULT', JSON.stringify(sm));
@@ -36,5 +36,5 @@ for (let st = 1; st <= T; st++) {
   if (st > 1) r.push((st - 1) + '단계 Lv30 ' + Math.round(stageRate(st, st - 1, 30, 930 + st, 3000) * 100) + '%');
   if (st < T) r.push((st + 1) + '단계 소환Lv ' + Math.round(stageRate(st, st + 1, MM.summonLevel(st + 1), 940 + st, 3000) * 100) + '%');
   console.log('스테이지 ' + st + ': ' + r.join(' · '));
-  console.log('  던전 ' + st + ': ' + st + '단계 Lv30 ' + Math.round(dungeonRate(st, st, 30, 950 + st, 3000) * 100) + '%' + (st < T ? ' · ' + (st + 1) + '단계 소환Lv ' + Math.round(dungeonRate(st, st + 1, MM.summonLevel(st + 1), 960 + st, 3000) * 100) + '%' : ''));
+  console.log('  던전 ' + st + ': ' + st + '단계 소환Lv ' + Math.round(dungeonRate(st, st, MM.summonLevel(st), 950 + st, 3000) * 100) + '% · 조건Lv ' + Math.round(dungeonRate(st, st, st < T ? MM.fuseLevelReq(st) : 22, 955 + st, 3000) * 100) + '% · Lv30 ' + Math.round(dungeonRate(st, st, 30, 960 + st, 3000) * 100) + '%');
 }

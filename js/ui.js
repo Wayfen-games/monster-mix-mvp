@@ -259,8 +259,8 @@
     var ready = dEl ? true : els.length === 3; // 주말은 서로 다른 3속성을 다 골라야 함
     MM.tiers().forEach(function (t) {
       var unlocked = MM.dungeonUnlocked(S, t), cleared = !!S.dungeon.cleared[t];
-      var icons = ready ? (els.length === 1 ? [els[0], els[0], els[0]] : els).map(function (e) { return monSvg(e, t + 1, 34); }).join('') : unknownSvg(34) + unknownSvg(34) + unknownSvg(34);
-      html += '<div class="card" style="' + (unlocked ? '' : 'opacity:.5') + '"><div class="row between"><div><b>' + t + '단계 던전</b> <span class="muted small">' + (t + 1) + '단계 3마리' + (t === T() ? ' · 던전 전용 보스' : '') + '</span></div>' +
+      var icons = ready ? (els.length === 1 ? [els[0], els[0], els[0]] : els).map(function (e) { return monSvg(e, t, 34); }).join('') : unknownSvg(34) + unknownSvg(34) + unknownSvg(34);
+      html += '<div class="card" style="' + (unlocked ? '' : 'opacity:.5') + '"><div class="row between"><div><b>' + t + '단계 던전</b> <span class="muted small">' + t + '단계 3마리 · 1단계 소울 확정' + '</span></div>' +
         (cleared ? '<span class="chip party">클리어</span>' : unlocked ? '' : '<span class="chip">잠김</span>') + '</div>' +
         '<div class="row" style="margin:10px 0;justify-content:center;gap:12px">' + icons + '</div>' +
         (unlocked ? '<div class="grid2"><button class="btn primary sm" data-act="startDungeon" data-tier="' + t + '"' + (left && ready && S.party.length ? '' : ' disabled') + '>도전</button>' +

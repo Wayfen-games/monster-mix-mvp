@@ -245,12 +245,13 @@
     ];
   };
 
-  // 던전: n단계 = (n+1)단계 3마리. els = [속성] (평일) 또는 서로 다른 3속성 (주말)
+  // 던전: n단계 = n단계 3마리 (확정). els = [속성] (평일) 또는 서로 다른 3속성 (주말)
+  // 적마다 1단계 소울은 반드시 1번 떨어짐 (개수는 1~3개 분포)
   MM.dungeonEnemies = function (els, tier) {
     var b = B();
     var lv = Math.round(tv(b.DUNGEON_ENEMY_LEVEL, tier)), mult = tv(b.DUNGEON_ENEMY_MULT, tier);
     var list = els.length === 1 ? [els[0], els[0], els[0]] : els.slice(0, 3);
-    return list.map(function (e, i) { return { el: e, tier: tier + 1, level: lv, mult: mult, boss: i === 1 }; });
+    return list.map(function (e, i) { return { el: e, tier: tier, level: lv, mult: mult, boss: i === 1, guaranteeT1: true }; });
   };
 
   MM.dungeonElementFor = function (ms) { return B().DUNGEON_DAY_ELEMENT[MM.weekday(ms)]; };
@@ -282,6 +283,11 @@
     enemies.forEach(function (e) {
       var top = Math.min(e.tier, max);
       for (var k = 1; k <= top; k++) {
+        if (k === 1 && e.guaranteeT1) {
+          var k1 = MM.speciesKey(e.el, 1);
+          got[k1] = (got[k1] || 0) + MM.rollSoulCount(rng);
+          continue;
+        }
         var p = MM.soulDropAvg(k) / mean * mult * (e.dropMult || 1);
         var rolls = Math.max(1, Math.ceil(p));
         var pp = p / rolls;
@@ -335,7 +341,7 @@
     return { drops: drops, gold: gold, exp: exp, levelUps: ups };
   };
 
-  // 던전 승리 보상 (sweep = 소탕도 같은 보상). 5단계 던전은 추가 보너스.
+  // 던전 승리 보상 (소탕도 같은 보상). 맨 위 단계 던전은 1~5단계 소울 조금 더 (덤).
   MM.grantDungeonWin = function (s, tier, enemies, rng, opts) {
     opts = opts || {};
     var b = B(), mult = b.DUNGEON_DROP_MULT * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1);
@@ -343,7 +349,7 @@
     var drops = MM.applyDrops(s, MM.rollDrops(enemies, rng, mult));
     var gold = Math.round(tv(b.CLEAR_GOLD, tier) * b.DUNGEON_GOLD_MULT);
     s.gold += gold;
-    var exp = MM.winExp(tier + 1);
+    var exp = MM.winExp(tier);
     var ups = partyExp(s, exp);
     s.dungeon.cleared[tier] = true;
     s.stats.battlesWon++;
