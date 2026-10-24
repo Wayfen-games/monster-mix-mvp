@@ -312,7 +312,15 @@
       monSvg(u.el, u.tier, u.boss ? 60 : 50) + '<div class="nm">' + u.name + (u.boss ? ' 보스' : '') + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.side === 'e' ? weakText(u.el) : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
-      '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div></div>';
+      '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u) + '</div>';
+  }
+  // 아군 카드 아래 경험치 바와 퍼센트 (전투 중에도 실제 몬스터 경험치를 보여줌)
+  function expHtml(u) {
+    if (u.side !== 'p' || !u.monsterId) return '';
+    var m = MM.getMonster(S, u.monsterId); if (!m) return '';
+    var maxed = m.level >= BAL().MAX_LEVEL, r = maxed ? 1 : Math.min(0.999, m.exp / MM.expToNext(m.level));
+    return '<div class="expbar" style="margin-top:5px"><i style="width:' + (r * 100).toFixed(1) + '%"></i></div>' +
+      '<div class="hpnum">' + (maxed ? '최대 레벨' : 'EXP ' + (Math.floor(r * 1000) / 10).toFixed(1) + '%') + '</div>';
   }
 
   function sessionTally(ss) {
