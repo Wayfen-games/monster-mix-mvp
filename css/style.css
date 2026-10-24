@@ -244,6 +244,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
   background: linear-gradient(90deg, #3b3320, #2a2348); border: 2px solid var(--accent); border-radius: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.4); animation: bannerin .35s ease-out; }
 #banner[hidden] { display: none; }
 #banner.t5 { border-color: #ff5c8a; }
+#banner.notice { border-color: var(--good); background: linear-gradient(90deg, #1f3a2a, #2a2348); }
 #banner b { color: var(--accent); }
 @keyframes bannerin { from { transform: translateY(-30px); opacity: 0; } }
 

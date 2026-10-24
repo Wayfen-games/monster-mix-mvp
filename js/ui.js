@@ -292,7 +292,7 @@
       bt: MM.createBattle(party, enemies),
       auto: repeat || (kind !== 'tutorial' && !!S.settings.autoBattle),
       repeat: repeat, stopAfter: prev && prev.repeat ? prev.stopAfter : false,
-      session: repeat && prev && prev.repeat ? prev.session : (repeat ? newSession() : null),
+      session: repeat && prev && prev.repeat ? prev.session : (repeat ? (function () { var ns = newSession(); var r0 = readyNow(); ns.readySig = r0.summon.join() + '|' + (r0.pair ? r0.pair.main.id + '-' + r0.pair.sub.id : ''); return ns; })() : null),
       timer: null, busy: false, last: null, between: false
     };
     view.tab = 'battle';
@@ -324,6 +324,29 @@
       '<div class="hpnum">' + (maxed ? '최대 레벨' : 'EXP ' + (Math.floor(r * 1000) / 10).toFixed(1) + '%') + '</div>';
   }
 
+  // 자동 반복 중: 소환·합성 가능 알림
+  function readyNow() {
+    var sum = MM.allSpecies().filter(function (sp) { return MM.canSummon(S, sp.key); }).map(function (sp) { return MM.speciesName(sp.el, sp.tier); });
+    var pairs = readyPairs(1);
+    return { summon: sum, pair: pairs[0] || null };
+  }
+  function readyNotice() {
+    var r = readyNow(), out = '';
+    if (r.summon.length) out += '<div class="row between" style="margin-top:8px"><span class="chip gold">★ 소환 가능: ' + r.summon.slice(0, 3).join(', ') + (r.summon.length > 3 ? ' 외 ' + (r.summon.length - 3) : '') + '</span><button class="btn sm" data-act="stopGo" data-to="souls">멈추고 소환</button></div>';
+    if (r.pair) out += '<div class="row between" style="margin-top:8px"><span class="chip adv">✦ 합성 가능: ' + name(r.pair.main) + ' + ' + name(r.pair.sub) + '</span><button class="btn sm" data-act="stopGo" data-to="fusion">멈추고 합성</button></div>';
+    return out;
+  }
+  function checkReadyBanner(Bt) {
+    var r = readyNow(), sig = r.summon.join() + '|' + (r.pair ? r.pair.main.id + '-' + r.pair.sub.id : '');
+    var prev = Bt.session.readySig || '';
+    Bt.session.readySig = sig;
+    var newSummon = r.summon.filter(function (x) { return prev.split('|')[0].split(',').indexOf(x) < 0; });
+    var newPair = r.pair && prev.split('|')[1] !== (r.pair.main.id + '-' + r.pair.sub.id);
+    if (newSummon.length) showNotice('★ 소환 가능!', newSummon.join(', ') + ' 소울이 ' + BAL().SOULS_PER_SUMMON + '개 모였어요');
+    if (newPair) showNotice('✦ 합성 가능!', name(r.pair.main) + ' + ' + name(r.pair.sub));
+  }
+  function showNotice(title, sub) { bannerQueue.push({ notice: true, title: title, sub: sub }); if (bannerQueue.length === 1) nextBanner(); }
+
   function sessionTally(ss) {
     var keys = Object.keys(ss.drops).sort(function (a, b) { return MM.parseKey(b).tier - MM.parseKey(a).tier; });
     return '<div class="tally">' + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (p.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.speciesName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : '<span class="muted small">아직 얻은 소울이 없어요</span>') + '</div>';
@@ -353,7 +376,7 @@
     if (Bt.repeat) {
       var ss = Bt.session;
       html += '<div class="repeat-box"><div class="row between"><b>자동 반복 ' + (ss.runs + (bt.result ? 0 : 1)) + '판째</b><span class="muted small">오늘 남은 ' + MM.autoLeft(S, Date.now()) + '판</span></div>' +
-        '<div class="muted small">승 ' + ss.wins + ' · 패 ' + ss.losses + ' · 골드 +' + fmt(ss.gold) + '</div>' + sessionTally(ss) + '</div>' +
+        '<div class="muted small">승 ' + ss.wins + ' · 패 ' + ss.losses + ' · 골드 +' + fmt(ss.gold) + '</div>' + sessionTally(ss) + readyNotice() + '</div>' +
         '<div class="battle-bar"><button class="btn' + (Bt.stopAfter ? ' toggle on' : '') + '" data-act="stopAfter">' + (Bt.stopAfter ? '이번 판 후 멈춤 ✓' : '이번 판 후 멈추기') + '</button><button class="btn danger" data-act="stopNow">지금 멈추기</button></div>';
     } else if (Bt.kind !== 'tutorial') {
       html += '<div class="battle-bar"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON' : 'OFF') + '</button></div>';
@@ -421,6 +444,7 @@
         r.levelUps.forEach(function (u) { ss.levelUps[u.id] = u; });
         rareOf(r.drops).forEach(showBanner);
       }
+      checkReadyBanner(Bt);
       if (Bt.stopAfter || MM.autoLeft(S, Date.now()) <= 0) {
         if (MM.autoLeft(S, Date.now()) <= 0) toast('오늘 자동 반복 판수를 다 썼어요');
         endRepeat(); return;
@@ -513,10 +537,15 @@
   function nextBanner() {
     var d = bannerQueue[0], el = $('banner');
     if (!d) { el.hidden = true; return; }
-    el.className = d.tier >= 5 ? 't5' : '';
-    el.innerHTML = monSvg(d.el, d.tier, 36) + '<div><b>' + d.tier + '단계 소울' + (d.first ? ' 첫 획득!' : '!') + '</b><div class="small">' + MM.speciesName(d.el, d.tier) + ' 소울 ×' + d.count + '</div></div>';
+    if (d.notice) {
+      el.className = 'notice';
+      el.innerHTML = '<div><b>' + d.title + '</b><div class="small">' + d.sub + '</div></div>';
+    } else {
+      el.className = d.tier >= 5 ? 't5' : '';
+      el.innerHTML = monSvg(d.el, d.tier, 36) + '<div><b>' + d.tier + '단계 소울' + (d.first ? ' 첫 획득!' : '!') + '</b><div class="small">' + MM.speciesName(d.el, d.tier) + ' 소울 ×' + d.count + '</div></div>';
+    }
     el.hidden = false;
-    setTimeout(function () { bannerQueue.shift(); el.hidden = true; setTimeout(nextBanner, 150); }, 1800 + d.tier * 250);
+    setTimeout(function () { bannerQueue.shift(); el.hidden = true; setTimeout(nextBanner, 150); }, d.notice ? 2200 : 1800 + d.tier * 250);
   }
 
   // ================= 몬스터 / 소울 =================
@@ -886,6 +915,11 @@
     },
     stopAfter: function () { if (view.battle) { view.battle.stopAfter = !view.battle.stopAfter; render(); } },
     stopNow: function () { endRepeat(); },
+    stopGo: function (d) {
+      stopBattleTimers(); view.battle = null;
+      if (d.to === 'souls') { view.monSeg = 'souls'; go('monsters'); }
+      else { var r = readyNow(); if (r.pair) view.fusion = { mainId: r.pair.main.id, subId: r.pair.sub.id, soulEl: null }; go('fusion'); }
+    },
     flee: function () { if (confirm('나가면 이번 판 보상은 없어요. 나갈까요?')) go(view.battle && view.battle.kind === 'dungeon' ? 'stages' : 'stageDetail'); },
     party: function (d) {
       var id = +d.id, i = S.party.indexOf(id);
