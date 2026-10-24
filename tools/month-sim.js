@@ -144,15 +144,16 @@ function simulatePlayer(seed) {
       for (let dt = T; dt >= 1; dt--) {
         if (!MM.dungeonUnlocked(s, dt)) continue;
         const r = winRateEst(party, () => MM.dungeonEnemies(els, dt), rng, cache, sig(party) + '|D' + dt + els.join(), 30);
-        if (r >= 0.5) { tier = dt; break; }
+        if (r >= 0.15) { tier = dt; break; }
         if (s.dungeon.cleared[dt]) { tier = -dt; break; } // 소탕
       }
       if (!tier) continue;
-      MM.useDungeonEntry(s, dayStart);
       const dt = Math.abs(tier), en = MM.dungeonEnemies(els, dt);
-      let win = true;
-      if (tier > 0) { const bt = MM.simulateBattle(party, en, rng); log.actions += bt.log.length; log.battles++; win = bt.result === 'win'; }
-      if (win) { const r = MM.grantDungeonWin(s, dt, en, rng, { noTopBonus: true }); r.drops.forEach(d => log.wasted += d.wasted); log.dungeonTop = Math.max(log.dungeonTop, dt); }
+      let win = tier < 0;
+      for (let tries = 0; tier > 0 && !win && tries < 20; tries++) { const bt = MM.simulateBattle(party, en, rng); log.actions += bt.log.length; log.battles++; win = bt.result === 'win'; }
+      if (!win) continue;
+      MM.useDungeonEntry(s, dayStart);
+      { const r = MM.grantDungeonWin(s, dt, en, rng, { noTopBonus: true }); r.drops.forEach(d => log.wasted += d.wasted); log.dungeonTop = Math.max(log.dungeonTop, dt); }
     }
     // 자동 반복
     blocked = manage(dayStart);

@@ -249,7 +249,7 @@
     var now = Date.now(), dEl = MM.dungeonElementFor(now), wd = MM.weekday(now), left = MM.dungeonLeft(S, now);
     var els = dEl ? [dEl] : view.dungeonEls;
     var html = '<div class="card"><div class="row between"><b>' + MM.WEEKDAY_NAMES[wd] + '요일 던전</b><span class="chip gold">오늘 ' + left + '/' + BAL().DUNGEON_DAILY + '판</span></div>' +
-      '<div class="muted small lh" style="margin-top:6px">하루 ' + BAL().DUNGEON_DAILY + '판 · 소울이 스테이지보다 훨씬 잘 나와요 · 한 번 깬 단계는 소탕 가능 · 앞 단계를 깨야 다음 단계가 열려요<br>월 빛 · 화 불 · 수 물 · 목 풀 · 금 어둠 · 주말은 속성 3개 선택</div></div>';
+      '<div class="muted small lh" style="margin-top:6px">하루 ' + BAL().DUNGEON_DAILY + '번 클리어 (지면 횟수 그대로, 다시 도전 가능) · 소울이 스테이지보다 훨씬 잘 나와요 · 한 번 깬 단계는 소탕 가능 · 앞 단계를 깨야 다음 단계가 열려요<br>월 빛 · 화 불 · 수 물 · 목 풀 · 금 어둠 · 주말은 속성 3개 선택</div></div>';
     if (!dEl) {
       html += '<div class="card"><b>주말: 서로 다른 속성 3개 고르기 (' + view.dungeonEls.length + '/3)</b><div class="el-pick" style="margin:10px 0 0">' + MM.RING.map(function (el) {
         var on = view.dungeonEls.indexOf(el) >= 0;
@@ -397,7 +397,8 @@
       return;
     }
     if (win) {
-      r = Bt.kind === 'dungeon' ? MM.grantDungeonWin(S, Bt.tier, Bt.enemies) : MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies);
+      if (Bt.kind === 'dungeon') { MM.useDungeonEntry(S, Date.now()); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies); }
+      else r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies);
     } else {
       S.stats.battlesLost++;
     }
@@ -465,7 +466,7 @@
       } else {
         html += '<div class="card muted">잃은 것은 없어요. 레벨을 올리거나 상성이 유리한 몬스터로 파티를 바꿔 보세요.</div>';
       }
-      if (R.kind === 'dungeon') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="dungeon">던전으로</button>';
+      if (R.kind === 'dungeon') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="dungeon">' + (R.win ? '던전으로' : '던전으로 (횟수 그대로, 다시 도전 가능)') + '</button>';
       else again = '<button class="btn primary block" data-act="again">다시 도전</button>' +
         (S.cleared[MM.speciesKey(R.el, R.tier)] ? '<button class="btn good block" style="margin-top:10px" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 시작 · 오늘 ' + MM.autoLeft(S, Date.now()) + '판 남음</button>' : '');
     }
@@ -848,14 +849,14 @@
     startDungeon: function (d) {
       var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice();
       if (!dEl && els.length !== 3) { toast('주말에는 속성 3개를 골라 주세요'); return; }
-      if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 입장 횟수를 다 썼어요'); return; }
-      startBattle('dungeon', { tier: +d.tier, els: els });
+      if (MM.dungeonLeft(S, now) <= 0) { toast('오늘 던전 횟수를 다 썼어요'); return; }
+      startBattle('dungeon', { tier: +d.tier, els: els }); // 횟수는 이겨서 보상을 받을 때 차감
     },
     sweepDungeon: function (d) {
       var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice(), tier = +d.tier;
       if (!dEl && els.length !== 3) { toast('주말에는 속성 3개를 골라 주세요'); return; }
       if (!S.dungeon.cleared[tier]) return;
-      if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 입장 횟수를 다 썼어요'); return; }
+      if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 횟수를 다 썼어요'); return; }
       var en = MM.dungeonEnemies(els, tier), r = MM.grantDungeonWin(S, tier, en);
       save();
       view.reward = { win: true, kind: 'dungeon', tier: tier, els: els, r: r };
