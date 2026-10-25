@@ -367,7 +367,8 @@
 
   function sessionTally(ss) {
     var keys = Object.keys(ss.drops).sort(function (a, b) { return MM.parseKey(b).tier - MM.parseKey(a).tier; });
-    return '<div class="tally">' + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (p.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.speciesName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : '<span class="muted small">아직 얻은 소울이 없어요</span>') + '</div>';
+    var tk = ss.tickets ? '<span class="chip gold">🎟 ' + (ss.ticketTier || '') + '단계 입장권 ×' + ss.tickets + '</span>' : '';
+    return '<div class="tally">' + tk + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (p.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.speciesName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : (tk ? '' : '<span class="muted small">아직 얻은 소울이 없어요</span>')) + '</div>';
   }
 
   SCREENS.battle = function () {
@@ -464,7 +465,7 @@
         r.drops.forEach(function (d) { ss.drops[d.key] = (ss.drops[d.key] || 0) + d.added; ss.wasted += d.wasted; if (d.first) ss.firsts[d.key] = true; });
         r.levelUps.forEach(function (u) { ss.levelUps[u.id] = u; });
         rareOf(r.drops).forEach(showBanner);
-        if (r.ticket) { ss.tickets = (ss.tickets || 0) + 1; showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장 (이번 반복 ' + ss.tickets + '장)'); }
+        if (r.ticket) { ss.tickets = (ss.tickets || 0) + 1; ss.ticketTier = r.ticket; showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장 (이번 반복 ' + ss.tickets + '장)'); }
       }
       checkReadyBanner(Bt);
       if (Bt.stopAfter || MM.autoLeft(S, Date.now()) <= 0) {
