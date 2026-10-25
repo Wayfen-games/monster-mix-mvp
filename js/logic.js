@@ -374,7 +374,7 @@
     var b = B();
     var gold = tv(b.FUSION_GOLD, main.tier) * (1 + b.FUSION_GOLD_STACK_UP * main.stack);
     if (main.tier === 1) return { gold: Math.round(gold / 10) * 10, soulTier: null, soulOptions: [], souls: 0 };
-    var n = Math.max(1, Math.min(b.FUSION_SOUL_MAX || 1, Math.round(souls || 1)));
+    var n = (b.FUSION_SOUL_MAX_TIER && main.tier > b.FUSION_SOUL_MAX_TIER) ? 1 : Math.max(1, Math.min(b.FUSION_SOUL_MAX || 1, Math.round(souls || 1)));
     gold *= 1 - (b.FUSION_SOUL_GOLD_CUT || 0) * (n - 1);
     var opts = [main.el];
     if (sub && sub.el !== main.el) opts.push(sub.el);
