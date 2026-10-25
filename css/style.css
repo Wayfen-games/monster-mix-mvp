@@ -277,3 +277,4 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .plus { color: var(--accent); font-weight: 800; }
 .rate-box { text-align: center; background: var(--panel2); border-radius: 12px; padding: 12px; }
 .rate-box .rate { font-size: 34px; font-weight: 800; color: var(--accent); }
+.tap-card { display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; margin: 0; }

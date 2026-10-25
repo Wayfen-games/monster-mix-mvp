@@ -293,6 +293,23 @@
     check('합성하면 강화 사라짐', fr.success && !fr.monster.plus);
   })();
 
+  // ---- 소울 제단·뽑기 ----
+  (function () {
+    var s = MM.newState(t0); s.souls.fire1 = 100; s.souls.fire3 = 5;
+    var m = MM.addMonster(s, 'fire', 1, 1);
+    var r = MM.offerSouls(s, 'fire', 1, 20);
+    check('제단: 1단계 소울 20개(20점) → Lv 1', r.level === 1 && MM.altarOf(s, 'fire').pts === 0);
+    MM.offerSouls(s, 'fire', 3, 1);
+    check('제단: 3단계 소울 1개 = 49점', MM.altarSoulPoints(3) === 49 && MM.altarOf(s, 'fire').level >= 2);
+    check('제단 보너스: 그 속성만 능력치·경험치', MM.playerMult(s, m) > 1 && MM.altarExpBonus(s, 'water') === 0);
+    var s2 = MM.newState(t0); s2.souls.water2 = 100; var kinds = {}, seq = [0.1, 0.5, 0.8, 0.95, 0.995];
+    seq.forEach(function (x) { s2.souls.water2 = 100; var g = MM.gachaPull(s2, 'water', 2, function () { return x; }); kinds[g.kind] = g; });
+    check('뽑기: 30개 소모, 결과 5종류', s2.souls.water2 < 100 && Object.keys(kinds).length === 5);
+    check('뽑기 입장권은 같은 단계', MM.ticketCount(s2, 2) === 1 + 3);
+    check('뽑기 위 단계 소울', (s2.souls.water3 || 0) === 1 + 3, s2.souls.water3);
+    check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);

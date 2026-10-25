@@ -17,7 +17,7 @@
       offline: { stage: null, lastSeen: now, pendingMs: 0, carry: 0, bag: { souls: {}, gold: 0, exp: 0, runs: 0 }, team: [] },
       tutorial: { step: 0, done: false },
       records: [],
-      equips: [], equipped: {},
+      equips: [], equipped: {}, altar: {},
       settings: { autoBattle: true, recordOn: true, fastTest: false },
       stats: { fusionTries: 0, fusionSuccess: 0, battlesWon: 0, battlesLost: 0, startedAt: now }
     };
@@ -223,8 +223,54 @@
     return { success: false, rate: rate, monster: m, cost: c, nextRate: MM.monEnhRate(m) };
   };
 
+  // ================= 소울 제단 =================
+  function alt(s, el) { if (!s.altar) s.altar = {}; if (!s.altar[el]) s.altar[el] = { level: 0, pts: 0 }; return s.altar[el]; }
+  MM.altarOf = function (s, el) { return alt(s, el); };
+  MM.altarSoulPoints = function (tier) { return Math.pow(B().ALTAR_SOUL_POINTS_GROWTH, tier - 1); };
+  MM.altarNeed = function (level) { return Math.round(B().ALTAR_A * Math.pow(B().ALTAR_R, level)); };
+  MM.altarExpBonus = function (s, el) { return alt(s, el).level * B().ALTAR_EXP_PER_LV; };
+  MM.altarStatBonus = function (s, el) { return alt(s, el).level * B().ALTAR_STAT_PER_LV; };
+  MM.offerSouls = function (s, el, tier, count) {
+    var key = MM.speciesKey(el, tier), have = s.souls[key] || 0;
+    count = Math.min(count || 1, have);
+    if (count <= 0) return { error: '소울이 없어요' };
+    s.souls[key] -= count;
+    var a = alt(s, el), before = a.level;
+    a.pts += count * MM.altarSoulPoints(tier);
+    while (a.pts >= MM.altarNeed(a.level)) { a.pts -= MM.altarNeed(a.level); a.level++; }
+    s.stats.soulsOffered = (s.stats.soulsOffered || 0) + count;
+    return { used: count, points: count * MM.altarSoulPoints(tier), before: before, level: a.level, ups: a.level - before };
+  };
+  MM.offerPreview = function (s, el, tier, count) {
+    var a = alt(s, el), c = { level: a.level, pts: a.pts + count * MM.altarSoulPoints(tier) };
+    while (c.pts >= MM.altarNeed(c.level)) { c.pts -= MM.altarNeed(c.level); c.level++; }
+    return c;
+  };
+
+  // ================= 소울 뽑기 =================
+  MM.gachaPull = function (s, el, tier, rng) {
+    var b = B(), key = MM.speciesKey(el, tier);
+    if ((s.souls[key] || 0) < b.GACHA_COST) return { error: MM.josa(MM.speciesName(el, tier) + ' 소울', '이', '가') + ' ' + b.GACHA_COST + '개 필요해요' };
+    s.souls[key] -= b.GACHA_COST;
+    var r = R(rng)(), acc = 0, row = b.GACHA_TABLE[0];
+    for (var i = 0; i < b.GACHA_TABLE.length; i++) { acc += b.GACHA_TABLE[i].p; if (r < acc) { row = b.GACHA_TABLE[i]; break; } }
+    var out = { kind: row.kind, souls: {}, tickets: 0 }, top = tier >= b.MAX_TIER;
+    var randEl = function () { return MM.RING[Math.floor(R(rng)() * MM.RING.length)]; };
+    var upKey = MM.speciesKey(el, top ? tier : tier + 1);
+    if (row.kind === 'souls') { var k = MM.speciesKey(randEl(), tier); out.souls[k] = row.min + Math.floor(R(rng)() * (row.max - row.min + 1)); }
+    else if (row.kind === 'ticket') out.tickets = row.n;
+    else if (row.kind === 'up') out.souls[upKey] = row.n * (top ? 5 : 1);
+    else if (row.kind === 'jackpot') { out.souls[upKey] = row.up * (top ? 5 : 1); out.tickets = row.tickets; }
+    out.drops = MM.applyDrops(s, out.souls);
+    if (out.tickets) MM.addTickets(s, tier, out.tickets);
+    s.stats.gachaPulls = (s.stats.gachaPulls || 0) + 1;
+    if (row.kind === 'jackpot') MM.addRecord(s, { type: 'gacha', el: el, tier: tier });
+    out.tier = tier; out.el = el;
+    return out;
+  };
+
   // 전투에 들어갈 내 몬스터: 장비(그 속성)·몬스터 강화 배율을 붙인 복사본
-  MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.monEnhBonus(m)); };
+  MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.monEnhBonus(m)) * (1 + MM.altarStatBonus(s, m.el)); };
   MM.battleParty = function (s, mons) {
     return mons.map(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c.mult = (m.mult || 1) * MM.playerMult(s, m); return c; });
   };
@@ -494,7 +540,7 @@
     s.party.forEach(function (id) {
       var m = MM.getMonster(s, id);
       if (!m) return;
-      var n = MM.giveExp(m, amount);
+      var n = MM.giveExp(m, Math.round(amount * (1 + MM.altarExpBonus(s, m.el))));
       if (n) ups.push({ id: m.id, name: MM.speciesName(m.el, m.tier), level: m.level });
     });
     return ups;
@@ -630,7 +676,7 @@
     var ups = [], expBy = {};
     team.forEach(function (id) {
       var m = MM.getMonster(s, id); if (!m) return;
-      var amount = MM.offlineExpFor(m, st.tier) * bag.runs;
+      var amount = Math.round(MM.offlineExpFor(m, st.tier) * bag.runs * (1 + MM.altarExpBonus(s, m.el)));
       expBy[id] = amount;
       if (MM.giveExp(m, amount)) ups.push({ id: m.id, name: MM.speciesName(m.el, m.tier), level: m.level });
     });

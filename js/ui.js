@@ -111,7 +111,7 @@
     MM.refreshDaily(S, Date.now());
     $('gold').textContent = fmt(S.gold) + ' G';
     document.body.classList.toggle('in-battle', view.tab === 'battle');
-    var tabFor = { stageDetail: 'stages', reward: 'stages', settings: 'home', battle: 'stages' };
+    var tabFor = { stageDetail: 'stages', reward: 'stages', settings: 'home', battle: 'stages', altar: 'home', gacha: 'home' };
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
       b.classList.toggle('on', b.dataset.tab === (tabFor[view.tab] || view.tab));
     });
@@ -125,6 +125,65 @@
   var SCREENS = {}, DOCKS = {};
 
   // ================= 마을 =================
+  SCREENS.altar = function () {
+    var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🔥 소울 제단</h2>' +
+      '<div class="muted small lh" style="margin-bottom:10px">속성마다 제단이 있어요. 그 속성 소울을 바치면 제단 레벨이 오르고, 그 속성 몬스터 전체가 영구히 강해져요.<br>레벨당 경험치 +' + Math.round(BAL().ALTAR_EXP_PER_LV * 100) + '% · 체력·공격·방어 +' + (BAL().ALTAR_STAT_PER_LV * 100) + '% · 높은 단계 소울일수록 많이 차요 (n단계 = ' + BAL().ALTAR_SOUL_POINTS_GROWTH + '^(n-1)점)</div>';
+    MM.RING.forEach(function (el) {
+      var a = MM.altarOf(S, el), need = MM.altarNeed(a.level);
+      html += '<div class="card"><div class="row between"><div class="row" style="gap:8px">' + monSvg(el, 3, 32) + '<b>' + MM.ELEMENTS[el].name + ' 제단 Lv ' + a.level + '</b></div><button class="btn sm primary" data-act="offerSheet" data-el="' + el + '">바치기</button></div>' +
+        '<div class="expbar" style="margin-top:8px"><i style="width:' + (a.pts / need * 100) + '%"></i></div>' +
+        '<div class="row between small muted" style="margin-top:4px"><span>' + fmt(a.pts) + ' / ' + fmt(need) + '점</span><span>경험치 +' + Math.round(MM.altarExpBonus(S, el) * 100) + '% · 능력치 +' + (Math.round(MM.altarStatBonus(S, el) * 1000) / 10) + '%</span></div></div>';
+    });
+    return html;
+  };
+  function offerSheet(el) {
+    var a = MM.altarOf(S, el), html = '<b>' + MM.ELEMENTS[el].name + ' 제단에 바치기</b> <span class="muted small">Lv ' + a.level + '</span><div class="pick-list" style="margin-top:10px">', any = false;
+    MM.tiers().forEach(function (t) {
+      var n = S.souls[MM.speciesKey(el, t)] || 0; if (!n) return; any = true;
+      var opts = [1, 10, n].filter(function (c, i, arr) { return c <= n && arr.indexOf(c) === i; });
+      html += '<div class="pick" style="display:block"><div class="row between"><b>' + MM.speciesName(el, t) + ' 소울 ' + n + '개</b><span class="muted small">1개 ' + fmt(MM.altarSoulPoints(t)) + '점</span></div><div class="row wrap" style="gap:6px;margin-top:8px">' +
+        opts.map(function (c) { var p = MM.offerPreview(S, el, t, c); return '<button class="btn sm" data-act="offer" data-el="' + el + '" data-tier="' + t + '" data-n="' + c + '">' + (c === n && c > 10 ? '전부' : c + '개') + (p.level > a.level ? ' → Lv ' + p.level : '') + '</button>'; }).join('') + '</div></div>';
+    });
+    if (!any) html += '<div class="muted small">' + MM.ELEMENTS[el].name + ' 소울이 없어요</div>';
+    openSheet(html + '</div><div class="muted small" style="margin-top:10px">바친 소울은 돌아오지 않아요. 소환·합성에 쓸 소울은 남겨 두세요.</div>');
+  }
+  SCREENS.gacha = function () {
+    var c = BAL().GACHA_COST;
+    var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🎁 소울 뽑기</h2>' +
+      '<div class="muted small lh" style="margin-bottom:10px">같은 소울 ' + c + '개로 한 번 뽑아요. 꽝, 소울, 입장권, 한 단계 위 소울, 가끔 대박이 나와요.</div>' +
+      '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
+    MM.RING.forEach(function (el) {
+      html += '<div class="el">' + elName(el) + '</div>';
+      MM.tiers().forEach(function (t) {
+        var n = S.souls[MM.speciesKey(el, t)] || 0, k = Math.floor(n / c);
+        html += '<button class="soul-cell' + (k ? ' ready' : '') + '" data-act="gachaSheet" data-el="' + el + '" data-tier="' + t + '"' + (k ? '' : ' disabled') + '><b>' + n + '개</b>' + (k ? k + '번' : '') + '</button>';
+      });
+    });
+    return html + '</div></div><div class="muted small" style="margin-top:10px">총 ' + fmt(S.stats.gachaPulls || 0) + '번 뽑았어요</div>';
+  };
+  function gachaSheet(el, tier) {
+    var n = S.souls[MM.speciesKey(el, tier)] || 0, c = BAL().GACHA_COST, k = Math.floor(n / c);
+    openSheet('<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.speciesName(el, tier) + ' 소울 뽑기</b><div class="muted small">보유 ' + n + '개 · 1번에 ' + c + '개</div></div></div>' +
+      '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="1"' + (k >= 1 ? '' : ' disabled') + '>1번 뽑기</button>' +
+      '<button class="btn" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="10"' + (k >= 10 ? '' : ' disabled') + '>10번 뽑기</button></div>');
+  }
+  var GACHA_LABEL = { none: '꽝', souls: '소울', ticket: '입장권', up: '한 단계 위 소울!', jackpot: '대박!!' };
+  function doGacha(el, tier, times) {
+    var res = [];
+    for (var i = 0; i < times; i++) { var r = MM.gachaPull(S, el, tier); if (r.error) { if (!res.length) { toast(r.error); return; } break; } res.push(r); }
+    save(); closeSheet(); render();
+    var best = res.reduce(function (b, r) { var o = ['none', 'souls', 'ticket', 'up', 'jackpot']; return o.indexOf(r.kind) > o.indexOf(b) ? r.kind : b; }, 'none');
+    var drops = {}, tickets = 0;
+    res.forEach(function (r) { r.drops.forEach(function (d) { var x = drops[d.key] || (drops[d.key] = { key: d.key, el: d.el, tier: d.tier, count: 0, added: 0, wasted: 0, first: false }); x.count += d.count; x.added += d.added; x.wasted += d.wasted; x.first = x.first || d.first; }); tickets += r.tickets; });
+    var list = Object.keys(drops).map(function (k) { return drops[k]; }).sort(function (a, b) { return b.tier - a.tier; });
+    var big = best === 'jackpot' || best === 'up';
+    var showTier = best === 'jackpot' ? Math.min(5, tier + 2) : best === 'up' ? Math.min(5, tier + 1) : tier;
+    showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + (big ? raysClass(Math.max(4, showTier)) : 'rays reveal now') + '"></div><div class="pop now" style="font-size:96px;line-height:130px">' + (best === 'jackpot' ? '💎' : best === 'up' ? '✨' : best === 'ticket' ? '🎟' : best === 'souls' ? '🎁' : '📦') + '</div></div>' +
+      '<div class="reveal now"><div class="big ok">' + GACHA_LABEL[best] + '</div><div class="sub">' + MM.speciesName(el, tier) + ' 소울 뽑기 ' + res.length + '번' + (res.length > 1 ? ' · ' + ['jackpot', 'up', 'ticket', 'souls', 'none'].map(function (k) { var c = res.filter(function (r) { return r.kind === k; }).length; return c ? GACHA_LABEL[k].replace(/!/g, '') + ' ' + c : ''; }).filter(Boolean).join(' · ') : '') + '</div>' +
+      '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare">🎟 ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + (!list.length && !tickets ? '<span class="muted">아무것도 안 나왔어요…</span>' : '') + '</div></div>' +
+      '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div></div>');
+    var rare = rareOf(list); if (rare.length) rare.forEach(showBanner);
+  }
   function goalCount() {
     return MM.RING.filter(function (el) { return S.dex[MM.speciesKey(el, T())]; }).length;
   }
@@ -170,6 +229,7 @@
       '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b><span class="small">하루 +' + BAL().AUTO_REPEAT_DAILY + ' · 최대 ' + fmt(BAL().AUTO_REPEAT_MAX) + '</span></div>' +
       '</div></div>' +
       '<div class="card"><b>다음 할 일</b><div class="muted" style="margin-top:6px">' + hint() + '</div></div>' +
+      '<div class="grid2" style="margin-bottom:12px"><button class="card tap-card" data-act="tab" data-tab="altar"><b>🔥 소울 제단</b><div class="muted small">남는 소울로 속성 영구 강화</div></button><button class="card tap-card" data-act="tab" data-tab="gacha"><b>🎁 소울 뽑기</b><div class="muted small">소울 ' + BAL().GACHA_COST + '개로 한 번</div></button></div>' +
       '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
       '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="tab" data-tab="stages">⚔ 전투</button><button class="btn primary" data-act="tab" data-tab="fusion">✦ 합성</button></div>' +
       '<h3>기록</h3><div class="card muted small lh">합성 ' + S.stats.fusionTries + '회 시도 · ' + S.stats.fusionSuccess + '회 성공<br>전투 ' + S.stats.battlesWon + '승 ' + S.stats.battlesLost + '패 · 몬스터 ' + S.monsters.length + '마리' +
@@ -1162,6 +1222,17 @@
     teamSave: function () { changeOfflineTeam(view.teamSel || []); },
     pickOffline: function (d) { changeOfflineStage(d.el, +d.tier); },
     feedSheet: function (d) { feedSheet(+d.id); },
+    offerSheet: function (d) { offerSheet(d.el); },
+    offer: function (d) {
+      var r = MM.offerSouls(S, d.el, +d.tier, +d.n);
+      if (r.error) { toast(r.error); return; }
+      save(); render();
+      if (r.ups) showNotice('🔥 ' + MM.ELEMENTS[d.el].name + ' 제단 Lv ' + r.level + '!', MM.ELEMENTS[d.el].name + ' 몬스터 경험치 +' + Math.round(MM.altarExpBonus(S, d.el) * 100) + '% · 능력치 +' + (Math.round(MM.altarStatBonus(S, d.el) * 1000) / 10) + '%');
+      else toast('+' + fmt(r.points) + '점');
+      offerSheet(d.el);
+    },
+    gachaSheet: function (d) { gachaSheet(d.el, +d.tier); },
+    gacha: function (d) { doGacha(d.el, +d.tier, +d.n); },
     equipSlot: function (d) { equipSlotSheet(d.el); },
     equipIt: function (d) { MM.equip(S, +d.id); save(); closeSheet(); render(); },
     unequip: function (d) { MM.unequip(S, d.el); save(); closeSheet(); render(); },
