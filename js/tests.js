@@ -379,6 +379,19 @@
     check('도감 세트: 2단계 5종 완성 → 2단계 입장권 3장 + 보스 입장권 1장 (한 번만)', MM.ticketCount(s, 2) === 3 && MM.bossTicketCount(s, 2) === 1 && !MM.checkDexSet(s, 2));
   })();
 
+  (function () {
+    var s = MM.newState(t0), rr = MM.seededRng(9);
+    for (var i = 0; i < 10; i++) MM.grantBossWin(s, 1, rr, t0);
+    check('보스 보상 하루 10번', MM.bossLeftToday(s, t0) === 0 && MM.bossLeftToday(s, t0 + 86400000) === 10);
+    var s2 = MM.newState(t0), n5 = 0, n1 = 0;
+    for (var j = 0; j < 20000; j++) { if (MM.grantBossWin(s2, 5, rr, t0 + j * 86400000).feather) n5++; if (MM.grantBossWin(s2, 1, rr, t0 + j * 86400000 + 1).feather) n1++; }
+    check('무지개 깃털: 1단계 0.1%, 5단계 0.5%', n1 > 5 && n1 < 40 && n5 > 70 && n5 < 130, n1 + '/' + n5);
+    var s3 = MM.newState(t0); s3.gold = 1e12; s3.souls.fire2 = 100; var e = MM.craftEquip(s3, 'fire', 2).equip; e.plus = 10;
+    check('+10 이상 강화는 깃털 없으면 불가', !!MM.enhanceEquip(s3, e.id).error);
+    s3.items = { feather: 1 }; s3.souls.fire2 = 100; var r3 = MM.enhanceEquip(s3, e.id);
+    check('깃털 1개 소모', !r3.error && MM.featherCount(s3) === 0);
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);

@@ -347,13 +347,15 @@
     heal: function (k) { return k.every + '턴마다 체력 ' + Math.round(k.pct * 100) + '% 회복'; }
   };
   function bossHtml() {
+    var leftB = MM.bossLeftToday(S, Date.now());
     var html = '<div class="card"><div class="row between"><b>🌈 무지개 보스</b><span class="chip gold">입장권 ' + MM.bossTicketTotal(S) + '장</span></div>' +
-      '<div class="muted small lh" style="margin-top:6px">보스 입장권으로만 들어가요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지 소울을 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
+      '<div class="row between small" style="margin-top:6px"><span>오늘 보상 <b>' + leftB + '/' + BAL().BOSS_DAILY_REWARDS + '</b>번 남음</span><span>🪶 무지개 깃털 <b>' + MM.featherCount(S) + '</b>개</span></div>' +
+      '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×0.1% 확률로 🪶 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지 소울을 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
     MM.tiers().forEach(function (t) {
       var n = MM.bossTicketCount(S, t), sk = BAL().BOSS_SKILLS[t] || [];
       html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 무지개 보스</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장</span></div>' +
         '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + MM.summonLevel(t) + ' 이상 3마리</div></div>' +
-        '<button class="btn primary sm block" data-act="startBoss" data-tier="' + t + '"' + (n && S.party.length ? '' : ' disabled') + '>' + (n ? '도전 (이기면 입장권 1장 사용)' : t + '단계 던전에서 입장권을 모아 보세요') + '</button></div>';
+        '<button class="btn primary sm block" data-act="startBoss" data-tier="' + t + '"' + (n && S.party.length && leftB ? '' : ' disabled') + '>' + (n ? (leftB ? '도전 (이기면 입장권 1장 사용)' : '오늘 보상을 다 받았어요') : t + '단계 던전에서 입장권을 모아 보세요') + '</button></div>';
     });
     return html;
   }
@@ -557,7 +559,7 @@
     if (win) {
       if (Bt.kind === 'dungeon') { MM.useDungeonEntry(S, Date.now()); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies); }
       else if (Bt.kind === 'ticket') { MM.useTicket(S, Bt.tier); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies, null, { ticket: true }); }
-      else if (Bt.kind === 'boss') { MM.useBossTicket(S, Bt.tier); r = MM.grantBossWin(S, Bt.tier); }
+      else if (Bt.kind === 'boss') { MM.useBossTicket(S, Bt.tier); r = MM.grantBossWin(S, Bt.tier, null, Date.now()); if (r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 보스에서 무지개 깃털이 나왔어요 (+' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)'); }
       else { MM.accrueOffline(S, Date.now()); r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies); }
       if (r && r.bossTicket) showNotice('🌈 보스 입장권!!', r.bossTicket + '단계 무지개 보스 입장권 1장');
       if (r && r.ticket && !Bt.repeat) showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장');
@@ -633,7 +635,7 @@
       if (R.win) {
         if (R.r.firstClear) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상!</b><div class="soul-list" style="margin-top:10px">' + dropsHtml([R.r.firstClear]) + '</div></div>';
         if (R.r.offlinePaid) { var P = R.r.offlinePaid; html += '<div class="card"><b>방치 보상 정산</b><div class="muted small" style="margin:4px 0 8px">방치 보상 스테이지가 ' + MM.speciesName(R.r.autoOffline.el, R.r.autoOffline.tier) + ' 스테이지로 바뀌어서, 지금까지 쌓인 ' + hoursText(P.hours) + ' 보상은 ' + MM.speciesName(P.stage.el, P.stage.tier) + ' 스테이지 기준으로 받았어요</div><div class="soul-list">' + (P.drops.length ? dropsHtml(P.drops) : '<span class="muted small">소울 없음</span>') + '</div><div class="cost-line" style="margin-top:8px"><span>골드</span><span>+' + fmt(P.gold) + ' G</span></div></div>'; }
-        html += '<div class="card"><b>전리품</b><div class="soul-list" style="margin-top:10px">' + lootHtml(R.r.drops, R.r.ticket ? [{ tier: R.r.ticket, n: 1 }] : [], R.r.bossTicket ? [{ tier: R.r.bossTicket, n: 1 }] : []) + '</div></div>' +
+        html += '<div class="card"><b>전리품</b><div class="soul-list" style="margin-top:10px">' + (R.r.feather ? '<div class="soul-item rare">🪶 무지개 깃털 ×' + R.r.feather + '</div>' : '') + lootHtml(R.r.drops, R.r.ticket ? [{ tier: R.r.ticket, n: 1 }] : [], R.r.bossTicket ? [{ tier: R.r.bossTicket, n: 1 }] : []) + '</div></div>' +
           '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(R.r.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(R.r.exp) + '</span></div>' +
           R.r.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
       } else {
@@ -780,11 +782,12 @@
   function equipEnhSheet(id) {
     var e = MM.getEquip(S, id); if (!e) { closeSheet(); return; }
     var c = MM.equipEnhCost(e), rate = MM.equipRate(e.plus, e.stack), ceil = MM.equipCeil(e.plus), left = Math.max(1, ceil - e.stack);
-    var have = S.souls[c.key] || 0, ok = have >= c.souls && S.gold >= c.gold;
+    var have = S.souls[c.key] || 0, ok = have >= c.souls && S.gold >= c.gold && MM.featherCount(S) >= (c.feather || 0);
     openSheet('<div class="row" style="gap:12px">' + equipSvg(e.el, e.tier, 52) + '<div><b>' + eqName(e) + ' → +' + (e.plus + 1) + '</b><div class="muted small">' + pctBonus(MM.equipBonus(e)) + ' → ' + pctBonus(MM.equipBonus(e) + BAL().EQUIP_PER_PLUS) + '</div></div></div>' +
       '<div class="rate-box" style="margin-top:12px"><div class="rate">' + pct(rate) + '</div><div class="muted small">성공률 · 실패 스택 ' + e.stack + ' · ' + (rate >= 1 ? '이번엔 확정!' : '천장까지 최대 ' + fmt(left) + '번') + '</div></div>' +
       '<div class="cost-line" style="margin-top:10px"><span>' + (c.souls ? MM.speciesName(e.el, e.tier) + ' 소울 ' + c.souls + '개' : '소울 필요 없음') + '</span><span class="' + (have >= c.souls ? 'okc' : 'lack') + '">' + (c.souls ? '보유 ' + have : '✓') + '</span></div>' +
       '<div class="cost-line"><span>골드 ' + fmt(c.gold) + ' G</span><span class="' + (S.gold >= c.gold ? 'okc' : 'lack') + '">' + (S.gold >= c.gold ? '✓' : '부족') + '</span></div>' +
+      (c.feather ? '<div class="cost-line"><span>🪶 무지개 깃털 ' + c.feather + '개</span><span class="' + (MM.featherCount(S) >= c.feather ? 'okc' : 'lack') + '">보유 ' + MM.featherCount(S) + '</span></div>' : '') +
       '<div class="muted small" style="margin:6px 0">실패해도 장비는 그대로, 비용만 들어요 · 강화 수치는 다른 장비로 옮길 수 없어요</div>' +
       '<button class="btn primary block" data-act="equipEnh" data-id="' + e.id + '"' + (ok ? '' : ' disabled') + '>강화 · ' + pct(rate) + '</button>');
   }
@@ -1016,6 +1019,7 @@
   };
 
   function recLine(r) {
+    if (r.type === 'feather') return { title: '🪶 무지개 깃털!', sub: r.tier + '단계 보스에서 획득' };
     if (r.type === 'dexset') return { title: r.tier + '단계 도감 5종 완성!', sub: '입장권 ' + BAL().DEX_SET_TICKETS + '장 + 보스 입장권 ' + BAL().DEX_SET_BOSS_TICKETS + '장' };
     if (r.type === 'boss') return { title: r.tier + '단계 무지개 보스 격파!', sub: '보스 입장권 1장 사용' };
     if (r.type === 'equip') return { title: '장비 강화 +' + r.plus + '!', sub: MM.equipName(r.el, r.tier) + ' +' + r.plus + (r.rate ? ' · 성공률 ' + pct(r.rate) : '') };
@@ -1236,7 +1240,7 @@
       var node = $('u' + d.uid); if (node && ev && ev.amount) { var dd = document.createElement('div'); dd.className = 'dmg heal'; dd.textContent = '+' + ev.amount; node.appendChild(dd); }
       Bt.timer = setTimeout(battleTick, 450);
     },
-    startBoss: function (d) { var tier = +d.tier; if (MM.bossTicketCount(S, tier) <= 0) { toast('보스 입장권이 없어요'); return; } startBattle('boss', { tier: tier }); },
+    startBoss: function (d) { var tier = +d.tier; if (MM.bossTicketCount(S, tier) <= 0) { toast('보스 입장권이 없어요'); return; } if (MM.bossLeftToday(S, Date.now()) <= 0) { toast('오늘 보스 보상 ' + BAL().BOSS_DAILY_REWARDS + '번을 다 받았어요. 내일 다시 도전하세요'); return; } startBattle('boss', { tier: tier }); },
     startTicket: function (d) {
       var tier = +d.tier;
       if (view.ticketEls.length !== 3) { toast('속성 3개를 골라 주세요'); return; }

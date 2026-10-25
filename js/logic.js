@@ -167,7 +167,7 @@
   };
   MM.equipEnhCost = function (e) {
     var b = B(), n = e.plus;
-    return { souls: n, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: MM.speciesKey(e.el, e.tier) };
+    return { souls: n, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: MM.speciesKey(e.el, e.tier), feather: n >= (b.FEATHER_FROM_PLUS || 999) ? 1 : 0 };
   };
   // n → n+1 시도 횟수 기댓값 (천장 포함)
   MM.equipExpectedTries = function (n) {
@@ -191,7 +191,9 @@
     var c = MM.equipEnhCost(e);
     if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.speciesName(e.el, e.tier) + ' 소울', '이', '가') + ' ' + c.souls + '개 필요해요' };
     if (s.gold < c.gold) return { error: MM.josa('골드', '이', '가') + ' 부족해요' };
+    if (c.feather && MM.featherCount(s) < c.feather) return { error: '+' + B().FEATHER_FROM_PLUS + ' 이상 강화에는 무지개 깃털이 필요해요' };
     s.souls[c.key] -= c.souls; s.gold -= c.gold;
+    if (c.feather) s.items.feather -= c.feather;
     var rate = MM.equipRate(e.plus, e.stack);
     if (R(rng)() < rate) {
       e.plus++; e.stack = 0;
@@ -946,7 +948,16 @@
   MM.bossTicketTotal = function (s) { var tk = s.dungeon.bossTickets || {}; return Object.keys(tk).reduce(function (a, k) { return a + (tk[k] || 0); }, 0); };
   MM.addBossTickets = function (s, tier, n) { s.dungeon.bossTickets = s.dungeon.bossTickets || {}; s.dungeon.bossTickets[tier] = (s.dungeon.bossTickets[tier] || 0) + n; };
   MM.useBossTicket = function (s, tier) { if (MM.bossTicketCount(s, tier) <= 0) return false; s.dungeon.bossTickets[tier]--; return true; };
-  MM.grantBossWin = function (s, tier, rng) {
+  MM.bossLeftToday = function (s, now) {
+    var d = MM.dayKey(now || Date.now());
+    if (!s.bossDaily || s.bossDaily.day !== d) s.bossDaily = { day: d, used: 0 };
+    return Math.max(0, B().BOSS_DAILY_REWARDS - s.bossDaily.used);
+  };
+  MM.featherCount = function (s) { return (s.items && s.items.feather) || 0; };
+  MM.grantBossWin = function (s, tier, rng, now) {
+    MM.bossLeftToday(s, now); s.bossDaily.used++;
+    var feather = 0;
+    if (R(rng)() < B().FEATHER_DROP_PER_TIER * tier) { s.items = s.items || {}; s.items.feather = (s.items.feather || 0) + 1; feather = 1; MM.addRecord(s, { type: 'feather', el: 'rainbow', tier: tier }); }
     var b = B(), st = Math.min(tier + 1, b.MAX_TIER);
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
     var raw = MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1));
@@ -963,7 +974,7 @@
     s.stats.battlesWon++;
     s.stats.bossWins = (s.stats.bossWins || 0) + 1;
     MM.addRecord(s, { type: 'boss', el: 'rainbow', tier: tier });
-    return { drops: drops, gold: 0, exp: exp, levelUps: ups };
+    return { drops: drops, gold: 0, exp: exp, levelUps: ups, feather: feather };
   };
 
   MM.simulateBattle = function (partyMonsters, enemies, rng) {
