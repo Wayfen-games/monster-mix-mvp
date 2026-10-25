@@ -401,9 +401,14 @@
         firstClear = fc[0];
       }
     }
+    // 그 단계 스테이지를 (어느 속성이든) 처음 깨면 오프라인 보상 스테이지로 자동 지정 (더 높은 단계로만)
+    var autoOffline = null;
+    var firstOfTier = !MM.RING.some(function (e) { return s.cleared[MM.speciesKey(e, tier)]; });
+    var cur = s.offline.stage;
+    if (firstOfTier && (!cur || !MM.offlineStageValid(s) || cur.tier < tier)) { s.offline.stage = { el: el, tier: tier }; autoOffline = s.offline.stage; }
     s.cleared[key] = (s.cleared[key] || 0) + 1;
     s.stats.battlesWon++;
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear, autoOffline: autoOffline };
   };
 
   // 던전 승리 보상 (소탕도 같은 보상). 맨 위 단계 던전은 1~5단계 소울 조금 더 (덤).

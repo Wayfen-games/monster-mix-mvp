@@ -167,7 +167,7 @@
       '<div class="card"><b>오늘</b><div class="today" style="margin-top:10px">' +
       '<div>요일 던전<b>' + (dEl ? MM.ELEMENTS[dEl].name : '주말 선택') + ' ' + MM.dungeonLeft(S, now) + '/' + BAL().DUNGEON_DAILY + '</b></div>' +
       '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b><span class="small">하루 +' + BAL().AUTO_REPEAT_DAILY + ' · 최대 ' + fmt(BAL().AUTO_REPEAT_MAX) + '</span></div>' +
-      '<div>오프라인 보상<b>' + (off && MM.offlineStageValid(S) ? MM.speciesName(off.el, off.tier) + ' 스테이지' : '미지정') + '</b></div></div></div>' +
+      '<button class="tap" data-act="offlineSheet">오프라인 보상<b>' + (off && MM.offlineStageValid(S) ? MM.speciesName(off.el, off.tier) : '미지정') + '</b><span class="small">' + (off && MM.offlineStageValid(S) ? '바꾸기 ›' : '눌러서 지정 ›') + '</span></button></div></div>' +
       '<div class="card"><b>다음 할 일</b><div class="muted" style="margin-top:6px">' + hint() + '</div></div>' +
       '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
       '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="tab" data-tab="stages">⚔ 전투</button><button class="btn primary" data-act="tab" data-tab="fusion">✦ 합성</button></div>' +
@@ -430,6 +430,7 @@
     if (win) {
       if (Bt.kind === 'dungeon') { MM.useDungeonEntry(S, Date.now()); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies); }
       else r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies);
+      if (r && r.autoOffline) showNotice('오프라인 보상 지정', MM.speciesName(r.autoOffline.el, r.autoOffline.tier) + ' 스테이지로 자동 지정했어요');
     } else {
       S.stats.battlesLost++;
     }
@@ -604,6 +605,22 @@
     if (!any) html += '<div class="muted small">' + elName(m.el) + ' 소울이 없어요</div>';
     html += '</div><div class="muted small" style="margin-top:10px">높은 단계 소울일수록 경험치가 많아요. 최대 레벨이 되면 남은 소울은 쓰지 않아요.</div>';
     openSheet(html);
+  }
+
+  function offlineSheet() {
+    var off = MM.offlineStageValid(S) ? S.offline.stage : null, html = '<b>오프라인 보상 스테이지</b><div class="muted small" style="margin:4px 0 10px">게임을 안 하는 동안 이 스테이지를 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%로 돌아요 (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간) · 클리어한 스테이지만</div><div class="pick-list">';
+    var any = false;
+    MM.tiers().slice().reverse().forEach(function (t) {
+      var els = MM.RING.filter(function (e) { return S.cleared[MM.speciesKey(e, t)]; });
+      if (!els.length) return;
+      any = true;
+      html += '<div class="muted small" style="margin-top:4px">' + t + '단계 스테이지</div><div class="row wrap" style="gap:6px">' + els.map(function (e) {
+        var on = off && off.el === e && off.tier === t;
+        return '<button class="btn sm' + (on ? ' primary' : '') + '" data-act="pickOffline" data-el="' + e + '" data-tier="' + t + '">' + (on ? '✓ ' : '') + MM.speciesName(e, t) + '</button>';
+      }).join('') + '</div>';
+    });
+    if (!any) html += '<div class="muted small">아직 클리어한 스테이지가 없어요</div>';
+    openSheet(html + '</div>');
   }
 
   function soulSheet(el, tier) {
@@ -977,6 +994,8 @@
       });
     },
     soulCell: function (d) { soulSheet(d.el, +d.tier); },
+    offlineSheet: function () { offlineSheet(); },
+    pickOffline: function (d) { S.offline.stage = { el: d.el, tier: +d.tier }; save(); closeSheet(); toast(MM.speciesName(d.el, +d.tier) + ' 스테이지로 지정했어요'); render(); },
     feedSheet: function (d) { feedSheet(+d.id); },
     feed: function (d) {
       var r = MM.feedSouls(S, +d.id, +d.tier, +d.n);

@@ -181,6 +181,19 @@
     if (st > 1) check(st + '단계 스테이지: 아래 단계 만렙으로는 어려움', under < 0.35, Math.round(under * 100) + '%');
   }
 
+  // ---- 오프라인 자동 지정 ----
+  (function () {
+    var s = MM.newState(), en = MM.stageEnemies('fire', 1);
+    var r1 = MM.grantStageWin(s, 'fire', 1, en);
+    check('첫 1단계 스테이지 클리어 → 오프라인 자동 지정', r1.autoOffline && s.offline.stage.el === 'fire' && s.offline.stage.tier === 1);
+    var r2 = MM.grantStageWin(s, 'water', 1, MM.stageEnemies('water', 1));
+    check('같은 단계 다른 속성 첫 클리어는 안 바꿈', !r2.autoOffline && s.offline.stage.el === 'fire');
+    var r3 = MM.grantStageWin(s, 'grass', 2, MM.stageEnemies('grass', 2));
+    check('더 높은 단계 첫 클리어 → 그 스테이지로 바꿈', r3.autoOffline && s.offline.stage.el === 'grass' && s.offline.stage.tier === 2);
+    s.offline.stage = { el: 'fire', tier: 1 }; s.cleared.dark2 = 0;
+    check('직접 고른 지정은 같은 단계 재클리어로 안 바뀜', !MM.grantStageWin(s, 'grass', 2, MM.stageEnemies('grass', 2)).autoOffline);
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);
