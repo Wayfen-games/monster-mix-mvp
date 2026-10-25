@@ -910,7 +910,7 @@
         }).join('') + '</div>';
       }
     }
-    html += '<div class="card muted small lh" style="margin-top:12px">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계 · 결과 속성은 주재료<br>부재료는 원형 이웃 속성만 (불-풀-물-빛-어둠-불) · 같은 속성은 안 돼요<br>주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상 · 결과 레벨은 두 재료의 평균(올림) + 3~9<br>실패해도 재료는 남고 성공률이 올라요 (' + BAL().STACK_GUARANTEE + '스택이면 100%)</div>';
+    html += '<div class="card muted small lh" style="margin-top:12px">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계 · 결과 속성은 주재료<br>부재료는 원형 이웃 속성만 (불-풀-물-빛-어둠-불) · 같은 속성은 안 돼요<br>주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상 · 결과 레벨은 두 재료의 평균(올림) + 3~9 (높은 재료 레벨까지)<br>실패해도 재료는 남고 성공률이 올라요 (' + BAL().STACK_GUARANTEE + '스택이면 100%)</div>';
     return html;
   };
   DOCKS.fusion = function () {
@@ -966,7 +966,7 @@
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
     var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 ' + c.souls + '개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
-      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>' + ([sel.main, sel.sub].some(function (m) { return m.plus; }) ? '<br><span class="small" style="color:var(--bad)">강화한 몬스터가 있어요. 성공하면 강화(' + [sel.main, sel.sub].filter(function (m) { return m.plus; }).map(function (m) { return name(m) + ' +' + m.plus; }).join(', ') + ')는 사라져요</span>' : ''), '합성', doFuse);
+      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +3~9, 높은 재료 레벨까지)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>' + ([sel.main, sel.sub].some(function (m) { return m.plus; }) ? '<br><span class="small" style="color:var(--bad)">강화한 몬스터가 있어요. 성공하면 강화(' + [sel.main, sel.sub].filter(function (m) { return m.plus; }).map(function (m) { return name(m) + ' +' + m.plus; }).join(', ') + ')는 사라져요</span>' : ''), '합성', doFuse);
   }
 
   function doFuse() {

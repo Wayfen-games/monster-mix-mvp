@@ -343,14 +343,16 @@
   // 합성 결과 레벨 = 두 재료의 평균 (올림, 확정)
   // 결과 레벨 = 평균(올림) + 보너스(1~3 랜덤), 최대 레벨 이하
   MM.fusionResultBase = function (main, sub) { return Math.ceil((main.level + sub.level) / 2); };
+  // 결과 레벨 상한: 새 단계 만렙, 그리고 두 재료 중 높은 레벨 (합성으로 고레벨을 공짜로 건너뛰지 않게) [10-25]
+  function resultCap(main, sub) { return Math.min(MM.maxLevel(main.tier + 1), Math.max(main.level, sub.level, MM.fusionResultBase(main, sub))); }
   MM.fusionResultRange = function (main, sub) {
-    var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS, mx = MM.maxLevel(main.tier + 1);
+    var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS, mx = resultCap(main, sub);
     return [Math.min(mx, b + bo[0]), Math.min(mx, b + bo[1])];
   };
   MM.fusionResultLevel = function (main, sub, rng) {
     var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS;
     var bonus = bo[0] + Math.floor(R(rng)() * (bo[1] - bo[0] + 1));
-    return Math.min(MM.maxLevel(main.tier + 1), b + bonus);
+    return Math.min(resultCap(main, sub), b + bonus);
   };
   MM.fusionRangeText = function (main, sub) {
     var r = MM.fusionResultRange(main, sub);

@@ -33,8 +33,8 @@
 
   // ---- 경험치 ----
   var inc = true;
-  for (var L = 1; L < B.MAX_LEVEL - 1; L++) if (MM.expToNext(L + 1) <= MM.expToNext(L)) inc = false;
-  check('필요 경험치는 레벨마다 증가', inc);
+  for (var L = 1; L < B.MAX_LEVEL - 1; L++) if (MM.expToNext(L + 1) < MM.expToNext(L)) inc = false;
+  check('필요 경험치는 레벨이 오를수록 줄지 않음', inc && MM.expToNext(50) > MM.expToNext(1));
   var m = { level: 1, exp: 0 }; MM.giveExp(m, 1e30);
   check('만렙 ' + B.MAX_LEVEL + '에서 멈춤', m.level === B.MAX_LEVEL && m.exp === 0);
   check('80레벨 이상은 아주 느림 (90→91이 70→71의 30배 이상)', MM.expToNext(90) > MM.expToNext(70) * 30);
@@ -69,13 +69,14 @@
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
   a.stack = 0; a.level = 20; b.level = 6;
   var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
-  check('성공: 결과 레벨 = 평균 올림 13 + 3~9 → 16~22', fr.success && fr.monster.level >= 16 && fr.monster.level <= 22 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
+  check('성공: 결과 레벨 = 평균 올림 13 + 3~9, 높은 재료 레벨(20)까지 → 16~20', fr.success && fr.monster.level >= 16 && fr.monster.level <= 20 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
   (function () {
-    var seen = {}, mm = { level: 5 }, ss = { level: 1 };
+    var seen = {}, mm = { level: 30 }, ss = { level: 10 };
     for (var i = 0; i < 300; i++) seen[MM.fusionResultLevel(mm, ss)] = 1;
-    check('결과 레벨 보너스 3~9 모두 나옴 (5+1 → 6~12)', Object.keys(seen).length === 7 && seen[6] && seen[12], Object.keys(seen).join());
+    check('결과 레벨 보너스 3~9 모두 나옴 (30+10 → 23~29)', Object.keys(seen).length === 7 && seen[23] && seen[29], Object.keys(seen).join());
+    check('결과 레벨은 높은 재료 레벨을 넘지 않음 (20+19 → 최대 20)', MM.fusionResultLevel({ level: 20 }, { level: 19 }, function () { return 0.99; }) === 20);
     check('결과 레벨은 최대 레벨을 넘지 않음', MM.fusionResultLevel({ level: 100 }, { level: 100 }, function () { return 0.99; }) === B.MAX_LEVEL);
-    check('범위 표시 6~12', MM.fusionRangeText(mm, ss) === '6~12');
+    check('범위 표시 23~29', MM.fusionRangeText(mm, ss) === '23~29');
   })();
   check('성공: 도감 첫 등록 소울 1개', fr.dex && s.souls.fire2 === 1);
   // 실패
