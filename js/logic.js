@@ -405,10 +405,11 @@
     var autoOffline = null;
     var firstOfTier = !MM.RING.some(function (e) { return s.cleared[MM.speciesKey(e, tier)]; });
     var cur = s.offline.stage;
-    if (firstOfTier && (!cur || !MM.offlineStageValid(s) || cur.tier < tier)) { s.offline.stage = { el: el, tier: tier }; autoOffline = s.offline.stage; }
+    var offlinePaid = null;
+    if (firstOfTier && (!cur || !MM.offlineStageValid(s) || cur.tier < tier)) { offlinePaid = MM.setOfflineStage(s, el, tier, rng).paid; autoOffline = s.offline.stage; }
     s.cleared[key] = (s.cleared[key] || 0) + 1;
     s.stats.battlesWon++;
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear, autoOffline: autoOffline };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear, autoOffline: autoOffline, offlinePaid: offlinePaid };
   };
 
   // 던전 승리 보상 (소탕도 같은 보상). 맨 위 단계 던전은 1~5단계 소울 조금 더 (덤).
@@ -438,8 +439,8 @@
     var st = s.offline.stage;
     return !!(st && s.cleared[MM.speciesKey(st.el, st.tier)]);
   };
-  // 오프라인 보상은 "쌓아 두고 받기" 방식: 게임 밖에 있던 시간을 pendingMs에 쌓고(최대 12시간), 받기를 누르면 한 번에 지급.
-  // 보상 스테이지는 받는 순간 지정된 스테이지 기준.
+  // 방치 보상(코드 이름 offline)은 "쌓아 두고 받기": 접속 중이든 아니든 흐른 시간을 pendingMs에 쌓고(최대 12시간), 받기로 한 번에 지급.
+  // 스테이지를 바꾸면(직접·첫 클리어 자동) 그 전까지 쌓인 건 바꾸기 전 스테이지로 먼저 지급.
   MM.accrueOffline = function (s, now) {
     var cap = B().OFFLINE_MAX_HOURS * 3600 * 1000, last = s.offline.lastSeen || now;
     if (now > last) s.offline.pendingMs = Math.min(cap, (s.offline.pendingMs || 0) + (now - last));
@@ -450,9 +451,14 @@
   MM.offlineReady = function (s) { return MM.offlinePendingMs(s) >= B().OFFLINE_MIN_MINUTES * 60 * 1000 && MM.offlineStageValid(s); };
   MM.offlineFull = function (s) { return MM.offlinePendingMs(s) >= B().OFFLINE_MAX_HOURS * 3600 * 1000; };
   MM.claimOffline = function (s, now, rng) {
-    var b = B();
     MM.accrueOffline(s, now);
     if (!MM.offlineReady(s)) return null;
+    return MM.payOffline(s, rng);
+  };
+  // 지금까지 쌓인 보상을 현재 지정 스테이지로 지급하고 0으로 (최소 시간 조건 없음). 스테이지를 바꾸기 직전에 부름.
+  MM.payOffline = function (s, rng) {
+    var b = B();
+    if (!MM.offlineStageValid(s) || !(s.offline.pendingMs > 0)) return null;
     var elapsed = s.offline.pendingMs, capped = MM.offlineFull(s);
     s.offline.pendingMs = 0;
     var st = s.offline.stage;
@@ -467,7 +473,15 @@
     var drops = MM.applyDrops(s, all);
     s.gold += gold;
     var ups = partyExp(s, MM.winExp(st.tier) * runs);
-    return { hours: elapsed / 3600000, capped: capped, runs: runs, drops: drops, gold: gold, levelUps: ups, stage: st };
+    return { hours: elapsed / 3600000, capped: capped, runs: runs, drops: drops, gold: gold, levelUps: ups, stage: { el: st.el, tier: st.tier } };
+  };
+  // 방치 보상 스테이지 바꾸기: 바꾸기 전 스테이지로 지금까지 쌓인 보상을 먼저 전부 지급 (악용 방지)
+  MM.setOfflineStage = function (s, el, tier, rng) {
+    var cur = s.offline.stage;
+    if (cur && cur.el === el && cur.tier === tier) return { paid: null, changed: false };
+    var paid = MM.payOffline(s, rng);
+    s.offline.stage = { el: el, tier: tier };
+    return { paid: paid, changed: true };
   };
 
   // ================= 기록 =================

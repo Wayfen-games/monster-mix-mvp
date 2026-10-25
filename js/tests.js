@@ -147,9 +147,8 @@
   (function () {
     var s = MM.newState(t0); s.offline.stage = { el: 'fire', tier: 1 }; s.cleared.fire1 = 1;
     MM.accrueOffline(s, t0 + 2 * 3600000);
-    s.offline.lastSeen = t0 + 3 * 3600000; // 1시간 게임 중 (안 쌓임)
     MM.accrueOffline(s, t0 + 4 * 3600000);
-    check('오프라인: 게임 밖 시간만 쌓임 (2h + 1h = 3h)', MM.offlinePendingMs(s) === 3 * 3600000, MM.offlinePendingMs(s));
+    check('방치 보상: 흐른 시간이 계속 쌓임 (4h)', MM.offlinePendingMs(s) === 4 * 3600000, MM.offlinePendingMs(s));
     MM.accrueOffline(s, t0 + 40 * 3600000);
     check('오프라인: 쌓이는 건 최대 12시간', MM.offlinePendingMs(s) === 12 * 3600000 && MM.offlineFull(s));
     var r = MM.claimOffline(s, t0 + 40 * 3600000, rng);
@@ -204,6 +203,20 @@
     check('더 높은 단계 첫 클리어 → 그 스테이지로 바꿈', r3.autoOffline && s.offline.stage.el === 'grass' && s.offline.stage.tier === 2);
     s.offline.stage = { el: 'fire', tier: 1 }; s.cleared.dark2 = 0;
     check('직접 고른 지정은 같은 단계 재클리어로 안 바뀜', !MM.grantStageWin(s, 'grass', 2, MM.stageEnemies('grass', 2)).autoOffline);
+  })();
+
+  // ---- 방치 보상 스테이지 변경 시 정산 ----
+  (function () {
+    var s = MM.newState(t0); s.tutorial.done = true; s.cleared.fire1 = 1; s.cleared.water1 = 1; s.offline.stage = { el: 'fire', tier: 1 };
+    MM.accrueOffline(s, t0 + 6 * 3600000);
+    var g0 = s.gold, r = MM.setOfflineStage(s, 'water', 1, rng);
+    check('스테이지 바꾸면 쌓인 보상을 바꾸기 전 스테이지로 먼저 받음', r.paid && r.paid.stage.el === 'fire' && Math.abs(r.paid.hours - 6) < 1e-9 && s.gold > g0 && MM.offlinePendingMs(s) === 0 && s.offline.stage.el === 'water');
+    check('같은 스테이지로 바꾸기는 정산 안 함', !MM.setOfflineStage(s, 'water', 1, rng).changed);
+    MM.accrueOffline(s, t0 + 9 * 3600000);
+    var w = MM.grantStageWin(s, 'grass', 2, MM.stageEnemies('grass', 2), rng);
+    check('첫 클리어 자동 변경 때도 쌓인 보상 정산', w.autoOffline && w.offlinePaid && w.offlinePaid.stage.el === 'water' && MM.offlinePendingMs(s) === 0);
+    s.offline.lastSeen = t0; MM.accrueOffline(s, t0 + 60000);
+    check('접속 중에도 시간이 쌓임 (1분)', MM.offlinePendingMs(s) === 60000);
   })();
 
   // ---- 소울 먹이기 ----
