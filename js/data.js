@@ -31,7 +31,15 @@
 
   MM.speciesKey = function (el, tier) { return el + tier; };
   MM.parseKey = function (key) { return { el: key.replace(/\d+$/, ''), tier: +key.match(/\d+$/)[0] }; };
-  MM.speciesName = function (el, tier) { return MM.ELEMENTS[el].name + tier; };
+  // [사용자 확정 19:17] 몬스터 이름 (이름만 표시). 1단계는 모두 슬라임, 2단계부터 동물 계열
+  MM.MON_NAMES = {
+    fire:  ['플레임 슬라임', '이그닛', '살라그', '살라만', '살라만더'],
+    water: ['아쿠아 슬라임', '마린', '셀키', '셀키온', '마리너'],
+    grass: ['리프 슬라임', '스프라우트', '폰', '실바', '실바누스'],
+    light: ['스타 슬라임', '루미', '글린트', '래디언', '솔라리스'],
+    dark:  ['문 슬라임', '녹스', '녹스배트', '이클립스', '녹투르나']
+  };
+  MM.speciesName = function (el, tier) { var n = MM.MON_NAMES[el] && MM.MON_NAMES[el][tier - 1]; return n || (MM.ELEMENTS[el].name + tier); };
   // [사용자 확정 17:34] 소울 이름: '1단계 불의 소울'
   MM.soulName = function (el, tier) { return tier + '단계 ' + MM.ELEMENTS[el].name + '의 소울'; };
   // [사용자 확정] 보스 이름
