@@ -219,6 +219,27 @@
     check('접속 중에도 시간이 쌓임 (1분)', MM.offlinePendingMs(s) === 60000);
   })();
 
+  // ---- 방치 보상: 쌓인 보상 미리보기 + 몬스터 지정 ----
+  (function () {
+    var s = MM.newState(t0); s.cleared.fire1 = 1; s.offline.stage = { el: 'fire', tier: 1 };
+    var a = MM.addMonster(s, 'fire', 1, 1), b2 = MM.addMonster(s, 'water', 1, 1), c = MM.addMonster(s, 'grass', 1, 1), d = MM.addMonster(s, 'dark', 1, 1);
+    s.party = [a.id, b2.id, c.id];
+    MM.accrueOffline(s, t0 + 6 * 3600000, rng);
+    var bag = MM.offlineBag(s);
+    check('쌓이는 동안 판수·골드·경험치가 미리 보임', bag.runs > 0 && bag.gold === bag.runs * B.CLEAR_GOLD[0] && bag.exp === bag.runs * MM.winExp(1));
+    check('방치 보상 몬스터를 안 정하면 파티', MM.offlineTeam(s).join() === s.party.join());
+    var g0 = s.gold, r = MM.setOfflineTeam(s, [d.id, a.id]);
+    check('몬스터 바꾸면 쌓인 보상 즉시 지급 (경험치는 바꾸기 전 = 파티에게)', r.paid && s.gold > g0 && b2.level > 1 && d.level === 1 && MM.offlineBag(s).runs === 0);
+    MM.accrueOffline(s, t0 + 12 * 3600000, rng);
+    var r2 = MM.claimOffline(s, t0 + 12 * 3600000, rng);
+    check('받기: 지정 몬스터(파티 밖 포함)만 경험치', r2 && d.level > 1 && r2.team.join() === [d.id, a.id].join());
+    check('즉시 받기: 몇 분만 쌓여도 받을 수 있음', (MM.accrueOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng), MM.claimOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng) !== null));
+    s.gold = 1e6; s.souls.fire1 = 50;
+    var e = MM.addMonster(s, 'fire', 1, 5); MM.setOfflineTeam(s, [e.id, b2.id]);
+    var fr = MM.attemptFusion(s, e.id, d.id, null, function () { return 0; });
+    check('방치 보상 몬스터를 합성하면 결과 몬스터가 그 자리에', fr.success && MM.offlineTeam(s).indexOf(fr.monster.id) === 0);
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);

@@ -270,3 +270,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .offline-card.full { border-color: var(--accent); }
 .linkish { background: none; border: 0; padding: 4px 0 0; color: var(--accent); font: inherit; cursor: pointer; text-align: left; }
 .offline-card .btn, .offline-card .row > span { white-space: nowrap; flex-shrink: 0; margin-left: 8px; }
+.off-items { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.off-items .soul-item { font-size: 12px; padding: 4px 8px; }
+.off-team { display: block; margin-top: 8px; }
+.off-team svg { vertical-align: middle; margin: 0 2px; }

@@ -14,7 +14,7 @@
       monsters: [], souls: {}, soulSeen: {}, party: [], dex: {}, cleared: {},
       dungeon: { cleared: {}, day: '', used: 0 },
       autoRepeat: { day: '', bank: null },
-      offline: { stage: null, lastSeen: now, pendingMs: 0 },
+      offline: { stage: null, lastSeen: now, pendingMs: 0, carry: 0, bag: { souls: {}, gold: 0, exp: 0, runs: 0 }, team: [] },
       tutorial: { step: 0, done: false },
       records: [],
       settings: { autoBattle: true, recordOn: true, fastTest: false },
@@ -29,6 +29,7 @@
   MM.removeMonster = function (s, id) {
     s.monsters = s.monsters.filter(function (m) { return m.id !== id; });
     s.party = s.party.filter(function (pid) { return pid !== id; });
+    if (s.offline && s.offline.team) s.offline.team = s.offline.team.filter(function (pid) { return pid !== id; });
   };
 
   // ================= 소울 =================
@@ -255,6 +256,7 @@
       var el = main.el, tier = main.tier + 1;
       var level = MM.fusionResultLevel(main, sub, rng);
       var slot = s.party.indexOf(main.id) >= 0 ? s.party.indexOf(main.id) : s.party.indexOf(sub.id);
+      var oteam = (s.offline.team || []), oslot = oteam.indexOf(main.id) >= 0 ? oteam.indexOf(main.id) : oteam.indexOf(sub.id);
       var spent = main.stack;
       MM.removeMonster(s, main.id);
       MM.removeMonster(s, sub.id);
@@ -262,6 +264,7 @@
       var dex = made._dex; delete made._dex;
       if (slot >= 0) s.party.splice(Math.min(slot, s.party.length), 0, made.id);
       s.party = s.party.slice(0, 3);
+      if (oslot >= 0) { s.offline.team = (s.offline.team || []).filter(function (id) { return id !== main.id && id !== sub.id; }); s.offline.team.splice(Math.min(oslot, s.offline.team.length), 0, made.id); }
       s.stats.fusionSuccess++;
       MM.addRecord(s, { type: 'fusion', el: el, tier: tier, rate: rate, spent: spent, first: !!dex });
       return { success: true, rate: rate, monster: made, dex: dex, spentStack: spent, cost: cost };
@@ -371,6 +374,17 @@
     return list;
   };
 
+  function teamExp(s, ids, amount) {
+    var ups = [];
+    if (!(amount > 0)) return ups;
+    ids.forEach(function (id) {
+      var m = MM.getMonster(s, id);
+      if (!m) return;
+      var n = MM.giveExp(m, amount);
+      if (n) ups.push({ id: m.id, name: MM.speciesName(m.el, m.tier), level: m.level });
+    });
+    return ups;
+  }
   function partyExp(s, amount) {
     var ups = [];
     s.party.forEach(function (id) {
@@ -406,7 +420,7 @@
     var firstOfTier = !MM.RING.some(function (e) { return s.cleared[MM.speciesKey(e, tier)]; });
     var cur = s.offline.stage;
     var offlinePaid = null;
-    if (firstOfTier && (!cur || !MM.offlineStageValid(s) || cur.tier < tier)) { offlinePaid = MM.setOfflineStage(s, el, tier, rng).paid; autoOffline = s.offline.stage; }
+    if (firstOfTier && (!cur || !MM.offlineStageValid(s) || cur.tier < tier)) { offlinePaid = MM.setOfflineStage(s, el, tier).paid; autoOffline = s.offline.stage; }
     s.cleared[key] = (s.cleared[key] || 0) + 1;
     s.stats.battlesWon++;
     return { drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear, autoOffline: autoOffline, offlinePaid: offlinePaid };
@@ -439,48 +453,76 @@
     var st = s.offline.stage;
     return !!(st && s.cleared[MM.speciesKey(st.el, st.tier)]);
   };
-  // 방치 보상(코드 이름 offline)은 "쌓아 두고 받기": 접속 중이든 아니든 흐른 시간을 pendingMs에 쌓고(최대 12시간), 받기로 한 번에 지급.
-  // 스테이지를 바꾸면(직접·첫 클리어 자동) 그 전까지 쌓인 건 바꾸기 전 스테이지로 먼저 지급.
-  MM.accrueOffline = function (s, now) {
-    var cap = B().OFFLINE_MAX_HOURS * 3600 * 1000, last = s.offline.lastSeen || now;
-    if (now > last) s.offline.pendingMs = Math.min(cap, (s.offline.pendingMs || 0) + (now - last));
-    s.offline.lastSeen = now;
-    return s.offline.pendingMs || 0;
+  // 방치 보상(코드 이름 offline): 접속 중이든 아니든 흐른 시간만큼 지정 스테이지를 효율 OFFLINE_RATE로 돌린 보상을
+  // 그때그때 굴려서 bag에 쌓아 둔다 (최대 12시간분). 받기를 누르면 bag을 한 번에 지급.
+  // 경험치는 방치 보상 몬스터(최대 3마리, 파티와 별개로 지정, 비면 파티)에게.
+  // 스테이지·몬스터를 바꾸면 그 전에 쌓인 bag을 먼저 지급 (악용 방지).
+  function emptyBag() { return { souls: {}, gold: 0, exp: 0, runs: 0 }; }
+  function offl(s) {
+    var o = s.offline;
+    if (!o.bag) o.bag = emptyBag();
+    if (o.pendingMs == null) o.pendingMs = 0;
+    if (o.carry == null) o.carry = 0;
+    if (!o.team) o.team = [];
+    return o;
+  }
+  MM.offlineTeam = function (s) {
+    var o = offl(s);
+    o.team = o.team.filter(function (id) { return MM.getMonster(s, id); });
+    return (o.team.length ? o.team : s.party).slice(0, 3);
   };
-  MM.offlinePendingMs = function (s) { return s.offline.pendingMs || 0; };
-  MM.offlineReady = function (s) { return MM.offlinePendingMs(s) >= B().OFFLINE_MIN_MINUTES * 60 * 1000 && MM.offlineStageValid(s); };
-  MM.offlineFull = function (s) { return MM.offlinePendingMs(s) >= B().OFFLINE_MAX_HOURS * 3600 * 1000; };
-  MM.claimOffline = function (s, now, rng) {
-    MM.accrueOffline(s, now);
-    if (!MM.offlineReady(s)) return null;
-    return MM.payOffline(s, rng);
-  };
-  // 지금까지 쌓인 보상을 현재 지정 스테이지로 지급하고 0으로 (최소 시간 조건 없음). 스테이지를 바꾸기 직전에 부름.
-  MM.payOffline = function (s, rng) {
-    var b = B();
-    if (!MM.offlineStageValid(s) || !(s.offline.pendingMs > 0)) return null;
-    var elapsed = s.offline.pendingMs, capped = MM.offlineFull(s);
-    s.offline.pendingMs = 0;
-    var st = s.offline.stage;
-    var runsEq = elapsed / 1000 / b.AVG_RUN_SEC * b.OFFLINE_RATE;
-    var runs = Math.floor(runsEq) + (R(rng)() < runsEq % 1 ? 1 : 0);
-    var all = {}, gold = 0;
+  MM.accrueOffline = function (s, now, rng) {
+    var b = B(), o = offl(s), cap = b.OFFLINE_MAX_HOURS * 3600 * 1000, last = o.lastSeen || now;
+    o.lastSeen = now;
+    if (!(now > last) || !MM.offlineStageValid(s)) return o.pendingMs;
+    var dt = Math.min(now - last, cap - o.pendingMs);
+    if (dt <= 0) return o.pendingMs;
+    o.pendingMs += dt;
+    var st = o.stage, runsEq = dt / 1000 / b.AVG_RUN_SEC * b.OFFLINE_RATE + o.carry;
+    var runs = Math.floor(runsEq);
+    o.carry = runsEq - runs;
     for (var i = 0; i < runs; i++) {
       var d = MM.rollDrops(MM.stageEnemies(st.el, st.tier, rng), rng, 1);
-      Object.keys(d).forEach(function (k) { all[k] = (all[k] || 0) + d[k]; });
-      gold += Math.round(tv(b.CLEAR_GOLD, st.tier));
+      Object.keys(d).forEach(function (k) { o.bag.souls[k] = (o.bag.souls[k] || 0) + d[k]; });
+      o.bag.gold += Math.round(tv(b.CLEAR_GOLD, st.tier));
+      o.bag.exp += MM.winExp(st.tier);
     }
-    var drops = MM.applyDrops(s, all);
-    s.gold += gold;
-    var ups = partyExp(s, MM.winExp(st.tier) * runs);
-    return { hours: elapsed / 3600000, capped: capped, runs: runs, drops: drops, gold: gold, levelUps: ups, stage: { el: st.el, tier: st.tier } };
+    o.bag.runs += runs;
+    return o.pendingMs;
   };
-  // 방치 보상 스테이지 바꾸기: 바꾸기 전 스테이지로 지금까지 쌓인 보상을 먼저 전부 지급 (악용 방지)
-  MM.setOfflineStage = function (s, el, tier, rng) {
+  MM.offlinePendingMs = function (s) { return offl(s).pendingMs; };
+  MM.offlineBag = function (s) { return offl(s).bag; };
+  MM.offlineReady = function (s) { var o = offl(s); return o.bag.runs > 0 || o.bag.gold > 0; };
+  MM.offlineFull = function (s) { return offl(s).pendingMs >= B().OFFLINE_MAX_HOURS * 3600 * 1000; };
+  MM.claimOffline = function (s, now, rng) {
+    MM.accrueOffline(s, now, rng);
+    return MM.payOffline(s);
+  };
+  // 쌓인 bag을 지금 지급하고 비움 (시간 계산 없이). 받을 게 없으면 시간만 0으로.
+  MM.payOffline = function (s) {
+    var o = offl(s);
+    var hours = o.pendingMs / 3600000, capped = MM.offlineFull(s);
+    if (!MM.offlineReady(s)) { o.pendingMs = 0; return null; }
+    var bag = o.bag, st = o.stage, team = MM.offlineTeam(s);
+    o.bag = emptyBag(); o.pendingMs = 0;
+    var drops = MM.applyDrops(s, bag.souls);
+    s.gold += bag.gold;
+    var ups = teamExp(s, team, bag.exp);
+    return { hours: hours, capped: capped, runs: bag.runs, drops: drops, gold: bag.gold, exp: bag.exp, levelUps: ups, team: team.slice(), stage: st ? { el: st.el, tier: st.tier } : null };
+  };
+  MM.setOfflineStage = function (s, el, tier) {
     var cur = s.offline.stage;
     if (cur && cur.el === el && cur.tier === tier) return { paid: null, changed: false };
-    var paid = MM.payOffline(s, rng);
+    var paid = MM.payOffline(s);
     s.offline.stage = { el: el, tier: tier };
+    return { paid: paid, changed: true };
+  };
+  MM.setOfflineTeam = function (s, ids) {
+    ids = ids.filter(function (id, i) { return MM.getMonster(s, id) && ids.indexOf(id) === i; }).slice(0, 3);
+    var cur = MM.offlineTeam(s);
+    if (cur.length === ids.length && cur.every(function (id, i) { return id === ids[i]; }) && offl(s).team.length) return { paid: null, changed: false };
+    var paid = MM.payOffline(s);
+    offl(s).team = ids;
     return { paid: paid, changed: true };
   };
 

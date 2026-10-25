@@ -872,22 +872,49 @@
 
   // ================= 오프라인 보상 =================
   function hoursText(h) { return h >= 1 ? Math.floor(h) + '시간 ' + Math.floor((h % 1) * 60) + '분' : Math.floor(h * 60) + '분'; }
+  function bagList(bag) {
+    return sortSoulKeys(Object.keys(bag.souls)).map(function (k) { var p = MM.parseKey(k); return { key: k, el: p.el, tier: p.tier, count: bag.souls[k] }; });
+  }
+  function sortSoulKeys(keys) { return keys.sort(function (a, b) { var A = MM.parseKey(a), Bk = MM.parseKey(b); return Bk.tier - A.tier || MM.RING.indexOf(A.el) - MM.RING.indexOf(Bk.el); }); }
   function offlineCard() {
     if (!S.tutorial.done) return '';
     var ms = MM.offlinePendingMs(S), h = ms / 3600000, full = MM.offlineFull(S), valid = MM.offlineStageValid(S), st = S.offline.stage;
-    var minMs = BAL().OFFLINE_MIN_MINUTES * 60000;
-    var pct = Math.min(100, ms / (BAL().OFFLINE_MAX_HOURS * 3600000) * 100);
+    var pct = Math.min(100, ms / (BAL().OFFLINE_MAX_HOURS * 3600000) * 100), bag = MM.offlineBag(S), ready = MM.offlineReady(S);
     var right = !valid ? '<button class="btn sm" data-act="offlineSheet">지정하기</button>' :
-      ms >= minMs ? '<button class="btn sm primary" data-act="claimOffline">받기</button>' : '<span class="muted small">쌓이는 중</span>';
+      '<button class="btn sm' + (ready ? ' primary' : '') + '" data-act="claimOffline"' + (ready ? '' : ' disabled') + '>즉시 받기</button>';
+    var team = MM.offlineTeam(S).map(function (id) { return MM.getMonster(S, id); }).filter(Boolean);
+    var items = valid ? '<div class="off-items">' + bagList(bag).map(function (d) {
+        return '<span class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 18) + MM.speciesName(d.el, d.tier) + ' ×' + d.count + '</span>';
+      }).join('') + '<span class="soul-item">' + fmt(bag.gold) + ' G</span><span class="soul-item">EXP ' + fmt(bag.exp) + '</span></div>' : '';
+    var teamLine = '<button class="linkish small off-team" data-act="offlineTeamSheet">경험치: ' + (team.length ? team.map(function (m) { return monSvg(m.el, m.tier, 18) + name(m); }).join(' ') : '없음') + (S.offline.team && S.offline.team.length ? '' : ' <span class="muted">(파티)</span>') + ' · 바꾸기 ›</button>';
     return '<div class="card offline-card' + (full ? ' full' : '') + '"><div class="row between"><div><b>방치 보상</b> <span class="small ' + (full ? 'lack' : 'muted') + '">' + hoursText(h) + ' / ' + BAL().OFFLINE_MAX_HOURS + '시간' + (full ? ' · 가득 참' : '') + '</span>' +
-      '<button class="linkish small" data-act="offlineSheet">' + (valid ? MM.speciesName(st.el, st.tier) + ' 스테이지 · 바꾸기 ›' : '스테이지를 지정하면 받을 수 있어요 ›') + '</button></div>' + right + '</div>' +
-      '<div class="expbar" style="margin-top:8px"><i style="width:' + pct + '%"></i></div></div>';
+      '<button class="linkish small" data-act="offlineSheet">' + (valid ? MM.speciesName(st.el, st.tier) + ' 스테이지 · 바꾸기 ›' : '스테이지를 지정하면 쌓이기 시작해요 ›') + '</button></div>' + right + '</div>' +
+      '<div class="expbar" style="margin-top:8px"><i style="width:' + pct + '%"></i></div>' + items + (valid ? teamLine : '') + '</div>';
+  }
+  function offlineTeamSheet() {
+    if (!view.teamSel) view.teamSel = MM.offlineTeam(S).slice();
+    var sel = view.teamSel;
+    var html = '<b>방치 보상 경험치 몬스터</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 몬스터도 돼요 · 부재료 키우기용으로 좋아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 몬스터가 받아요</div><div class="pick-list">' +
+      sortMons(S.monsters).map(function (m) {
+        var i = sel.indexOf(m.id);
+        return '<button class="pick' + (i >= 0 ? ' sel' : '') + '" data-act="teamPick" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 30) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + (m.level >= BAL().MAX_LEVEL ? ' (최대)' : '') + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + '</div>' + (i >= 0 ? '<span class="chip adv">' + (i + 1) + '</span>' : '') + '</button>';
+      }).join('') + '</div><button class="btn primary block" style="margin-top:12px" data-act="teamSave"' + (sel.length ? '' : ' disabled') + '>' + sel.length + '마리로 지정</button>';
+    openSheet(html);
   }
   function claimOfflineNow() {
     var res = MM.claimOffline(S, Date.now());
     save();
     if (!res) { toast('아직 받을 보상이 없어요'); render(); return; }
     showPaid(res);
+  }
+  function changeOfflineTeam(ids) {
+    MM.accrueOffline(S, Date.now());
+    var r = MM.setOfflineTeam(S, ids);
+    view.teamSel = null;
+    save(); closeSheet();
+    if (r.changed) toast('방치 보상 몬스터를 바꿨어요');
+    if (r.paid) showPaid(r.paid, '몬스터를 바꿔서 지금까지 쌓인 보상을 받았어요');
+    render();
   }
   function changeOfflineStage(el, tier) {
     MM.accrueOffline(S, Date.now());
@@ -901,6 +928,7 @@
     showOverlay('<div class="result"><div class="big ok">방치 보상</div>' + (note ? '<div class="muted small" style="margin-top:4px">' + note + '</div>' : '') + '<div class="sub">' + MM.speciesName(res.stage.el, res.stage.tier) + ' 스테이지 · ' + hoursText(res.hours) + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + ' · ' + fmt(res.runs) + '판 분량</div>' +
       '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + (res.drops.length ? dropsHtml(res.drops) : '<span class="muted small">이번에는 소울이 없어요</span>') + '</div></div>' +
       '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' +
+      '<div class="cost-line"><span>경험치</span><span>' + res.team.map(function (id) { var m = MM.getMonster(S, id); return m ? name(m) : ''; }).filter(Boolean).join(', ') + ' 각 EXP ' + fmt(res.exp) + '</span></div>' +
       res.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div>');
     var rare = rareOf(res.drops); if (rare.length) rare.forEach(showBanner);
@@ -1019,6 +1047,9 @@
     soulCell: function (d) { soulSheet(d.el, +d.tier); },
     offlineSheet: function () { offlineSheet(); },
     claimOffline: function () { claimOfflineNow(); },
+    offlineTeamSheet: function () { view.teamSel = null; offlineTeamSheet(); },
+    teamPick: function (d) { var id = +d.id, i = view.teamSel.indexOf(id); if (i >= 0) view.teamSel.splice(i, 1); else if (view.teamSel.length < 3) view.teamSel.push(id); else { toast('최대 3마리예요'); return; } offlineTeamSheet(); },
+    teamSave: function () { changeOfflineTeam(view.teamSel || []); },
     pickOffline: function (d) { changeOfflineStage(d.el, +d.tier); },
     feedSheet: function (d) { feedSheet(+d.id); },
     feed: function (d) {
