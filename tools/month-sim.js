@@ -13,6 +13,8 @@ if (process.env.EXPA) B.EXP_A = +process.env.EXPA;
 if (process.env.EXPR) B.EXP_R = +process.env.EXPR;
 if (process.env.EXPW) B.EXP_WIN = B.EXP_WIN * +process.env.EXPW;
 if (process.env.OVR) Object.assign(B, JSON.parse(process.env.OVR));
+// 실험용: PMULT=1.1 → 내 몬스터 전원 체력·공격·방어 ×1.1 (장비·강화 효과 어림)
+if (process.env.PMULT) { const add = MM.addMonster; MM.addMonster = function () { const m = add.apply(this, arguments); m.mult = +process.env.PMULT; return m; }; }
 
 function makeCache() { return new Map(); }
 
