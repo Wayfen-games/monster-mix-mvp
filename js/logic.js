@@ -17,6 +17,7 @@
       offline: { stage: null, lastSeen: now, pendingMs: 0, carry: 0, bag: { souls: {}, gold: 0, exp: 0, runs: 0 }, team: [] },
       tutorial: { step: 0, done: false },
       records: [],
+      equips: [], equipped: {},
       settings: { autoBattle: true, recordOn: true, fastTest: false },
       stats: { fusionTries: 0, fusionSuccess: 0, battlesWon: 0, battlesLost: 0, startedAt: now }
     };
@@ -126,6 +127,106 @@
     s.souls[key] -= used;
     s.stats.soulsFed = (s.stats.soulsFed || 0) + used;
     return { used: used, exp: used * per, before: before, level: m.level, ups: m.level - before };
+  };
+
+  // ================= 장비 =================
+  function eqs(s) { if (!s.equips) s.equips = []; if (!s.equipped) s.equipped = {}; return s.equips; }
+  MM.getEquip = function (s, id) { return eqs(s).filter(function (e) { return e.id === id; })[0] || null; };
+  MM.equipBonus = function (e) { return e ? B().EQUIP_BASE_PER_TIER * e.tier + B().EQUIP_PER_PLUS * e.plus : 0; };
+  MM.equippedOf = function (s, el) { eqs(s); return MM.getEquip(s, s.equipped[el]); };
+  MM.craftEquip = function (s, el, tier) {
+    var key = MM.speciesKey(el, tier), need = B().EQUIP_CRAFT_SOULS;
+    if ((s.souls[key] || 0) < need) return { error: MM.josa(MM.speciesName(el, tier) + ' 소울', '이', '가') + ' ' + need + '개 필요해요' };
+    s.souls[key] -= need;
+    var e = { id: s.nextId++, el: el, tier: tier, plus: 0, stack: 0 };
+    eqs(s).push(e);
+    if (!MM.equippedOf(s, el) || MM.equippedOf(s, el).tier < tier) s.equipped[el] = e.id; // 빈 칸이거나 더 높은 단계면 바로 장착
+    return { equip: e };
+  };
+  MM.equip = function (s, id) { var e = MM.getEquip(s, id); if (!e) return false; s.equipped[e.el] = e.id; return true; };
+  MM.unequip = function (s, el) { eqs(s); delete s.equipped[el]; };
+  MM.isEquipped = function (s, e) { return !!e && eqs(s) && s.equipped[e.el] === e.id; };
+  // 강화
+  MM.equipCeil = function (n) { var h = B().EQUIP_HARD_PLUS; return n < h ? n + 2 : 20 * Math.pow(2, n - h); };
+  MM.equipBaseRate = function (n) { return B().EQUIP_ENH_BASE * Math.pow(B().EQUIP_ENH_DECAY, n); };
+  MM.equipRate = function (n, stack) {
+    var p0 = MM.equipBaseRate(n), c = MM.equipCeil(n);
+    if (stack >= c - 1) return 1;
+    return Math.min(1, p0 + (1 - p0) / (c - 1) * stack);
+  };
+  MM.equipEnhCost = function (e) {
+    var b = B(), n = e.plus;
+    return { souls: n, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: MM.speciesKey(e.el, e.tier) };
+  };
+  // n → n+1 시도 횟수 기댓값 (천장 포함)
+  MM.equipExpectedTries = function (n) {
+    var surv = 1, ex = 0, c = MM.equipCeil(n);
+    for (var k = 0; k < c; k++) { var p = MM.equipRate(n, k); ex += surv; surv *= (1 - p); if (surv < 1e-9) break; }
+    return ex;
+  };
+  // +0 → +plus 까지 드는 소울·골드 기댓값
+  MM.equipExpectedSpend = function (tier, plus) {
+    var souls = 0, gold = 0;
+    for (var n = 0; n < plus; n++) {
+      var c = MM.equipEnhCost({ el: 'fire', tier: tier, plus: n }), ex = MM.equipExpectedTries(n);
+      souls += c.souls * ex; gold += c.gold * ex;
+    }
+    return { souls: souls, gold: gold };
+  };
+  MM.enhanceEquip = function (s, id, rng) {
+    var e = MM.getEquip(s, id);
+    if (!e) return { error: '장비가 없어요' };
+    if (e.plus >= B().EQUIP_MAX_PLUS) return { error: '최대 강화예요' };
+    var c = MM.equipEnhCost(e);
+    if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.speciesName(e.el, e.tier) + ' 소울', '이', '가') + ' ' + c.souls + '개 필요해요' };
+    if (s.gold < c.gold) return { error: MM.josa('골드', '이', '가') + ' 부족해요' };
+    s.souls[c.key] -= c.souls; s.gold -= c.gold;
+    var rate = MM.equipRate(e.plus, e.stack);
+    if (R(rng)() < rate) {
+      e.plus++; e.stack = 0;
+      if (e.plus >= 5) MM.addRecord(s, { type: 'equip', el: e.el, tier: e.tier, plus: e.plus, rate: rate });
+      return { success: true, rate: rate, equip: e, cost: c };
+    }
+    e.stack++;
+    return { success: false, rate: rate, equip: e, cost: c, nextRate: MM.equipRate(e.plus, e.stack) };
+  };
+  MM.equipDecompValue = function (e) {
+    var b = B(), ex = MM.equipExpectedSpend(e.tier, e.plus);
+    return { souls: b.EQUIP_DECOMP_SOULS + Math.floor(ex.souls * b.EQUIP_DECOMP_RATE), gold: Math.floor(ex.gold * b.EQUIP_DECOMP_RATE / 10) * 10, key: MM.speciesKey(e.el, e.tier) };
+  };
+  MM.decomposeEquip = function (s, id) {
+    var e = MM.getEquip(s, id);
+    if (!e) return { error: '장비가 없어요' };
+    if (MM.isEquipped(s, e)) return { error: '장착 중인 장비는 분해할 수 없어요 (먼저 해제)' };
+    var v = MM.equipDecompValue(e);
+    s.equips = s.equips.filter(function (x) { return x.id !== id; });
+    var r = MM.addSouls(s, v.key, v.souls);
+    s.gold += v.gold;
+    return { souls: r.added, wasted: r.wasted, gold: v.gold, key: v.key };
+  };
+
+  // ================= 몬스터 강화 =================
+  MM.monEnhRate = function (m) { var b = B(), p = m.plus || 0; return Math.min(1, b.MON_ENH_BASE[p] + b.MON_ENH_STACK_UP * (m.enhStack || 0)); };
+  MM.monEnhCost = function (m) { var b = B(), p = m.plus || 0; return { souls: b.MON_ENH_SOULS, key: MM.speciesKey(m.el, m.tier), gold: Math.round(tv(b.MON_ENH_GOLD, m.tier) * (p + 1)) }; };
+  MM.monEnhBonus = function (m) { var p = m.plus || 0; return p ? B().MON_ENH_BONUS[p - 1] : 0; };
+  MM.enhanceMonster = function (s, id, rng) {
+    var m = MM.getMonster(s, id);
+    if (!m) return { error: '몬스터가 없어요' };
+    if ((m.plus || 0) >= B().MON_ENH_BONUS.length) return { error: '이미 최대 강화예요' };
+    var c = MM.monEnhCost(m);
+    if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.speciesName(m.el, m.tier) + ' 소울', '이', '가') + ' 필요해요' };
+    if (s.gold < c.gold) return { error: MM.josa('골드', '이', '가') + ' 부족해요' };
+    s.souls[c.key] -= c.souls; s.gold -= c.gold;
+    var rate = MM.monEnhRate(m);
+    if (R(rng)() < rate) { m.plus = (m.plus || 0) + 1; m.enhStack = 0; return { success: true, rate: rate, monster: m, cost: c }; }
+    m.enhStack = (m.enhStack || 0) + 1;
+    return { success: false, rate: rate, monster: m, cost: c, nextRate: MM.monEnhRate(m) };
+  };
+
+  // 전투에 들어갈 내 몬스터: 장비(그 속성)·몬스터 강화 배율을 붙인 복사본
+  MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.monEnhBonus(m)); };
+  MM.battleParty = function (s, mons) {
+    return mons.map(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c.mult = (m.mult || 1) * MM.playerMult(s, m); return c; });
   };
 
   // ================= 능력치 =================

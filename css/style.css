@@ -147,7 +147,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .mon-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; }
 .mon-row .info { flex: 1; min-width: 0; }
 .mon-row .nm { font-weight: 700; }
-.mon-row .acts { display: flex; flex-direction: column; gap: 6px; }
+.mon-row .acts { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; align-content: center; }
 .expbar { height: 4px; background: #14122a; border-radius: 2px; margin-top: 5px; overflow: hidden; }
 .expbar i { display: block; height: 100%; background: #8f7cff; }
 .soul-cell { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 2px; text-align: center; font-size: 10px; color: var(--muted); min-width: 52px; line-height: 1.35; }
@@ -274,3 +274,6 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .off-items .soul-item { font-size: 12px; padding: 4px 8px; }
 .off-team { display: block; margin-top: 8px; }
 .off-team svg { vertical-align: middle; margin: 0 2px; }
+.plus { color: var(--accent); font-weight: 800; }
+.rate-box { text-align: center; background: var(--panel2); border-radius: 12px; padding: 12px; }
+.rate-box .rate { font-size: 34px; font-weight: 800; color: var(--accent); }

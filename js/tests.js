@@ -258,6 +258,41 @@
     check('방치 경험치: 낮은 단계 몬스터는 자기 단계 스테이지 경험치만', r.expBy[lo.id] === MM.winExp(1) * r.runs && r.expBy[hi.id] === MM.winExp(3) * r.runs);
   })();
 
+  // ---- 장비 ----
+  (function () {
+    var s = MM.newState(t0); s.gold = 1e9; s.souls.light1 = 100;
+    var m = MM.addMonster(s, 'light', 1, 5);
+    var had = s.souls.light1, r = MM.craftEquip(s, 'light', 1);
+    check('장비 제작: 소울 50개 → 빛의 조각, 빈 칸이면 바로 장착', r.equip && s.souls.light1 === had - 50 && MM.isEquipped(s, r.equip) && MM.equipName('light', 1) === '빛의 조각');
+    check('장비 효과: 그 속성 몬스터만 단계×2% + 강화×1%', Math.abs(MM.playerMult(s, m) - 1.02) < 1e-9 && MM.playerMult(s, MM.addMonster(s, 'fire', 1)) === 1);
+    var bp = MM.battleParty(s, [m]);
+    check('전투에 장비 배율 반영 (원본은 그대로)', Math.abs(bp[0].mult - 1.02) < 1e-9 && !m.mult);
+    check('강화 비용: 0→1은 골드만, n→n+1은 소울 n개', MM.equipEnhCost({ el: 'light', tier: 1, plus: 0 }).souls === 0 && MM.equipEnhCost({ el: 'light', tier: 1, plus: 7 }).souls === 7);
+    check('강화 성공률: 높을수록 낮게 시작, 천장에서 100%', MM.equipRate(0, 0) > MM.equipRate(5, 0) && MM.equipRate(5, MM.equipCeil(5) - 1) === 1 && MM.equipRate(15, 0) < 0.02);
+    var e = r.equip, tries = 0;
+    while (e.plus < 3 && tries < 50) { MM.enhanceEquip(s, e.id); tries++; }
+    check('강화: 천장 덕분에 +3까지 최대 2+3+4번', e.plus === 3 && tries <= 9, tries);
+    check('강화 1당 +1%', Math.abs(MM.equipBonus(e) - 0.05) < 1e-9);
+    check('장착 중이면 분해 불가', !!MM.decomposeEquip(s, e.id).error);
+    s.souls.light1 = 90; var e0 = MM.craftEquip(s, 'light', 1).equip, before = s.souls.light1;
+    var d0 = MM.decomposeEquip(s, e0.id);
+    check('+0 분해: 소울 5개', d0.souls === 5 && s.souls.light1 === before + 5 && d0.gold === 0);
+    MM.unequip(s, 'light'); var v = MM.equipDecompValue(e), ex = MM.equipExpectedSpend(1, 3);
+    check('+3 분해: 소울 5 + 기댓값 70%', v.souls === 5 + Math.floor(ex.souls * 0.7) && v.gold === Math.floor(ex.gold * 0.7 / 10) * 10);
+  })();
+  // ---- 몬스터 강화 ----
+  (function () {
+    var s = MM.newState(t0); s.gold = 1e9; s.souls.fire1 = 50;
+    var m = MM.addMonster(s, 'fire', 1, 5), n = 0;
+    while ((m.plus || 0) < 3 && n < 50) { MM.enhanceMonster(s, m.id); n++; }
+    check('몬스터 강화 +3까지 (천장: 실패마다 +15%p)', m.plus === 3 && !!MM.enhanceMonster(s, m.id).error, n);
+    check('몬스터 강화 +3 = 15%', Math.abs(MM.playerMult(s, m) - 1.15) < 1e-9);
+    MM.addMonster(s, 'grass', 1, 1); MM.addMonster(s, 'water', 1); MM.addMonster(s, 'dark', 1);
+    var g = s.monsters.filter(function (x) { return x.el === 'grass'; })[0];
+    var fr = MM.attemptFusion(s, m.id, g.id, null, function () { return 0; });
+    check('합성하면 강화 사라짐', fr.success && !fr.monster.plus);
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);

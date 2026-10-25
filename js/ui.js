@@ -307,7 +307,7 @@
     }
     view.battle = {
       kind: kind, el: opts.el, tier: opts.tier, els: opts.els, enemies: enemies,
-      bt: MM.createBattle(party, enemies),
+      bt: MM.createBattle(MM.battleParty(S, party), enemies),
       auto: repeat || (kind !== 'tutorial' && !!S.settings.autoBattle),
       repeat: repeat, stopAfter: prev && prev.repeat ? prev.stopAfter : false,
       session: repeat && prev && prev.repeat ? prev.session : (repeat ? (function () { var ns = newSession(); var r0 = readyNow(); ns.readySig = r0.summon.join() + '|' + (r0.pair ? r0.pair.main.id + '-' + r0.pair.sub.id : ''); return ns; })() : null),
@@ -577,21 +577,24 @@
   // ================= 몬스터 / 소울 =================
   SCREENS.monsters = function () {
     var html = '<div class="seg"><button class="' + (view.monSeg === 'list' ? 'on' : '') + '" data-act="monSeg" data-v="list">몬스터 ' + S.monsters.length + '</button>' +
-      '<button class="' + (view.monSeg === 'souls' ? 'on' : '') + '" data-act="monSeg" data-v="souls">소울</button></div>';
+      '<button class="' + (view.monSeg === 'souls' ? 'on' : '') + '" data-act="monSeg" data-v="souls">소울</button>' +
+      '<button class="' + (view.monSeg === 'equip' ? 'on' : '') + '" data-act="monSeg" data-v="equip">장비 ' + (S.equips || []).length + '</button></div>';
+    if (view.monSeg === 'equip') return html + equipHtml();
     if (view.monSeg === 'list') {
       var pm = partyMons();
       html += '<div class="row between" style="margin-bottom:10px"><span class="muted small">파티 ' + S.party.length + '/3</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</div>';
       html += sortMons(S.monsters).map(function (m) {
         var inParty = S.party.indexOf(m.id) >= 0, maxed = m.level >= BAL().MAX_LEVEL;
-        var st = MM.calcStats(m.el, m.tier, m.level);
+        var st = MM.calcStats(m.el, m.tier, m.level, MM.playerMult(S, m));
         var req = m.tier < T() ? MM.fuseLevelReq(m.tier) : null;
-        return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + name(m) + '</span><span class="muted small">Lv ' + m.level + (maxed ? ' (최대)' : '') + '</span>' +
+        return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + name(m) + (m.plus ? ' <span class="plus">+' + m.plus + '</span>' : '') + '</span><span class="muted small">Lv ' + m.level + (maxed ? ' (최대)' : '') + '</span>' +
           (inParty ? '<span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? '<span class="chip">방치</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') +
           (req ? '<span class="chip' + (m.level >= req ? ' adv' : '') + '">주재료 Lv' + req + (m.level >= req ? ' ✓' : '') + '</span>' : '') + '</div>' +
           '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 크리 ' + Math.round(st.crit * 100) + '%</div>' +
           '<div class="expbar"><i style="width:' + (maxed ? 100 : m.exp / MM.expToNext(m.level) * 100) + '%"></i></div></div>' +
           '<div class="acts"><button class="btn sm" data-act="party" data-id="' + m.id + '">' + (inParty ? '빼기' : '넣기') + '</button>' +
           (maxed ? '' : '<button class="btn sm" data-act="feedSheet" data-id="' + m.id + '">먹이기</button>') +
+          ((m.plus || 0) < BAL().MON_ENH_BONUS.length ? '<button class="btn sm" data-act="monEnhSheet" data-id="' + m.id + '">강화</button>' : '') +
           (inParty || MM.inOfflineTeam(S, m.id) ? '' : '<button class="btn sm danger" data-act="decompMon" data-id="' + m.id + '">분해</button>') + '</div></div>';
       }).join('');
     } else {
@@ -610,6 +613,78 @@
     }
     return html;
   };
+
+  // ================= 장비 =================
+  function equipSvg(el, tier, size) {
+    var c = MM.ELEMENTS[el].color, pts = [[50, 6], [88, 38], [50, 94], [12, 38]];
+    var shape = tier >= 3 ? '<circle cx="50" cy="50" r="38" fill="' + c + '" stroke="#0006" stroke-width="4"/>' : '<polygon points="' + pts.map(function (p) { return p.join(','); }).join(' ') + '" fill="' + c + '" stroke="#0006" stroke-width="4"/>';
+    if (tier >= 4) shape += '<polygon points="50,22 74,50 50,78 26,50" fill="#fff5"/>';
+    if (tier >= 5) shape += '<circle cx="50" cy="50" r="46" fill="none" stroke="' + c + '" stroke-width="3" stroke-dasharray="6 6"/>';
+    return '<span class="mon"><svg width="' + size + '" height="' + size + '" viewBox="0 0 100 100">' + shape + '<text x="50" y="58" text-anchor="middle" font-size="26" font-weight="800" fill="#fff">' + tier + '</text></svg></span>';
+  }
+  function eqName(e) { return MM.equipName(e.el, e.tier) + (e.plus ? ' +' + e.plus : ''); }
+  function pctBonus(x) { return '+' + Math.round(x * 100) + '%'; }
+  function equipHtml() {
+    var html = '<div class="card"><b>장착 중</b> <span class="muted small">속성마다 1개 · 그 속성 몬스터 체력·공격·방어 상승</span><div class="pick-list" style="margin-top:10px">';
+    MM.RING.forEach(function (el) {
+      var e = MM.equippedOf(S, el);
+      html += '<button class="pick" data-act="equipSlot" data-el="' + el + '">' + (e ? equipSvg(el, e.tier, 30) : '<span class="mon" style="width:30px;height:30px;opacity:.3">' + monSvg(el, 1, 30) + '</span>') +
+        '<div style="flex:1"><b>' + MM.ELEMENTS[el].name + '</b> <span class="muted small">' + (e ? eqName(e) : '비어 있음') + '</span></div>' + (e ? '<span class="chip adv">' + pctBonus(MM.equipBonus(e)) + '</span>' : '') + '</button>';
+    });
+    html += '</div></div>';
+    // 만들기
+    html += '<div class="card"><b>만들기</b> <span class="muted small">같은 소울 ' + BAL().EQUIP_CRAFT_SOULS + '개 → 그 단계·속성 장비</span><div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + MM.EQUIP_NAMES[t - 1] + '</div>'; }).join('');
+    MM.RING.forEach(function (el) {
+      html += '<div class="el">' + elName(el) + '</div>';
+      MM.tiers().forEach(function (t) {
+        var n = S.souls[MM.speciesKey(el, t)] || 0, ok = n >= BAL().EQUIP_CRAFT_SOULS;
+        html += '<button class="soul-cell' + (ok ? ' ready' : '') + '" data-act="craftEquip" data-el="' + el + '" data-tier="' + t + '"' + (ok ? '' : ' disabled') + '><b>' + n + '/' + BAL().EQUIP_CRAFT_SOULS + '</b>' + (ok ? '만들기' : '') + '</button>';
+      });
+    });
+    html += '</div></div></div>';
+    // 보유
+    var list = (S.equips || []).slice().sort(function (a, b) { return b.tier - a.tier || b.plus - a.plus || MM.RING.indexOf(a.el) - MM.RING.indexOf(b.el); });
+    html += '<div class="card"><b>보유 장비 ' + list.length + '</b>' + (list.length ? '' : '<div class="muted small" style="margin-top:6px">아직 없어요. 남는 소울로 만들어 보세요.</div>') + '</div>';
+    html += list.map(function (e) {
+      var on = MM.isEquipped(S, e);
+      return '<div class="mon-row">' + equipSvg(e.el, e.tier, 40) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + eqName(e) + '</span>' + (on ? '<span class="chip party">장착</span>' : '') + (e.stack ? '<span class="chip stack">스택 ' + e.stack + '</span>' : '') + '</div>' +
+        '<div class="muted small">' + MM.ELEMENTS[e.el].name + ' 몬스터 ' + pctBonus(MM.equipBonus(e)) + '</div></div>' +
+        '<div class="acts"><button class="btn sm" data-act="' + (on ? 'unequip' : 'equipIt') + '" data-id="' + e.id + '" data-el="' + e.el + '">' + (on ? '해제' : '장착') + '</button>' +
+        (e.plus < BAL().EQUIP_MAX_PLUS ? '<button class="btn sm" data-act="equipEnhSheet" data-id="' + e.id + '">강화</button>' : '') +
+        (on ? '' : '<button class="btn sm danger" data-act="decompEquip" data-id="' + e.id + '">분해</button>') + '</div></div>';
+    }).join('');
+    return html;
+  }
+  function equipSlotSheet(el) {
+    var list = (S.equips || []).filter(function (e) { return e.el === el; }).sort(function (a, b) { return MM.equipBonus(b) - MM.equipBonus(a); });
+    var cur = MM.equippedOf(S, el);
+    openSheet('<b>' + MM.ELEMENTS[el].name + ' 장비 고르기</b><div class="pick-list" style="margin-top:10px">' + (list.length ? list.map(function (e) {
+      return '<button class="pick' + (cur && cur.id === e.id ? ' sel' : '') + '" data-act="equipIt" data-id="' + e.id + '">' + equipSvg(e.el, e.tier, 30) + '<div style="flex:1"><b>' + eqName(e) + '</b></div><span class="chip adv">' + pctBonus(MM.equipBonus(e)) + '</span></button>';
+    }).join('') + (cur ? '<button class="pick" data-act="unequip" data-el="' + el + '"><div style="flex:1"><b>해제</b></div></button>' : '') : '<div class="muted small">' + MM.ELEMENTS[el].name + ' 장비가 없어요</div>') + '</div>');
+  }
+  function equipEnhSheet(id) {
+    var e = MM.getEquip(S, id); if (!e) { closeSheet(); return; }
+    var c = MM.equipEnhCost(e), rate = MM.equipRate(e.plus, e.stack), ceil = MM.equipCeil(e.plus), left = Math.max(1, ceil - e.stack);
+    var have = S.souls[c.key] || 0, ok = have >= c.souls && S.gold >= c.gold;
+    openSheet('<div class="row" style="gap:12px">' + equipSvg(e.el, e.tier, 52) + '<div><b>' + eqName(e) + ' → +' + (e.plus + 1) + '</b><div class="muted small">' + pctBonus(MM.equipBonus(e)) + ' → ' + pctBonus(MM.equipBonus(e) + BAL().EQUIP_PER_PLUS) + '</div></div></div>' +
+      '<div class="rate-box" style="margin-top:12px"><div class="rate">' + pct(rate) + '</div><div class="muted small">성공률 · 실패 스택 ' + e.stack + ' · ' + (rate >= 1 ? '이번엔 확정!' : '천장까지 최대 ' + fmt(left) + '번') + '</div></div>' +
+      '<div class="cost-line" style="margin-top:10px"><span>' + (c.souls ? MM.speciesName(e.el, e.tier) + ' 소울 ' + c.souls + '개' : '소울 필요 없음') + '</span><span class="' + (have >= c.souls ? 'okc' : 'lack') + '">' + (c.souls ? '보유 ' + have : '✓') + '</span></div>' +
+      '<div class="cost-line"><span>골드 ' + fmt(c.gold) + ' G</span><span class="' + (S.gold >= c.gold ? 'okc' : 'lack') + '">' + (S.gold >= c.gold ? '✓' : '부족') + '</span></div>' +
+      '<div class="muted small" style="margin:6px 0">실패해도 장비는 그대로, 비용만 들어요 · 강화 수치는 다른 장비로 옮길 수 없어요</div>' +
+      '<button class="btn primary block" data-act="equipEnh" data-id="' + e.id + '"' + (ok ? '' : ' disabled') + '>강화 · ' + pct(rate) + '</button>');
+  }
+  function monEnhSheet(id) {
+    var m = MM.getMonster(S, id); if (!m) { closeSheet(); return; }
+    var p = m.plus || 0, mx = BAL().MON_ENH_BONUS.length;
+    if (p >= mx) { closeSheet(); return; }
+    var c = MM.monEnhCost(m), rate = MM.monEnhRate(m), have = S.souls[c.key] || 0, ok = have >= c.souls && S.gold >= c.gold;
+    openSheet('<div class="row" style="gap:12px">' + monSvg(m.el, m.tier, 52) + '<div><b>' + name(m) + (p ? ' +' + p : '') + ' → +' + (p + 1) + '</b><div class="muted small">체력·공격·방어 ' + pctBonus(MM.monEnhBonus(m)) + ' → ' + pctBonus(BAL().MON_ENH_BONUS[p]) + ' · 최대 +' + mx + '</div></div></div>' +
+      '<div class="rate-box" style="margin-top:12px"><div class="rate">' + pct(rate) + '</div><div class="muted small">성공률 · 실패할 때마다 +' + Math.round(BAL().MON_ENH_STACK_UP * 100) + '%p</div></div>' +
+      '<div class="cost-line" style="margin-top:10px"><span>' + name(m) + ' 소울 ' + c.souls + '개</span><span class="' + (have >= c.souls ? 'okc' : 'lack') + '">보유 ' + have + '</span></div>' +
+      '<div class="cost-line"><span>골드 ' + fmt(c.gold) + ' G</span><span class="' + (S.gold >= c.gold ? 'okc' : 'lack') + '">' + (S.gold >= c.gold ? '✓' : '부족') + '</span></div>' +
+      '<div class="small" style="margin:6px 0;color:var(--bad)">합성 재료로 쓰면 강화는 사라져요</div>' +
+      '<button class="btn primary block" data-act="monEnh" data-id="' + m.id + '"' + (ok ? '' : ' disabled') + '>강화 · ' + pct(rate) + '</button>');
+  }
 
   function feedSheet(id) {
     var m = MM.getMonster(S, id); if (!m) return;
@@ -779,7 +854,7 @@
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
     var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 1개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
-      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>', '합성', doFuse);
+      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>' + ([sel.main, sel.sub].some(function (m) { return m.plus; }) ? '<br><span class="small" style="color:var(--bad)">강화한 몬스터가 있어요. 성공하면 강화(' + [sel.main, sel.sub].filter(function (m) { return m.plus; }).map(function (m) { return name(m) + ' +' + m.plus; }).join(', ') + ')는 사라져요</span>' : ''), '합성', doFuse);
   }
 
   function doFuse() {
@@ -1087,6 +1162,43 @@
     teamSave: function () { changeOfflineTeam(view.teamSel || []); },
     pickOffline: function (d) { changeOfflineStage(d.el, +d.tier); },
     feedSheet: function (d) { feedSheet(+d.id); },
+    equipSlot: function (d) { equipSlotSheet(d.el); },
+    equipIt: function (d) { MM.equip(S, +d.id); save(); closeSheet(); render(); },
+    unequip: function (d) { MM.unequip(S, d.el); save(); closeSheet(); render(); },
+    craftEquip: function (d) {
+      var t2 = +d.tier;
+      askConfirm('장비를 만들까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(d.el, t2, 48) + '</div>' + MM.speciesName(d.el, t2) + ' 소울 <b>' + BAL().EQUIP_CRAFT_SOULS + '개</b> → <b>' + MM.equipName(d.el, t2) + '</b><br><span class="small">' + MM.ELEMENTS[d.el].name + ' 몬스터 체력·공격·방어 ' + pctBonus(BAL().EQUIP_BASE_PER_TIER * t2) + '</span>', '만들기', function () {
+        var r = MM.craftEquip(S, d.el, t2);
+        if (r.error) { toast(r.error); return; }
+        save(); toast(MM.josa(MM.equipName(d.el, t2), '을', '를') + ' 만들었어요' + (MM.isEquipped(S, r.equip) ? ' · 장착했어요' : '')); render();
+      });
+    },
+    equipEnhSheet: function (d) { equipEnhSheet(+d.id); },
+    equipEnh: function (d) {
+      var r = MM.enhanceEquip(S, +d.id);
+      if (r.error) { toast(r.error); return; }
+      save();
+      if (r.success) { if (r.equip.plus >= 5) showNotice('✦ 강화 성공!', eqName(r.equip)); else toast('강화 성공! ' + eqName(r.equip)); }
+      else toast('실패… 다음 성공률 ' + pct(r.nextRate));
+      render(); equipEnhSheet(+d.id);
+    },
+    decompEquip: function (d) {
+      var e = MM.getEquip(S, +d.id); if (!e) return;
+      var v = MM.equipDecompValue(e);
+      askConfirm('정말 분해할까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(e.el, e.tier, 48) + '</div><b>' + eqName(e) + '</b> 분해하면<br>' + MM.speciesName(e.el, e.tier) + ' 소울 <b>' + v.souls + '개</b>' + (v.gold ? ' + <b>' + fmt(v.gold) + ' G</b>' : '') + '를 받아요<br><span class="small" style="color:var(--bad)">되돌릴 수 없어요</span>', '분해', function () {
+        var r = MM.decomposeEquip(S, e.id);
+        save(); toast(r.error || ('소울 ' + r.souls + '개' + (r.gold ? ' + ' + fmt(r.gold) + ' G' : '') + '를 받았어요' + (r.wasted ? ' (' + r.wasted + '개 버려짐)' : ''))); render();
+      });
+    },
+    monEnhSheet: function (d) { monEnhSheet(+d.id); },
+    monEnh: function (d) {
+      var r = MM.enhanceMonster(S, +d.id);
+      if (r.error) { toast(r.error); return; }
+      save();
+      if (r.success) showNotice('✦ 몬스터 강화 성공!', name(r.monster) + ' +' + r.monster.plus);
+      else toast('실패… 다음 성공률 ' + pct(r.nextRate));
+      render(); monEnhSheet(+d.id);
+    },
     feed: function (d) {
       var r = MM.feedSouls(S, +d.id, +d.tier, +d.n);
       if (r.error) { toast(r.error); return; }

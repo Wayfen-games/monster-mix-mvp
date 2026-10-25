@@ -3,6 +3,10 @@
   // 부재료 짝용 원형 배치 (확정): 불 - 풀 - 물 - 빛 - 어둠 - (다시 불)
   MM.RING = ['fire', 'grass', 'water', 'light', 'dark'];
 
+  // 장비 이름 (단계별). 6단계 이후는 정식 출시(10단계) 대비 구상 [사용자: 1~5 확정]
+  MM.EQUIP_NAMES = ['조각', '돌', '구슬', '결정', '심장', '문장', '왕관', '성배', '별', '근원'];
+  MM.equipName = function (el, tier) { return MM.ELEMENTS[el].name + '의 ' + MM.EQUIP_NAMES[tier - 1]; };
+
   MM.ELEMENTS = {
     fire:  { name: '불',   color: '#e4572e' },
     grass: { name: '풀',   color: '#3fae49' },
