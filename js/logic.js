@@ -14,7 +14,7 @@
       monsters: [], souls: {}, soulSeen: {}, party: [], dex: {}, cleared: {},
       dungeon: { cleared: {}, day: '', used: 0 },
       autoRepeat: { day: '', bank: null },
-      offline: { stage: null, lastSeen: now },
+      offline: { stage: null, lastSeen: now, pendingMs: 0 },
       tutorial: { step: 0, done: false },
       records: [],
       settings: { autoBattle: true, recordOn: true, fastTest: false },
@@ -438,12 +438,23 @@
     var st = s.offline.stage;
     return !!(st && s.cleared[MM.speciesKey(st.el, st.tier)]);
   };
-  // 마지막 접속 이후 쌓인 보상 계산·지급. 짧으면 null.
-  MM.claimOffline = function (s, now, rng) {
-    var b = B(), last = s.offline.lastSeen || now;
+  // 오프라인 보상은 "쌓아 두고 받기" 방식: 게임 밖에 있던 시간을 pendingMs에 쌓고(최대 12시간), 받기를 누르면 한 번에 지급.
+  // 보상 스테이지는 받는 순간 지정된 스테이지 기준.
+  MM.accrueOffline = function (s, now) {
+    var cap = B().OFFLINE_MAX_HOURS * 3600 * 1000, last = s.offline.lastSeen || now;
+    if (now > last) s.offline.pendingMs = Math.min(cap, (s.offline.pendingMs || 0) + (now - last));
     s.offline.lastSeen = now;
-    var elapsed = Math.min(now - last, b.OFFLINE_MAX_HOURS * 3600 * 1000);
-    if (elapsed < b.OFFLINE_MIN_MINUTES * 60 * 1000 || !MM.offlineStageValid(s)) return null;
+    return s.offline.pendingMs || 0;
+  };
+  MM.offlinePendingMs = function (s) { return s.offline.pendingMs || 0; };
+  MM.offlineReady = function (s) { return MM.offlinePendingMs(s) >= B().OFFLINE_MIN_MINUTES * 60 * 1000 && MM.offlineStageValid(s); };
+  MM.offlineFull = function (s) { return MM.offlinePendingMs(s) >= B().OFFLINE_MAX_HOURS * 3600 * 1000; };
+  MM.claimOffline = function (s, now, rng) {
+    var b = B();
+    MM.accrueOffline(s, now);
+    if (!MM.offlineReady(s)) return null;
+    var elapsed = s.offline.pendingMs, capped = MM.offlineFull(s);
+    s.offline.pendingMs = 0;
     var st = s.offline.stage;
     var runsEq = elapsed / 1000 / b.AVG_RUN_SEC * b.OFFLINE_RATE;
     var runs = Math.floor(runsEq) + (R(rng)() < runsEq % 1 ? 1 : 0);
@@ -456,7 +467,7 @@
     var drops = MM.applyDrops(s, all);
     s.gold += gold;
     var ups = partyExp(s, MM.winExp(st.tier) * runs);
-    return { hours: elapsed / 3600000, capped: now - last > b.OFFLINE_MAX_HOURS * 3600 * 1000, runs: runs, drops: drops, gold: gold, levelUps: ups, stage: st };
+    return { hours: elapsed / 3600000, capped: capped, runs: runs, drops: drops, gold: gold, levelUps: ups, stage: st };
   };
 
   // ================= 기록 =================

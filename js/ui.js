@@ -164,10 +164,11 @@
     }).join('');
     var dEl = MM.dungeonElementFor(now), off = S.offline.stage;
     return '<div class="card"><div class="row between"><b>1차 목표: ' + T() + '단계 5종 모으기</b><span class="chip">' + g + ' / 5</span></div><div class="goal-stars">' + stars + '</div></div>' +
+      offlineCard() +
       '<div class="card"><b>오늘</b><div class="today" style="margin-top:10px">' +
       '<div>요일 던전<b>' + (dEl ? MM.ELEMENTS[dEl].name : '주말 선택') + ' ' + MM.dungeonLeft(S, now) + '/' + BAL().DUNGEON_DAILY + '</b></div>' +
       '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b><span class="small">하루 +' + BAL().AUTO_REPEAT_DAILY + ' · 최대 ' + fmt(BAL().AUTO_REPEAT_MAX) + '</span></div>' +
-      '<button class="tap" data-act="offlineSheet">오프라인 보상<b>' + (off && MM.offlineStageValid(S) ? MM.speciesName(off.el, off.tier) : '미지정') + '</b><span class="small">' + (off && MM.offlineStageValid(S) ? '바꾸기 ›' : '눌러서 지정 ›') + '</span></button></div></div>' +
+      '</div></div>' +
       '<div class="card"><b>다음 할 일</b><div class="muted" style="margin-top:6px">' + hint() + '</div></div>' +
       '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
       '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="tab" data-tab="stages">⚔ 전투</button><button class="btn primary" data-act="tab" data-tab="fusion">✦ 합성</button></div>' +
@@ -869,17 +870,28 @@
   };
 
   // ================= 오프라인 보상 =================
-  function checkOffline() {
-    if (!S.tutorial.done) return;
+  function hoursText(h) { return h >= 1 ? Math.floor(h) + '시간 ' + Math.floor((h % 1) * 60) + '분' : Math.floor(h * 60) + '분'; }
+  function offlineCard() {
+    if (!S.tutorial.done) return '';
+    var ms = MM.offlinePendingMs(S), h = ms / 3600000, full = MM.offlineFull(S), valid = MM.offlineStageValid(S), st = S.offline.stage;
+    var minMs = BAL().OFFLINE_MIN_MINUTES * 60000;
+    var pct = Math.min(100, ms / (BAL().OFFLINE_MAX_HOURS * 3600000) * 100);
+    var right = !valid ? '<button class="btn sm" data-act="offlineSheet">지정하기</button>' :
+      ms >= minMs ? '<button class="btn sm primary" data-act="claimOffline">받기</button>' : '<span class="muted small">쌓이는 중</span>';
+    return '<div class="card offline-card' + (full ? ' full' : '') + '"><div class="row between"><div><b>오프라인 보상</b> <span class="small ' + (full ? 'lack' : 'muted') + '">' + hoursText(h) + ' / ' + BAL().OFFLINE_MAX_HOURS + '시간' + (full ? ' · 가득 참' : '') + '</span>' +
+      '<button class="linkish small" data-act="offlineSheet">' + (valid ? MM.speciesName(st.el, st.tier) + ' 스테이지 · 바꾸기 ›' : '스테이지를 지정하면 받을 수 있어요 ›') + '</button></div>' + right + '</div>' +
+      '<div class="expbar" style="margin-top:8px"><i style="width:' + pct + '%"></i></div></div>';
+  }
+  function claimOfflineNow() {
     var res = MM.claimOffline(S, Date.now());
     save();
-    if (!res) return;
-    var h = res.hours >= 1 ? Math.floor(res.hours) + '시간 ' + Math.round((res.hours % 1) * 60) + '분' : Math.round(res.hours * 60) + '분';
-    showOverlay('<div class="result"><div class="big ok">자는 동안 얻은 것</div><div class="sub">' + MM.speciesName(res.stage.el, res.stage.tier) + ' 스테이지 · ' + h + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + '</div>' +
-      '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(res.drops) + '</div></div>' +
+    if (!res) { toast('아직 받을 보상이 없어요'); render(); return; }
+    showOverlay('<div class="result"><div class="big ok">게임 밖에서 얻은 것</div><div class="sub">' + MM.speciesName(res.stage.el, res.stage.tier) + ' 스테이지 · ' + hoursText(res.hours) + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + ' · ' + fmt(res.runs) + '판 분량</div>' +
+      '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + (res.drops.length ? dropsHtml(res.drops) : '<span class="muted small">이번에는 소울이 없어요</span>') + '</div></div>' +
       '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' +
       res.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>' +
-      '<div class="acts"><button class="btn primary block" data-act="closeOverlay">받기</button></div></div>');
+      '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div>');
+    var rare = rareOf(res.drops); if (rare.length) rare.forEach(showBanner);
     render();
   }
 
@@ -995,6 +1007,7 @@
     },
     soulCell: function (d) { soulSheet(d.el, +d.tier); },
     offlineSheet: function () { offlineSheet(); },
+    claimOffline: function () { claimOfflineNow(); },
     pickOffline: function (d) { S.offline.stage = { el: d.el, tier: +d.tier }; save(); closeSheet(); toast(MM.speciesName(d.el, +d.tier) + ' 스테이지로 지정했어요'); render(); },
     feedSheet: function (d) { feedSheet(+d.id); },
     feed: function (d) {
@@ -1081,10 +1094,11 @@
   });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') { S.offline.lastSeen = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
-    else if ($('overlay').hidden && view.tab !== 'battle') checkOffline();
+    else { if (S.tutorial.done) MM.accrueOffline(S, Date.now()); save(); if (view.tab === 'home') render(); }
   });
 
   load();
+  if (S.tutorial.done) MM.accrueOffline(S, Date.now());
   // 테스트용: 주소 뒤 ?dev=refund-dungeon → 오늘 던전 횟수 1회 돌려주기 (시제품 전용)
   (function devHooks() {
     var q = new URLSearchParams(location.search).get('dev');
@@ -1099,7 +1113,7 @@
   view.dungeonEls = S.dungeon.weekendEls || [];
   render();
   if (!S.tutorial.done) showTutorial();
-  else checkOffline();
+  else save();
   if (view.migrated) toast('새 버전이라 처음부터 시작해요. 이전 기록은 따로 보관했어요');
   MM._state = function () { return S; };
   MM._view = function () { return view; };

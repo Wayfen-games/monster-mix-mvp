@@ -144,6 +144,18 @@
   var off = MM.claimOffline(s, t0 + 24 * 3600000, rng);
   var expRuns = 12 * 3600 / B.AVG_RUN_SEC * B.OFFLINE_RATE;
   check('오프라인: 최대 12시간, 효율 5%', off && off.capped && Math.abs(off.runs - expRuns) <= 1, off && off.runs);
+  (function () {
+    var s = MM.newState(t0); s.offline.stage = { el: 'fire', tier: 1 }; s.cleared.fire1 = 1;
+    MM.accrueOffline(s, t0 + 2 * 3600000);
+    s.offline.lastSeen = t0 + 3 * 3600000; // 1시간 게임 중 (안 쌓임)
+    MM.accrueOffline(s, t0 + 4 * 3600000);
+    check('오프라인: 게임 밖 시간만 쌓임 (2h + 1h = 3h)', MM.offlinePendingMs(s) === 3 * 3600000, MM.offlinePendingMs(s));
+    MM.accrueOffline(s, t0 + 40 * 3600000);
+    check('오프라인: 쌓이는 건 최대 12시간', MM.offlinePendingMs(s) === 12 * 3600000 && MM.offlineFull(s));
+    var r = MM.claimOffline(s, t0 + 40 * 3600000, rng);
+    check('받기: 쌓인 보상 전부 받고 0으로', r && Math.abs(r.hours - 12) < 1e-9 && MM.offlinePendingMs(s) === 0);
+    check('받은 직후 다시 받기는 없음', MM.claimOffline(s, t0 + 40 * 3600000 + 60000, rng) === null);
+  })();
 
   // ---- 조사 ----
   check('조사: 소울이 / 골드가', MM.josa('소울', '이', '가') === '소울이' && MM.josa('골드', '이', '가') === '골드가');
