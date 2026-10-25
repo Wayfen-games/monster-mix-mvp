@@ -450,7 +450,7 @@
           got[k1] = (got[k1] || 0) + MM.rollSoulCount(rng);
           continue;
         }
-        var p = MM.soulDropAvg(k) / mean * mult * (e.dropMult || 1);
+        var p = MM.soulDropAvg(k) / mean * mult * (e.dropMult || 1) * (e.boss ? (B().BOSS_DROP_MULT || 1) : 1);
         var rolls = Math.max(1, Math.ceil(p));
         var pp = p / rolls;
         for (var r = 0; r < rolls; r++) {
