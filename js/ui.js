@@ -341,6 +341,7 @@
   var SKILL_TEXT = {
     seal: function (k) { return k.every + '턴마다 아군 1마리 ' + k.turns + '턴 봉인'; },
     sweep: function (k) { return k.every + '턴마다 아군 전체 공격'; },
+    smash: function (k) { return k.every + '턴마다 1마리 강타 (×' + k.mult + ')'; },
     enrage: function (k) { return '체력 ' + Math.round(k.at * 100) + '% 이하가 되면 분노 (공격 ×' + k.mult + ')'; },
     shield: function (k) { return k.every + '턴마다 ' + k.turns + '턴 보호막 (받는 피해 절반)'; },
     heal: function (k) { return k.every + '턴마다 체력 ' + Math.round(k.pct * 100) + '% 회복'; }
@@ -403,6 +404,13 @@
     battleTick();
   }
 
+  function bossPlanHtml(bt) {
+    var boss = bt.units.filter(function (u) { return u.raid; })[0]; if (!boss || !boss.plan) return '';
+    var p = boss.plan, tg = p.target != null ? bt.units[p.target] : null;
+    var txt = p.type === 'attack' ? '공격 → ' + (tg ? tg.name : '?') : p.type === 'smash' ? '<b style="color:var(--bad)">강타 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') :
+      p.type === 'sweep' ? '<b style="color:var(--bad)">휩쓸기</b> (아군 전체)' : p.type === 'seal' ? '<b style="color:var(--bad)">봉인</b> (무작위 1마리)' : p.type === 'shield' ? '보호막 (' + p.sk.turns + '턴 피해 ' + Math.round((1 - p.sk.cut) * 100) + '%만)' : p.type === 'heal' ? '회복 (체력 ' + Math.round(p.sk.pct * 100) + '%)' : p.type;
+    return '<div class="boss-plan">⚠ 보스 다음 행동: ' + txt + '</div>';
+  }
   function unitHtml(u, bt, actor, pickable) {
     var r = u.hp / u.maxHp;
     var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.boss ? ' bossu' : '') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 ? ' pickable' : '');
@@ -414,7 +422,7 @@
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
       monSvg(u.el, u.tier, u.raid ? 84 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.raid ? '<div class="weak">상성 없음</div>' : u.side === 'e' ? weakText(u.el) : '') +
-      (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') +
+      (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
       '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u) + '</div>';
   }
@@ -463,15 +471,15 @@
     var msg = '', sub = '';
     if (bt.result === 'win') msg = '승리!';
     else if (bt.result === 'lose') msg = '패배…';
-    else if (myTurn) { msg = actor.name + '의 차례'; sub = Bt.kind === 'boss' ? '보스를 눌러 공격하세요' : '공격할 적을 누르세요 (▲ 유리 · ▼ 불리)'; }
+    else if (myTurn) { msg = actor.name + '의 차례'; sub = Bt.kind === 'boss' ? '아래에서 행동을 고르세요 (보스를 눌러도 공격)' : '공격할 적을 누르세요 (▲ 유리 · ▼ 불리)'; }
     else if (actor) msg = (actor.side === 'e' ? '적 ' : '') + actor.name + '의 공격';
-    if (Bt.last && !bt.result && (Bt.last.skip || Bt.last.skill)) {
+    if (Bt.last && !bt.result && (Bt.last.skip || Bt.last.skill || Bt.last.action)) {
       var L = Bt.last, la = bt.units[L.actor];
-      sub = L.skip ? la.name + '은(는) 봉인되어 움직이지 못했어요' : L.skill === 'seal' ? '봉인! ' + bt.units[L.target].name + ' ' + L.turns + '턴 동안 못 움직여요' :
+      sub = L.action === 'defend' ? la.name + ' 방어 자세 (다음 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '%)' : L.action === 'focus' ? la.name + ' 힘을 모았어요 (다음 공격 ×' + BAL().BOSS_FOCUS_MULT + ')' : L.skill === 'smash' ? '강타! ' + bt.units[L.target].name + ' -' + L.dmg + (L.guarded ? ' (방어)' : '') + (L.ko ? ' · 쓰러짐' : '') : L.skip ? la.name + '은(는) 봉인되어 움직이지 못했어요' : L.skill === 'seal' ? '봉인! ' + bt.units[L.target].name + ' ' + L.turns + '턴 동안 못 움직여요' :
         L.skill === 'sweep' ? '휩쓸기! 아군 전체 ' + L.hits.map(function (h) { return '-' + h.dmg; }).join(' ') : L.skill === 'shield' ? '보호막! ' + L.turns + '턴 동안 받는 피해 절반' : L.skill === 'heal' ? '회복! 체력 +' + L.heal : '';
     } else if (Bt.last && !myTurn && !bt.result) {
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
-      sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '') + (Bt.last.enrage ? ' · 보스가 분노했어요!' : '') + (Bt.last.shielded ? ' · 보호막' : '');
+      sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '') + (Bt.last.enrage ? ' · 보스가 분노했어요!' : '') + (Bt.last.shielded ? ' · 보호막' : '') + (Bt.last.focused ? ' · 집중 ×' + BAL().BOSS_FOCUS_MULT + '!' : '') + (Bt.last.guarded ? ' · 방어' : '');
     }
     var title = Bt.kind === 'boss' ? Bt.tier + '단계 무지개 보스' : Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : Bt.kind === 'ticket' ? Bt.tier + '단계 입장권 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
     var en = bt.units.filter(function (u) { return u.side === 'e'; });
@@ -479,6 +487,7 @@
       '<div class="row between"><span class="muted small">' + title + ' · ' + bt.round + '라운드' + (bt.partyBonus ? ' · <span style="color:var(--good)">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</span>' +
       (Bt.repeat || Bt.kind === 'tutorial' ? '' : '<button class="btn sm" data-act="flee">나가기</button>') + '</div>' +
       '<div class="side enemies">' + en.map(function (u) { return unitHtml(u, bt, actor, myTurn); }).join('') + '</div>' +
+      (bt.raid && !bt.result ? bossPlanHtml(bt) : '') +
       '<div class="battle-mid"><div class="msg">' + msg + '</div><div class="muted small">' + sub + '</div></div>' +
       '<div class="side">' + bt.units.filter(function (u) { return u.side === 'p'; }).map(function (u) { return unitHtml(u, bt, actor, false); }).join('') + '</div>';
     if (Bt.repeat) {
@@ -487,7 +496,8 @@
         '<div class="muted small">승 ' + ss.wins + ' · 패 ' + ss.losses + ' · 골드 +' + fmt(ss.gold) + '</div>' + sessionTally(ss) + readyNotice() + '</div>' +
         '<div class="battle-bar"><button class="btn' + (Bt.stopAfter ? ' toggle on' : '') + '" data-act="stopAfter">' + (Bt.stopAfter ? '이번 판 후 멈춤 ✓' : '이번 판 후 멈추기') + '</button><button class="btn danger" data-act="stopNow">지금 멈추기</button></div>';
     } else if (Bt.kind === 'boss') {
-      html += '<div class="muted small" style="text-align:center;margin-top:10px">보스전은 자동 전투가 안 돼요 · 지면 입장권은 그대로</div>';
+      html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + (myTurn ? '' : ' disabled') + '>⚔ 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + (myTurn ? '' : ' disabled') + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + (myTurn ? '' : ' disabled') + '>✊ 집중</button></div>' +
+        '<div class="muted small" style="text-align:center;margin-top:6px">방어: 다음 내 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '% · 집중: 이번엔 쉬고 다음 공격 ×' + BAL().BOSS_FOCUS_MULT + '<br>보스전은 자동 전투가 안 돼요 · 지면 입장권은 그대로</div>';
     } else if (Bt.kind !== 'tutorial') {
       html += '<div class="battle-bar"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON' : 'OFF') + '</button></div>';
     }
@@ -1195,6 +1205,14 @@
       var i = view.ticketEls.indexOf(d.el);
       if (i >= 0) view.ticketEls.splice(i, 1); else if (view.ticketEls.length < 3) view.ticketEls.push(d.el);
       S.dungeon.ticketEls = view.ticketEls.slice(); save(); render();
+    },
+    bossAct: function (d) {
+      var Bt = view.battle; if (!Bt || Bt.busy || Bt.kind !== 'boss') return;
+      var actor = MM.currentActor(Bt.bt); if (!actor || actor.side !== 'p') return;
+      Bt.busy = true;
+      if (d.a === 'attack') { doAct(null); return; }
+      var ev = MM.act(Bt.bt, null, null, { action: d.a }); Bt.last = ev; render();
+      Bt.timer = setTimeout(battleTick, 380);
     },
     startBoss: function (d) { var tier = +d.tier; if (MM.bossTicketCount(S, tier) <= 0) { toast('보스 입장권이 없어요'); return; } startBattle('boss', { tier: tier }); },
     startTicket: function (d) {

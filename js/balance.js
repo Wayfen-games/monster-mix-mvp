@@ -151,16 +151,22 @@ MM.BALANCE = {
   BOSS_EXP_MULT: 3,            // 경험치 = (n+1)단계 스테이지 승리 경험치 × 3
   BOSS_MAX_ROUNDS: 60,
   BOSS_LEVEL: [1, 6, 10, 14, 18], // = 소환 레벨
-  BOSS_HP_MULT: [7.65, 10.5, 7.35, 5.65, 6.5],  // [조정: tune-boss.js] 소환 레벨 3마리 승률 69~74%, 이긴 판 중앙 19~21라운드
-  BOSS_ATK_MULT: [1.05, 0.81, 0.86, 1.16, 0.92],
+  BOSS_HP_MULT: [8.8, 9.35, 7, 5, 6.5],   // [조정: tune-boss.js] 소환 레벨 3마리: 공격만 19~43% · 예고 대응 66~77%, 이긴 판 중앙 19~21라운드
+  BOSS_ATK_MULT: [0.65, 0.61, 0.75, 0.82, 0.69],
   BOSS_SPD_MULT: 1.1,
+  // 보스는 다음 행동을 예고함. 아군은 보스전에서 공격 / 방어(받는 피해 절반) / 집중(쉬고 다음 공격 2배) 선택 [사용자 확정: 전략으로 깨게]
+  // 목표: 소환 레벨 3마리로 공격만 하면 약 25%, 예고에 맞춰 대응하면 약 75% [tools/tune-boss.js]
+  BOSS_GUARD_CUT: 0.3,         // 방어하면 받는 피해 30%만
+  BOSS_FOCUS_MULT: 2,
   BOSS_SKILLS: {
-    1: [{ type: 'seal', every: 3, turns: 2 }],
-    2: [{ type: 'sweep', every: 4, mult: 0.6 }],
-    3: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'seal', every: 3, turns: 2 }],
-    4: [{ type: 'shield', every: 3, turns: 2, cut: 0.5 }, { type: 'sweep', every: 5, mult: 0.6 }],
-    5: [{ type: 'enrage', at: 0.5, mult: 1.3 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'sweep', every: 4, mult: 0.6 }, { type: 'seal', every: 3, turns: 2 }]
+    1: [{ type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 4, turns: 2 }],
+    2: [{ type: 'smash', every: 3, mult: 3 }, { type: 'sweep', every: 4, mult: 1.2 }],
+    3: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'seal', every: 3, turns: 2 }, { type: 'smash', every: 4, mult: 3 }],
+    4: [{ type: 'shield', every: 4, turns: 2, cut: 0.7 }, { type: 'sweep', every: 3, mult: 1.2 }, { type: 'smash', every: 5, mult: 3 }],
+    5: [{ type: 'enrage', at: 0.5, mult: 1.3 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'sweep', every: 4, mult: 1.2 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 5, turns: 2 }]
   },
+  // 맨 위(5단계) 보스: 3단계 이상 소울은 고정 확률 (6단계 스테이지 생기면 그 스테이지 ×100으로) [사용자 확정]
+  BOSS_TOP_DROPS: { 3: 1.0, 4: 0.5, 5: 0.3 },
   // 보스 입장권: 던전(요일·입장권 던전) 승리 시 같은 단계 2%, 소울 뽑기 0.1%
   BOSS_TICKET_DROP: 0.02,
 

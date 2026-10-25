@@ -320,18 +320,33 @@
     var rr = MM.seededRng(5);
     check('무지개 보스는 상성 없음', MM.elementMult('fire', 'rainbow') === 1 && MM.elementMult('rainbow', 'grass') === 1);
     for (var bt = 1; bt <= B.MAX_TIER; bt++) {
-      var w = 0, rounds = [], lv = MM.summonLevel(bt);
-      for (var i = 0; i < 200; i++) { var b = MM.simulateBossBattle([{ id: 1, el: 'fire', tier: bt, level: lv }, { id: 2, el: 'water', tier: bt, level: lv }, { id: 3, el: 'grass', tier: bt, level: lv }], bt, rr); if (b.result === 'win') { w++; rounds.push(b.round); } }
+      var w = 0, wn = 0, rounds = [], lv = MM.summonLevel(bt), trios = [['fire', 'water', 'grass'], ['light', 'dark', 'fire'], ['water', 'grass', 'light'], ['dark', 'fire', 'water'], ['grass', 'light', 'dark']];
+      for (var i = 0; i < 300; i++) {
+        var pt = trios[i % 5].map(function (e, k) { return { id: k + 1, el: e, tier: bt, level: lv }; });
+        var b = MM.simulateBossBattle(pt, bt, rr, 'smart'); if (b.result === 'win') { w++; rounds.push(b.round); }
+        if (MM.simulateBossBattle(pt, bt, rr, 'naive').result === 'win') wn++;
+      }
       rounds.sort(function (a, c) { return a - c; });
       var med = rounds[Math.floor(rounds.length / 2)];
-      check(bt + '단계 보스: 소환 레벨 3마리로 깰 수 있고 20라운드쯤', w / 200 > 0.45 && w / 200 < 0.99 && med >= 15 && med <= 26, Math.round(w / 2) + '% · ' + med + '라운드');
+      check(bt + '단계 보스: 공격만 하면 어렵고(<50%) 예고에 대응하면 깸(>55%), 20라운드쯤', wn / 300 < 0.5 && w / 300 > 0.55 && med >= 15 && med <= 26, '공격만 ' + Math.round(wn / 3) + '% · 대응 ' + Math.round(w / 3) + '% · ' + med + '라운드');
     }
-    var b1 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 1, level: 1 }], 1, rr), sealed = false, skipped = false;
-    while (!b1.result) { var ev = MM.act(b1, null, rr); if (ev && ev.skill === 'seal') sealed = true; if (ev && ev.skip) skipped = true; }
-    check('1단계 보스 스킬: 봉인 → 차례 건너뜀', sealed && skipped);
+    var b1 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 1, level: 10 }, { id: 2, el: 'water', tier: 1, level: 10 }], 1, rr), sealed = false, skipped = false, smashed = false;
+    while (!b1.result) { var ev = MM.act(b1, null, rr); if (ev && ev.skill === 'seal') sealed = true; if (ev && ev.skip) skipped = true; if (ev && ev.skill === 'smash') smashed = true; }
+    check('1단계 보스 스킬: 강타 + 봉인 → 차례 건너뜀', sealed && skipped && smashed);
+    var b2 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 2, level: 6 }], 2, rr);
+    check('보스는 다음 행동을 예고함', !!b2.units[1].plan && !!b2.units[1].plan.type);
+    var me = b2.units[0], boss2 = b2.units[1];
+    while (MM.currentActor(b2, rr) !== me) MM.act(b2, null, rr);
+    MM.act(b2, null, rr, { action: 'defend' });
+    check('방어: 다음 내 차례까지 받는 피해 30%', me.guard === true);
+    while (!b2.result && MM.currentActor(b2, rr) !== me) MM.act(b2, null, rr);
+    if (!b2.result) { MM.act(b2, null, rr, { action: 'focus' }); check('집중: 다음 공격 2배', me.focus === true && !me.guard); }
     var s = MM.newState(t0); MM.addBossTickets(s, 3, 1);
     var g = MM.grantBossWin(s, 3, rr);
     check('보스 보상: 한 단계 위 스테이지 드랍 ×100 (상위 소울 포함 가능), 골드 없음', g.gold === 0 && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
+    var s5 = MM.newState(t0), got3 = 0, got5 = 0;
+    for (var q = 0; q < 200; q++) { var g5 = MM.grantBossWin(s5, 5, rr); if (g5.drops.some(function (d) { return d.tier === 3; })) got3++; if (g5.drops.some(function (d) { return d.tier === 5; })) got5++; Object.keys(s5.souls).forEach(function (k) { s5.souls[k] = 0; }); }
+    check('5단계 보스: 3단계 소울 100%, 5단계 소울 약 30%', got3 === 200 && got5 > 40 && got5 < 80, got5);
     check('보스 입장권 사용', MM.useBossTicket(s, 3) && !MM.useBossTicket(s, 3));
     var sd = MM.newState(t0); B.BOSS_TICKET_DROP = 1; var dw = MM.grantDungeonWin(sd, 2, MM.dungeonEnemies(['fire'], 2)); B.BOSS_TICKET_DROP = 0.02;
     check('던전 승리 시 같은 단계 보스 입장권', dw.bossTicket === 2 && MM.bossTicketCount(sd, 2) === 1);
