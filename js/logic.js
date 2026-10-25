@@ -254,17 +254,14 @@
     s.souls[key] -= b.GACHA_COST;
     var r = R(rng)(), acc = 0, row = b.GACHA_TABLE[0];
     for (var i = 0; i < b.GACHA_TABLE.length; i++) { acc += b.GACHA_TABLE[i].p; if (r < acc) { row = b.GACHA_TABLE[i]; break; } }
-    var out = { kind: row.kind, souls: {}, tickets: 0 }, top = tier >= b.MAX_TIER;
-    var randEl = function () { return MM.RING[Math.floor(R(rng)() * MM.RING.length)]; };
-    var upKey = MM.speciesKey(el, top ? tier : tier + 1);
-    if (row.kind === 'souls') { var k = MM.speciesKey(randEl(), tier); out.souls[k] = row.min + Math.floor(R(rng)() * (row.max - row.min + 1)); }
+    var out = { kind: row.kind, n: row.n, big: !!row.big, souls: {}, tickets: 0 }, top = tier >= b.MAX_TIER;
+    if (row.kind === 'souls') out.souls[MM.speciesKey(MM.RING[Math.floor(R(rng)() * MM.RING.length)], tier)] = row.n;
     else if (row.kind === 'ticket') out.tickets = row.n;
-    else if (row.kind === 'up') out.souls[upKey] = row.n * (top ? 5 : 1);
-    else if (row.kind === 'jackpot') { out.souls[upKey] = row.up * (top ? 5 : 1); out.tickets = row.tickets; }
+    else if (row.kind === 'up') out.souls[MM.speciesKey(el, top ? tier : tier + 1)] = row.n * (top ? 5 : 1);
     out.drops = MM.applyDrops(s, out.souls);
     if (out.tickets) MM.addTickets(s, tier, out.tickets);
     s.stats.gachaPulls = (s.stats.gachaPulls || 0) + 1;
-    if (row.kind === 'jackpot') MM.addRecord(s, { type: 'gacha', el: el, tier: tier });
+    if (row.big) MM.addRecord(s, { type: 'gacha', el: el, tier: tier, kind: row.kind, n: row.n });
     out.tier = tier; out.el = el;
     return out;
   };

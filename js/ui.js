@@ -150,7 +150,7 @@
   SCREENS.gacha = function () {
     var c = BAL().GACHA_COST;
     var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🎁 소울 뽑기</h2>' +
-      '<div class="muted small lh" style="margin-bottom:10px">같은 소울 ' + c + '개로 한 번 뽑아요. 꽝 없음! 소울 10개, 입장권, 한 단계 위 소울, 가끔 대박이 나와요.</div>' +
+      '<div class="muted small lh" style="margin-bottom:10px">같은 소울 ' + c + '개로 한 번 뽑아요. 꽝 없음! 같은 단계 소울 10·20·30개, 입장권 1·2·3·5장, 한 단계 위 소울 1·2·3개 중 하나가 나와요.</div>' +
       '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
     MM.RING.forEach(function (el) {
       html += '<div class="el">' + elName(el) + '</div>';
@@ -165,22 +165,25 @@
     var n = S.souls[MM.speciesKey(el, tier)] || 0, c = BAL().GACHA_COST, k = Math.floor(n / c);
     openSheet('<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.speciesName(el, tier) + ' 소울 뽑기</b><div class="muted small">보유 ' + n + '개 · 1번에 ' + c + '개</div></div></div>' +
       '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="1"' + (k >= 1 ? '' : ' disabled') + '>1번 뽑기</button>' +
-      '<button class="btn" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="10"' + (k >= 10 ? '' : ' disabled') + '>10번 뽑기</button></div>');
+      '<button class="btn" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="' + k + '"' + (k >= 2 ? '' : ' disabled') + '>' + (k >= 2 ? '전부 ' + k + '번' : '전부 뽑기') + '</button></div>');
   }
-  var GACHA_LABEL = { none: '꽝', souls: '소울', ticket: '입장권', up: '한 단계 위 소울!', jackpot: '대박!!' };
+  function gachaRank(r) { return r.kind === 'up' ? 100 + r.n : r.kind === 'ticket' ? 10 + r.n : r.n / 10; }
+  function gachaLabel(r) { return r.kind === 'up' ? '위 단계 소울 ' + r.n + '개' + (r.n >= 3 ? '!!' : '!') : r.kind === 'ticket' ? '입장권 ' + r.n + '장' + (r.n >= 5 ? '!!' : r.n >= 2 ? '!' : '') : '소울 ' + r.n + '개'; }
   function doGacha(el, tier, times) {
     var res = [];
     for (var i = 0; i < times; i++) { var r = MM.gachaPull(S, el, tier); if (r.error) { if (!res.length) { toast(r.error); return; } break; } res.push(r); }
     save(); closeSheet(); render();
-    var best = res.reduce(function (b, r) { var o = ['none', 'souls', 'ticket', 'up', 'jackpot']; return o.indexOf(r.kind) > o.indexOf(b) ? r.kind : b; }, 'none');
+    var best = res.slice().sort(function (a, b) { return gachaRank(b) - gachaRank(a); })[0];
     var drops = {}, tickets = 0;
     res.forEach(function (r) { r.drops.forEach(function (d) { var x = drops[d.key] || (drops[d.key] = { key: d.key, el: d.el, tier: d.tier, count: 0, added: 0, wasted: 0, first: false }); x.count += d.count; x.added += d.added; x.wasted += d.wasted; x.first = x.first || d.first; }); tickets += r.tickets; });
     var list = Object.keys(drops).map(function (k) { return drops[k]; }).sort(function (a, b) { return b.tier - a.tier; });
-    var big = best === 'jackpot' || best === 'up';
-    var showTier = best === 'jackpot' ? Math.min(5, tier + 2) : best === 'up' ? Math.min(5, tier + 1) : tier;
-    showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + (big ? raysClass(Math.max(4, showTier)) : 'rays reveal now') + '"></div><div class="pop now" style="font-size:96px;line-height:130px">' + (best === 'jackpot' ? '💎' : best === 'up' ? '✨' : best === 'ticket' ? '🎟' : best === 'souls' ? '🎁' : '📦') + '</div></div>' +
-      '<div class="reveal now"><div class="big ok">' + GACHA_LABEL[best] + '</div><div class="sub">' + MM.speciesName(el, tier) + ' 소울 뽑기 ' + res.length + '번' + (res.length > 1 ? ' · ' + ['jackpot', 'up', 'ticket', 'souls', 'none'].map(function (k) { var c = res.filter(function (r) { return r.kind === k; }).length; return c ? GACHA_LABEL[k].replace(/!/g, '') + ' ' + c : ''; }).filter(Boolean).join(' · ') : '') + '</div>' +
-      '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare">🎟 ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + (!list.length && !tickets ? '' : '') + '</div></div>' +
+    var big = best.big || best.kind === 'up' || (best.kind === 'ticket' && best.n >= 3);
+    var icon = best.kind === 'up' ? (best.n >= 3 ? '💎' : '✨') : best.kind === 'ticket' ? '🎟' : '🎁';
+    var tally = {}; res.forEach(function (r) { var k = gachaLabel(r).replace(/!/g, ''); tally[k] = (tally[k] || 0) + 1; });
+    showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + (big ? raysClass(best.big ? 5 : 4) : 'rays reveal now') + '"></div><div class="pop now" style="font-size:96px;line-height:130px">' + icon + '</div></div>' +
+      '<div class="reveal now"><div class="big ok">' + gachaLabel(best) + '</div><div class="sub">' + MM.speciesName(el, tier) + ' 소울 뽑기 ' + res.length + '번' + '</div>' +
+      (res.length > 1 ? '<div class="muted small" style="margin-top:6px">' + Object.keys(tally).map(function (k) { return k + ' ×' + tally[k]; }).join(' · ') + '</div>' : '') +
+      '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare">🎟 ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + '</div></div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div></div>');
     var rare = rareOf(list); if (rare.length) rare.forEach(showBanner);
   }

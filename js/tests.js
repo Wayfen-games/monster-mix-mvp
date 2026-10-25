@@ -302,11 +302,11 @@
     MM.offerSouls(s, 'fire', 3, 1);
     check('제단: 3단계 소울 1개 = 49점', MM.altarSoulPoints(3) === 49 && MM.altarOf(s, 'fire').level >= 2);
     check('제단 보너스: 그 속성만 능력치·경험치', MM.playerMult(s, m) > 1 && MM.altarExpBonus(s, 'water') === 0);
-    var s2 = MM.newState(t0); s2.souls.water2 = 100; var kinds = {}, seq = [0.1, 0.8, 0.95, 0.995];
-    seq.forEach(function (x) { s2.souls.water2 = 100; var g = MM.gachaPull(s2, 'water', 2, function () { return x; }); kinds[g.kind] = g; });
-    check('뽑기: 꽝 없이 4종류, 제일 낮은 당첨 소울 10개', Object.keys(kinds).length === 4 && !kinds.none && kinds.souls.drops[0].count === 10);
-    check('뽑기 입장권은 같은 단계 1장씩 (대박도 1장)', MM.ticketCount(s2, 2) === 2);
-    check('뽑기 위 단계 소울', (s2.souls.water3 || 0) === 1 + 3, s2.souls.water3);
+    var s2 = MM.newState(t0), seen = {}, acc = 0;
+    B.GACHA_TABLE.forEach(function (row) { var x = acc + row.p / 2; acc += row.p; s2.souls.water2 = 100; var g = MM.gachaPull(s2, 'water', 2, function () { return x; }); seen[g.kind + g.n] = g; });
+    check('뽑기: 꽝 없이 10가지 당첨 품목이 다 나옴', Object.keys(seen).length === 10 && seen.souls10 && seen.ticket5 && seen.up3);
+    check('뽑기 입장권은 같은 단계 (1+2+3+5장)', MM.ticketCount(s2, 2) === 11);
+    check('뽑기 위 단계 소울 (1+2+3개, 같은 속성)', (s2.souls.water3 || 0) === 6, s2.souls.water3);
     check('뽑기 확률 합 100%', Math.abs(B.GACHA_TABLE.reduce(function (a, r) { return a + r.p; }, 0) - 1) < 1e-9);
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
