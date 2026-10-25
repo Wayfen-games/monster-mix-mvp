@@ -288,3 +288,5 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .btn.good { border-color: var(--good); }
 .soul-n { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--panel2); border-radius: 10px; padding: 8px 10px; margin-top: 8px; text-align: center; }
 .soul-n .btn { min-width: 44px; font-size: 18px; }
+.mon img { display: block; image-rendering: auto; -webkit-user-drag: none; }
+.mon img.sil { filter: brightness(0) invert(.22) sepia(.4) hue-rotate(210deg); opacity: .8; }

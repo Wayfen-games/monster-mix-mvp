@@ -107,7 +107,13 @@
     }
     return defs + back + body + front + face;
   }
+  // 그림 파일이 있는 종은 그림으로 (art/불1 = art/fire1.png), 없으면 코드 그림
+  var ART = { fire1: 1, water1: 1, grass1: 1, light1: 1, dark1: 1 };
+  MM.ART = ART;
+  function artOf(el, tier) { var k = el + tier; return ART[k] ? 'art/' + k + '.png' : null; }
   function monSvg(el, tier, size, sil) {
+    var src = artOf(el, tier);
+    if (src) return '<span class="mon"><img src="' + src + '" width="' + size + '" height="' + size + '" alt="" draggable="false"' + (sil ? ' class="sil"' : '') + '></span>';
     return '<span class="mon"><svg width="' + size + '" height="' + size + '" viewBox="0 0 100 100">' + monInner(el, tier, sil) + '</svg></span>';
   }
   function unknownSvg(size) {
@@ -1104,7 +1110,7 @@
       '<defs><radialGradient id="g" cx="50%" cy="46%" r="65%"><stop offset="0" stop-color="#3a2f5e"/><stop offset="1" stop-color="#14112a"/></radialGradient></defs>' +
       '<rect width="100%" height="100%" fill="url(#g)"/>' + rays +
       '<circle cx="540" cy="620" r="300" fill="' + color + '" opacity="0.12"/>' +
-      '<g transform="translate(340,420) scale(4)">' + monInner(r.el, r.tier, false) + '</g>' +
+      (artOf(r.el, r.tier) ? '' : '<g transform="translate(340,420) scale(4)">' + monInner(r.el, r.tier, false) + '</g>') +
       (r.count > 1 ? '<rect x="760" y="380" rx="40" width="170" height="90" fill="#ffcf4a"/><text x="845" y="445" text-anchor="middle" font-size="56" font-weight="900" fill="#2a2000" font-family="sans-serif">×' + r.count + '</text>' : '') +
       '<text x="540" y="1010" text-anchor="middle" font-size="84" font-weight="900" fill="#ffcf4a" font-family="sans-serif">' + esc(l.title) + '</text>' +
       '<text x="540" y="1090" text-anchor="middle" font-size="44" fill="#e9e4ff" font-family="sans-serif">' + esc(l.sub) + '</text>' +
@@ -1113,15 +1119,17 @@
     var img = new Image();
     img.onload = function () {
       var c = document.createElement('canvas'); c.width = W; c.height = H;
-      c.getContext('2d').drawImage(img, 0, 0);
-      c.toBlob(function (blob) {
+      var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+      var src = artOf(r.el, r.tier);
+      if (src) { var art = new Image(); art.onload = function () { ctx.drawImage(art, 340, 420, 400, 400); finish(); }; art.onerror = finish; art.src = src; } else finish();
+      function finish() { c.toBlob(function (blob) {
         if (!blob) { toast('이미지를 만들지 못했어요'); return; }
         var url = URL.createObjectURL(blob), a = document.createElement('a');
         a.href = url; a.download = 'monster-mix-' + MM.speciesName(r.el, r.tier) + '-' + r.t + '.png';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
         toast('이미지를 저장했어요');
-      }, 'image/png');
+      }, 'image/png'); }
     };
     img.onerror = function () { toast('이미지를 만들지 못했어요'); };
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
