@@ -147,7 +147,7 @@
   MM.equippedOf = function (s, el) { eqs(s); return MM.getEquip(s, s.equipped[el]); };
   MM.craftEquip = function (s, el, tier) {
     var key = MM.speciesKey(el, tier), need = B().EQUIP_CRAFT_SOULS;
-    if ((s.souls[key] || 0) < need) return { error: MM.josa(MM.speciesName(el, tier) + ' 소울', '이', '가') + ' ' + need + '개 필요해요' };
+    if ((s.souls[key] || 0) < need) return { error: MM.josa(MM.soulName(el, tier) + '', '이', '가') + ' ' + need + '개 필요해요' };
     s.souls[key] -= need;
     var e = { id: s.nextId++, el: el, tier: tier, plus: 0, stack: 0 };
     eqs(s).push(e);
@@ -189,7 +189,7 @@
     if (!e) return { error: '장비가 없어요' };
     if (e.plus >= B().EQUIP_MAX_PLUS) return { error: '최대 강화예요' };
     var c = MM.equipEnhCost(e);
-    if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.speciesName(e.el, e.tier) + ' 소울', '이', '가') + ' ' + c.souls + '개 필요해요' };
+    if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.soulName(e.el, e.tier) + '', '이', '가') + ' ' + c.souls + '개 필요해요' };
     if (s.gold < c.gold) return { error: MM.josa('골드', '이', '가') + ' 부족해요' };
     if (c.feather && MM.featherCount(s) < c.feather) return { error: '+' + B().FEATHER_FROM_PLUS + ' 이상 강화에는 무지개 깃털이 필요해요' };
     s.souls[c.key] -= c.souls; s.gold -= c.gold;
@@ -227,7 +227,7 @@
     if (!m) return { error: '몬스터가 없어요' };
     if ((m.plus || 0) >= B().MON_ENH_BONUS.length) return { error: '이미 최대 강화예요' };
     var c = MM.monEnhCost(m);
-    if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.speciesName(m.el, m.tier) + ' 소울', '이', '가') + ' 필요해요' };
+    if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.soulName(m.el, m.tier) + '', '이', '가') + ' 필요해요' };
     if (s.gold < c.gold) return { error: MM.josa('골드', '이', '가') + ' 부족해요' };
     s.souls[c.key] -= c.souls; s.gold -= c.gold;
     var rate = MM.monEnhRate(m);
@@ -263,7 +263,7 @@
   // ================= 소울 뽑기 =================
   MM.gachaPull = function (s, el, tier, rng) {
     var b = B(), key = MM.speciesKey(el, tier);
-    if ((s.souls[key] || 0) < b.GACHA_COST) return { error: MM.josa(MM.speciesName(el, tier) + ' 소울', '이', '가') + ' ' + b.GACHA_COST + '개 필요해요' };
+    if ((s.souls[key] || 0) < b.GACHA_COST) return { error: MM.josa(MM.soulName(el, tier) + '', '이', '가') + ' ' + b.GACHA_COST + '개 필요해요' };
     s.souls[key] -= b.GACHA_COST;
     var r = R(rng)(), acc = 0, row = b.GACHA_TABLE[0];
     for (var i = 0; i < b.GACHA_TABLE.length; i++) { acc += b.GACHA_TABLE[i].p; if (r < acc) { row = b.GACHA_TABLE[i]; break; } }
@@ -413,7 +413,7 @@
     if (cost.soulTier) {
       var el = cost.soulOptions.indexOf(soulEl) >= 0 ? soulEl : cost.soulOptions[0];
       var key = MM.speciesKey(el, cost.soulTier);
-      if ((s.souls[key] || 0) < cost.souls) reasons.push(MM.josa(MM.speciesName(el, cost.soulTier) + ' 소울', '이', '가') + ' ' + cost.souls + '개 필요해요');
+      if ((s.souls[key] || 0) < cost.souls) reasons.push(MM.josa(MM.soulName(el, cost.soulTier) + '', '이', '가') + ' ' + cost.souls + '개 필요해요');
     }
     return { ok: reasons.length === 0, reasons: reasons, cost: cost, req: req, subReq: subReq };
   };
@@ -932,7 +932,7 @@
     u.atk = Math.round(u.atk * tv(b.BOSS_ATK_MULT, tier));
     u.spd = Math.round(u.spd * b.BOSS_SPD_MULT * 10) / 10;
     u.skills = b.BOSS_SKILLS[tier] || [];
-    u.raid = true; u.name = tier + '단계 무지개 보스';
+    u.raid = true; u.name = MM.bossName(tier);
     bt.maxRounds = b.BOSS_MAX_ROUNDS; bt.raid = tier; bt.healsLeft = b.BOSS_HEALS; bt.revivesLeft = b.BOSS_REVIVES;
     MM.newRound(bt, rng); bt.round = 1; // 보스 속도 반영해서 첫 라운드 순서 다시
     MM.planBoss(bt, u, rng);

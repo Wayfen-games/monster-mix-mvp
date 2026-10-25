@@ -32,6 +32,11 @@
   MM.speciesKey = function (el, tier) { return el + tier; };
   MM.parseKey = function (key) { return { el: key.replace(/\d+$/, ''), tier: +key.match(/\d+$/)[0] }; };
   MM.speciesName = function (el, tier) { return MM.ELEMENTS[el].name + tier; };
+  // [사용자 확정 17:34] 소울 이름: '1단계 불의 소울'
+  MM.soulName = function (el, tier) { return tier + '단계 ' + MM.ELEMENTS[el].name + '의 소울'; };
+  // [사용자 확정] 보스 이름
+  MM.BOSS_NAMES = ['프리즘', '스펙트라', '오로라', '크로마', '레인보 엠퍼러'];
+  MM.bossName = function (tier) { return MM.BOSS_NAMES[tier - 1] || (tier + '단계 무지개 보스'); };
 
   MM.maxTier = function () { return MM.BALANCE.MAX_TIER; };
   MM.tiers = function () { var a = []; for (var t = 1; t <= MM.maxTier(); t++) a.push(t); return a; };

@@ -66,10 +66,17 @@
   function crown(y, gem) {
     return '<path d="M36 ' + (y + 4) + ' L38 ' + (y - 8) + ' L44 ' + (y - 1) + ' L50 ' + (y - 11) + ' L56 ' + (y - 1) + ' L62 ' + (y - 8) + ' L64 ' + (y + 4) + 'Z" fill="#ffd54a" stroke="#a16207" stroke-width="2" stroke-linejoin="round"/><circle cx="50" cy="' + (y - 1) + '" r="2.6" fill="' + gem + '" stroke="#a16207" stroke-width="1"/>';
   }
+  // [사용자 17:35 "도형 치워"] 몸은 단계 상관없이 말랑한 슬라임 하나, 단계가 오를수록 조금씩 커짐
+  function slimeShape(tier) {
+    var k = Math.min(1, 0.82 + 0.045 * (tier - 1)), cx = 50, by = 92;
+    var P = function (x, y) { return (cx + (x - cx) * k).toFixed(1) + ' ' + (by + (y - by) * k).toFixed(1); };
+    return '<path d="M' + P(50, 14) + ' C' + P(62, 26) + ' ' + P(88, 42) + ' ' + P(88, 66) + ' C' + P(88, 84) + ' ' + P(74, 92) + ' ' + P(50, 92) + ' C' + P(26, 92) + ' ' + P(12, 84) + ' ' + P(12, 66) + ' C' + P(12, 42) + ' ' + P(38, 26) + ' ' + P(50, 14) + ' Z"/>';
+  }
   function monInner(el, tier, sil) {
     var boss = el === 'rainbow';
     var color = sil ? '#3a355f' : MM.ELEMENTS[el].color;
-    var ey = EYE_Y[tier] || 56, hy = HEAD_Y[tier] || 10, shape = shapeFor(tier);
+    var k = Math.min(1, 0.82 + 0.045 * (tier - 1));
+    var ey = Math.round(92 - (92 - 60) * k), hy = Math.round(92 - (92 - 16) * k), shape = slimeShape(tier);
     var defs = boss && !sil ? '<defs><linearGradient id="rbw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5a5a"/><stop offset=".25" stop-color="#ffc83d"/><stop offset=".5" stop-color="#4cd964"/><stop offset=".75" stop-color="#3fa3ff"/><stop offset="1" stop-color="#b45cff"/></linearGradient></defs>' : '';
     // 몸: 굵은 외곽선 위에 같은 색으로 한 번 더 그려서 모서리를 둥글게
     var body = '<g fill="' + (sil ? color : 'rgba(0,0,0,.35)') + '" stroke="' + (sil ? color : 'rgba(0,0,0,.35)') + '" stroke-width="12" stroke-linejoin="round">' + shape + '</g>' +
@@ -87,8 +94,8 @@
       // 귀엽게: 큰 눈 + 하이라이트 + 볼터치 + 작은 입, 단계마다 장식이 늘어남
       if (tier >= 5) back += '<circle cx="50" cy="54" r="49" fill="' + color + '" opacity=".22"/><circle cx="50" cy="54" r="44" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-dasharray="3 6"/>';
       if (tier >= 3) { var wy = ey - 12; back += '<ellipse cx="9" cy="' + wy + '" rx="15" ry="9" transform="rotate(-35 9 ' + wy + ')" fill="#fff" fill-opacity=".9" stroke="rgba(0,0,0,.3)" stroke-width="2"/><ellipse cx="91" cy="' + wy + '" rx="15" ry="9" transform="rotate(35 91 ' + wy + ')" fill="#fff" fill-opacity=".9" stroke="rgba(0,0,0,.3)" stroke-width="2"/>'; }
-      if (tier === 2) back += '<circle cx="31" cy="38" r="8" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="69" cy="38" r="8" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/>';
-      if (tier === 2) front += '<circle cx="27" cy="36" r="7" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="27" cy="36" r="3" fill="#ff8fab" opacity=".8"/><circle cx="73" cy="36" r="7" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="73" cy="36" r="3" fill="#ff8fab" opacity=".8"/>';
+      if (tier === 2) back += '<circle cx="31" cy="40" r="8" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="69" cy="40" r="8" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/>';
+      if (tier === 2) front += '<circle cx="30" cy="38" r="7" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="30" cy="38" r="3" fill="#ff8fab" opacity=".8"/><circle cx="70" cy="38" r="7" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="70" cy="38" r="3" fill="#ff8fab" opacity=".8"/>';
       if (tier >= 4) { var by = ey + 23; front += crown(hy + 2, MM.ELEMENTS[el].color) + '<g transform="translate(50 ' + by + ') scale(.55) translate(-50 ' + (-by) + ')">' + elemDeco(el, by + 6) + '</g>'; }
       else front += elemDeco(el, hy);
       if (tier >= 5) front += '<path d="M14 24 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#fff"/><path d="M84 80 l1.6 4 4 1.6 -4 1.6 -1.6 4 -1.6 -4 -4 -1.6 4 -1.6z" fill="#fff"/>';
@@ -181,7 +188,7 @@
     MM.tiers().forEach(function (t) {
       var n = S.souls[MM.speciesKey(el, t)] || 0; if (!n) return; any = true;
       var opts = [1, 10, n].filter(function (c, i, arr) { return c <= n && arr.indexOf(c) === i; });
-      html += '<div class="pick" style="display:block"><div class="row between"><b>' + MM.speciesName(el, t) + ' 소울 ' + n + '개</b><span class="muted small">1개 ' + fmt(MM.altarSoulPoints(t)) + '점</span></div><div class="row wrap" style="gap:6px;margin-top:8px">' +
+      html += '<div class="pick" style="display:block"><div class="row between"><b>' + MM.soulName(el, t) + ' ' + n + '개</b><span class="muted small">1개 ' + fmt(MM.altarSoulPoints(t)) + '점</span></div><div class="row wrap" style="gap:6px;margin-top:8px">' +
         opts.map(function (c) { var p = MM.offerPreview(S, el, t, c); return '<button class="btn sm" data-act="offer" data-el="' + el + '" data-tier="' + t + '" data-n="' + c + '">' + (c === n && c > 10 ? '전부' : c + '개') + (p.level > a.level ? ' → Lv ' + p.level : '') + '</button>'; }).join('') + '</div></div>';
     });
     if (!any) html += '<div class="muted small">' + MM.ELEMENTS[el].name + ' 소울이 없어요</div>';
@@ -203,7 +210,7 @@
   };
   function gachaSheet(el, tier) {
     var n = S.souls[MM.speciesKey(el, tier)] || 0, c = BAL().GACHA_COST, k = Math.floor(n / c);
-    openSheet('<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.speciesName(el, tier) + ' 소울 뽑기</b><div class="muted small">보유 ' + n + '개 · 1번에 ' + c + '개</div></div></div>' +
+    openSheet('<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.soulName(el, tier) + ' 뽑기</b><div class="muted small">보유 ' + n + '개 · 1번에 ' + c + '개</div></div></div>' +
       '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="1"' + (k >= 1 ? '' : ' disabled') + '>1번 뽑기</button>' +
       '<button class="btn" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="' + k + '"' + (k >= 2 ? '' : ' disabled') + '>' + (k >= 2 ? '전부 ' + k + '번' : '전부 뽑기') + '</button></div>');
   }
@@ -221,7 +228,7 @@
     var icon = best.kind === 'boss' ? '🌈' : best.kind === 'up' ? (best.n >= 3 ? '💎' : '✨') : best.kind === 'ticket' ? '🎟' : '🎁';
     var tally = {}; res.forEach(function (r) { var k = gachaLabel(r).replace(/!/g, ''); tally[k] = (tally[k] || 0) + 1; });
     showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + (big ? raysClass(best.big ? 5 : 4) : 'rays reveal now') + '"></div><div class="pop now" style="font-size:96px;line-height:130px">' + icon + '</div></div>' +
-      '<div class="reveal now"><div class="big ok">' + gachaLabel(best) + '</div><div class="sub">' + MM.speciesName(el, tier) + ' 소울 뽑기 ' + res.length + '번' + '</div>' +
+      '<div class="reveal now"><div class="big ok">' + gachaLabel(best) + '</div><div class="sub">' + MM.soulName(el, tier) + ' 뽑기 ' + res.length + '번' + '</div>' +
       (res.length > 1 ? '<div class="muted small" style="margin-top:6px">' + Object.keys(tally).map(function (k) { return k + ' ×' + tally[k]; }).join(' · ') + '</div>' : '') +
       '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare">🎟 ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + (bossT ? '<div class="soul-item rare">🌈 ' + tier + '단계 보스 입장권 ×' + bossT + '</div>' : '') + '</div></div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div></div>');
@@ -338,7 +345,7 @@
     html += '<div class="card"><div class="row between"><span class="muted small">출전 파티 (▲ 보스에게 유리 · <span style="color:var(--bad)">▼</span> 불리)</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</div>' +
       '<div class="row" style="justify-content:space-around;margin-top:8px">' + partyAdvRow([st.el]) + '</div>' +
       '<div class="muted small" style="margin-top:8px">권장: ' + st.tier + '단계 3마리</div></div>';
-    if (!cleared) { var fcN = Math.round(MM.tierVal(BAL().FIRST_CLEAR_SOULS, st.tier)); if (fcN) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상</b><div class="row" style="gap:8px;margin-top:8px">' + monSvg(st.el, Math.min(bossT, T()), 28) + MM.speciesName(st.el, Math.min(bossT, T())) + ' 소울 ' + fcN + '개 확정</div></div>'; }
+    if (!cleared) { var fcN = Math.round(MM.tierVal(BAL().FIRST_CLEAR_SOULS, st.tier)); if (fcN) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상</b><div class="row" style="gap:8px;margin-top:8px">' + monSvg(st.el, Math.min(bossT, T()), 28) + MM.soulName(st.el, Math.min(bossT, T())) + ' ' + fcN + '개 확정</div></div>'; }
     html += '<div class="card"><b>나올 수 있는 소울</b>' + possibleSouls(st.el, st.tier) + '</div>';
     html += '<button class="btn primary block" data-act="startStage"' + (pm.length ? '' : ' disabled') + '>도전</button>';
     if (cleared) {
@@ -504,7 +511,7 @@
   function sessionTally(ss) {
     var keys = Object.keys(ss.drops).sort(function (a, b) { return MM.parseKey(b).tier - MM.parseKey(a).tier; });
     var tk = ss.tickets ? '<span class="chip gold">🎟 ' + (ss.ticketTier || '') + '단계 입장권 ×' + ss.tickets + '</span>' : '';
-    return '<div class="tally">' + tk + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (p.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.speciesName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : (tk ? '' : '<span class="muted small">아직 얻은 소울이 없어요</span>')) + '</div>';
+    return '<div class="tally">' + tk + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (p.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.soulName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : (tk ? '' : '<span class="muted small">아직 얻은 소울이 없어요</span>')) + '</div>';
   }
 
   SCREENS.battle = function () {
@@ -524,7 +531,7 @@
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
       sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '') + (Bt.last.enrage ? ' · 보스가 분노했어요!' : '') + (Bt.last.shielded ? ' · 보호막' : '') + (Bt.last.focused ? ' · 집중 ×' + BAL().BOSS_FOCUS_MULT + '!' : '') + (Bt.last.guarded ? ' · 방어' : '');
     }
-    var title = Bt.kind === 'boss' ? Bt.tier + '단계 무지개 보스' : Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : Bt.kind === 'ticket' ? Bt.tier + '단계 입장권 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
+    var title = Bt.kind === 'boss' ? Bt.tier + '단계 보스 ' + MM.bossName(Bt.tier) : Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : Bt.kind === 'ticket' ? Bt.tier + '단계 입장권 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
     var en = bt.units.filter(function (u) { return u.side === 'e'; });
     var html = '<div class="battle">' +
       '<div class="row between"><span class="muted small">' + title + ' · ' + bt.round + '라운드' + (bt.partyBonus ? ' · <span style="color:var(--good)">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</span>' +
@@ -651,7 +658,7 @@
   function dropsHtml(list) {
     if (!list.length) return '<span class="muted">이번에는 소울이 나오지 않았어요</span>';
     return list.map(function (d) {
-      return '<div class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 24) + MM.speciesName(d.el, d.tier) + ' ×' + d.count +
+      return '<div class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 24) + MM.soulName(d.el, d.tier) + ' ×' + d.count +
         (d.first ? ' <span class="first">첫 획득!</span>' : '') + (d.wasted ? ' <span class="lack small">가득 차서 ' + d.wasted + '개 버려짐</span>' : '') + '</div>';
     }).join('');
   }
@@ -669,7 +676,7 @@
         Object.keys(ss.levelUps).map(function (id) { var u = ss.levelUps[id]; return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
       again = '<button class="btn good block" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 다시 · ' + MM.autoLeft(S, Date.now()) + '판 남음</button>';
     } else {
-      var label = R.kind === 'boss' ? R.tier + '단계 무지개 보스' : R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : R.kind === 'ticket' ? R.tier + '단계 입장권 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
+      var label = R.kind === 'boss' ? R.tier + '단계 보스 ' + MM.bossName(R.tier) : R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : R.kind === 'ticket' ? R.tier + '단계 입장권 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
       html = '<div class="reward-title ' + (R.win ? 'win' : 'lose') + '">' + (R.win ? '클리어!' : '패배…') + '</div><div class="muted" style="text-align:center;margin-bottom:14px">' + label + '</div>';
       if (R.win) {
         if (R.r.firstClear) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상!</b><div class="soul-list" style="margin-top:10px">' + dropsHtml([R.r.firstClear]) + '</div></div>';
@@ -706,8 +713,8 @@
     var d = list[0];
     showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + raysClass(d.tier) + '"></div><div class="flash now"></div>' + sparks(10 + d.tier * 4 + d.count * 4, true) +
       '<div class="pop now" style="position:relative">' + monSvg(d.el, d.tier, 110 + d.tier * 6) + (d.count > 1 ? '<span class="count-badge">×' + d.count + '</span>' : '') + '</div></div>' +
-      '<div class="reveal now"><div class="big ok">' + d.tier + '단계 소울!</div><div class="sub">' + MM.speciesName(d.el, d.tier) + ' 소울 ×' + d.count + '</div>' + (d.first ? '<div class="new">첫 획득!</div>' : '') +
-      (list.length > 1 ? '<div class="sub">+ ' + list.slice(1).map(function (x) { return MM.speciesName(x.el, x.tier) + ' ×' + x.count; }).join(', ') + '</div>' : '') +
+      '<div class="reveal now"><div class="big ok">' + d.tier + '단계 소울!</div><div class="sub">' + MM.soulName(d.el, d.tier) + ' ×' + d.count + '</div>' + (d.first ? '<div class="new">첫 획득!</div>' : '') +
+      (list.length > 1 ? '<div class="sub">+ ' + list.slice(1).map(function (x) { return MM.soulName(x.el, x.tier) + ' ×' + x.count; }).join(', ') + '</div>' : '') +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div></div>');
   }
 
@@ -724,7 +731,7 @@
       el.innerHTML = '<div><b>' + d.title + '</b><div class="small">' + d.sub + '</div></div>';
     } else {
       el.className = d.tier >= 5 ? 't5' : '';
-      el.innerHTML = monSvg(d.el, d.tier, 36) + '<div><b>' + d.tier + '단계 소울' + (d.first ? ' 첫 획득!' : '!') + '</b><div class="small">' + MM.speciesName(d.el, d.tier) + ' 소울 ×' + d.count + '</div></div>';
+      el.innerHTML = monSvg(d.el, d.tier, 36) + '<div><b>' + d.tier + '단계 소울' + (d.first ? ' 첫 획득!' : '!') + '</b><div class="small">' + MM.soulName(d.el, d.tier) + ' ×' + d.count + '</div></div>';
     }
     el.hidden = false;
     setTimeout(function () { bannerQueue.shift(); el.hidden = true; setTimeout(nextBanner, 150); }, d.notice ? 2200 : 1800 + d.tier * 250);
@@ -824,7 +831,7 @@
     var have = S.souls[c.key] || 0, ok = have >= c.souls && S.gold >= c.gold && MM.featherCount(S) >= (c.feather || 0);
     openSheet('<div class="row" style="gap:12px">' + equipSvg(e.el, e.tier, 52) + '<div><b>' + eqName(e) + ' → +' + (e.plus + 1) + '</b><div class="muted small">' + pctBonus(MM.equipBonus(e)) + ' → ' + pctBonus(MM.equipBonus(e) + BAL().EQUIP_PER_PLUS) + '</div></div></div>' +
       '<div class="rate-box" style="margin-top:12px"><div class="rate">' + pct(rate) + '</div><div class="muted small">성공률 · 실패 스택 ' + e.stack + ' · ' + (rate >= 1 ? '이번엔 확정!' : '천장까지 최대 ' + fmt(left) + '번') + '</div></div>' +
-      '<div class="cost-line" style="margin-top:10px"><span>' + (c.souls ? MM.speciesName(e.el, e.tier) + ' 소울 ' + c.souls + '개' : '소울 필요 없음') + '</span><span class="' + (have >= c.souls ? 'okc' : 'lack') + '">' + (c.souls ? '보유 ' + have : '✓') + '</span></div>' +
+      '<div class="cost-line" style="margin-top:10px"><span>' + (c.souls ? MM.soulName(e.el, e.tier) + ' ' + c.souls + '개' : '소울 필요 없음') + '</span><span class="' + (have >= c.souls ? 'okc' : 'lack') + '">' + (c.souls ? '보유 ' + have : '✓') + '</span></div>' +
       '<div class="cost-line"><span>골드 ' + fmt(c.gold) + ' G</span><span class="' + (S.gold >= c.gold ? 'okc' : 'lack') + '">' + (S.gold >= c.gold ? '✓' : '부족') + '</span></div>' +
       (c.feather ? '<div class="cost-line"><span>🪶 무지개 깃털 ' + c.feather + '개</span><span class="' + (MM.featherCount(S) >= c.feather ? 'okc' : 'lack') + '">보유 ' + MM.featherCount(S) + '</span></div>' : '') +
       '<div class="muted small" style="margin:6px 0">실패해도 장비는 그대로, 비용만 들어요 · 강화 수치는 다른 장비로 옮길 수 없어요</div>' +
@@ -854,7 +861,7 @@
       if (!n) return;
       any = true;
       var opts = [1, 10, n].filter(function (c, i, a) { return c <= n && a.indexOf(c) === i; });
-      html += '<div class="pick" style="display:block"><div class="row between"><b>' + MM.speciesName(m.el, t) + ' 소울 ' + n + '개</b><span class="muted small">1개 EXP ' + fmt(MM.soulExp(t)) + '</span></div><div class="row wrap" style="gap:6px;margin-top:8px">' +
+      html += '<div class="pick" style="display:block"><div class="row between"><b>' + MM.soulName(m.el, t) + ' ' + n + '개</b><span class="muted small">1개 EXP ' + fmt(MM.soulExp(t)) + '</span></div><div class="row wrap" style="gap:6px;margin-top:8px">' +
         opts.map(function (c) {
           var p = MM.feedPreview(m, t, c);
           return '<button class="btn sm" data-act="feed" data-id="' + m.id + '" data-tier="' + t + '" data-n="' + c + '">' + (c === n && c > 10 ? '전부' : c + '개') + ' → Lv ' + p.level + (p.used < c ? ' (' + p.used + '개만)' : '') + '</button>';
@@ -883,7 +890,7 @@
 
   function soulSheet(el, tier) {
     var key = MM.speciesKey(el, tier), n = S.souls[key] || 0, per = BAL().SOULS_PER_SUMMON;
-    var html = '<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.speciesName(el, tier) + ' 소울</b><div class="muted small">보유 ' + n + '개 / 최대 ' + BAL().SOUL_CAP + '개</div></div></div>' +
+    var html = '<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.soulName(el, tier) + '</b><div class="muted small">보유 ' + n + '개 / 최대 ' + BAL().SOUL_CAP + '개</div></div></div>' +
       '<div class="pick-list" style="margin-top:14px">' +
       '<button class="pick" data-act="summon" data-el="' + el + '" data-tier="' + tier + '"' + (n >= per ? '' : ' disabled') + '><b>소환</b><span class="muted small">소울 ' + per + '개 → ' + MM.speciesName(el, tier) + ' Lv ' + MM.summonLevel(tier) + '</span></button>';
     if (tier > 1) {
@@ -943,7 +950,7 @@
         html += '<div class="cost-line"><span>' + cost.soulTier + '단계 소울 ' + cost.souls + '개</span><span class="' + (have >= cost.souls ? '' : 'lack') + '">보유 ' + have + '</span></div>';
         html += '<div class="soul-n"><button class="btn sm" data-act="soulN" data-d="-1"' + (cost.souls > 1 ? '' : ' disabled') + '>−</button><div><b>소울 ' + cost.souls + '개</b><div class="muted small">' + (cost.souls > 1 ? '골드 -' + Math.round(BAL().FUSION_SOUL_GOLD_CUT * (cost.souls - 1) * 100) + '%' : '소울을 더 쓰면 골드가 줄어요') + '</div></div><button class="btn sm" data-act="soulN" data-d="1"' + (cost.souls < BAL().FUSION_SOUL_MAX ? '' : ' disabled') + '>+</button></div>';
         if (cost.soulOptions.length > 1) html += '<div class="soul-choice">' + cost.soulOptions.map(function (el) {
-          return '<button class="' + (el === f.soulEl ? 'on' : '') + '" data-act="soulEl" data-el="' + el + '">' + MM.speciesName(el, cost.soulTier) + ' (' + (S.souls[MM.speciesKey(el, cost.soulTier)] || 0) + ')</button>';
+          return '<button class="' + (el === f.soulEl ? 'on' : '') + '" data-act="soulEl" data-el="' + el + '">' + MM.soulName(el, cost.soulTier) + ' (' + (S.souls[MM.speciesKey(el, cost.soulTier)] || 0) + ')</button>';
         }).join('') + '</div>';
       }
       html += '</div>';
@@ -1001,7 +1008,7 @@
     showOverlay('<div class="result ok"><div class="stage-anim">' + charge + '<div class="' + (mainSnap ? 'rays reveal' : raysClass(m.tier)) + (m.tier >= 5 ? ' t5' : m.tier >= 4 ? ' t4' : '') + '"></div><div class="flash' + (mainSnap ? '' : ' now') + '"></div>' + sparks(18 + m.tier * 2, !mainSnap) +
       '<div class="pop' + (mainSnap ? '' : ' now') + '">' + monSvg(m.el, m.tier, 130) + '</div></div>' +
       '<div class="reveal' + (mainSnap ? '' : ' now') + '"><div class="big ok">' + line.title + '</div><div class="sub">' + line.sub + '</div>' +
-      (dex ? '<div class="new">도감 새 등록! 보상: ' + MM.speciesName(m.el, m.tier) + ' 소울 ' + dex.soul + '개</div>' : '') +
+      (dex ? '<div class="new">도감 새 등록! 보상: ' + MM.soulName(m.el, m.tier) + ' ' + dex.soul + '개</div>' : '') +
       (dex && dex.set ? '<div class="new" style="color:var(--accent)">🎉 ' + dex.set.tier + '단계 도감 5종 완성! 입장권 ' + dex.set.tickets + '장 + 보스 입장권 ' + dex.set.boss + '장</div>' : '') +
       '<div class="acts">' + acts + '</div></div></div>');
   }
@@ -1011,7 +1018,7 @@
     var chk = MM.fusionCheck(S, sel.main, sel.sub, view.fusion.soulEl, view.fusion.soulN);
     if (!chk.ok) { toast(chk.reasons[0]); return; }
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
-    var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 ' + c.souls + '개' : '');
+    var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.soulName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' ' + c.souls + '개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
       name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>' + ([sel.main, sel.sub].some(function (m) { return m.plus; }) ? '<br><span class="small" style="color:var(--bad)">강화한 몬스터가 있어요. 성공하면 강화(' + [sel.main, sel.sub].filter(function (m) { return m.plus; }).map(function (m) { return name(m) + ' +' + m.plus; }).join(', ') + ')는 사라져요</span>' : ''), '합성', doFuse);
   }
@@ -1060,10 +1067,10 @@
   function recLine(r) {
     if (r.type === 'feather') return { title: '🪶 무지개 깃털!', sub: r.tier + '단계 보스에서 획득' };
     if (r.type === 'dexset') return { title: r.tier + '단계 도감 5종 완성!', sub: '입장권 ' + BAL().DEX_SET_TICKETS + '장 + 보스 입장권 ' + BAL().DEX_SET_BOSS_TICKETS + '장' };
-    if (r.type === 'boss') return { title: r.tier + '단계 무지개 보스 격파!', sub: '보스 입장권 1장 사용' };
+    if (r.type === 'boss') return { title: MM.bossName(r.tier) + ' 격파!', sub: '보스 입장권 1장 사용' };
     if (r.type === 'equip') return { title: '장비 강화 +' + r.plus + '!', sub: MM.equipName(r.el, r.tier) + ' +' + r.plus + (r.rate ? ' · 성공률 ' + pct(r.rate) : '') };
-    if (r.type === 'gacha') return { title: '소울 뽑기 대박!', sub: MM.speciesName(r.el, r.tier) + ' 소울 뽑기 · ' + (r.kind === 'boss' ? '보스 입장권' : r.kind === 'ticket' ? '입장권 ' + r.n + '장' : '위 단계 소울 ' + r.n + '개') };
-    if (r.type === 'soul') return { title: r.tier + '단계 소울' + (r.first ? ' 첫 획득!' : ''), sub: MM.speciesName(r.el, r.tier) + ' 소울 ×' + r.count };
+    if (r.type === 'gacha') return { title: '소울 뽑기 대박!', sub: MM.soulName(r.el, r.tier) + ' 뽑기 · ' + (r.kind === 'boss' ? '보스 입장권' : r.kind === 'ticket' ? '입장권 ' + r.n + '장' : '위 단계 소울 ' + r.n + '개') };
+    if (r.type === 'soul') return { title: r.tier + '단계 소울' + (r.first ? ' 첫 획득!' : ''), sub: MM.soulName(r.el, r.tier) + ' ×' + r.count };
     return { title: '합성 성공!', sub: MM.speciesName(r.el, r.tier) + ' 탄생' + (r.rate ? ' · 성공률 ' + pct(r.rate) : '') + (r.spent ? ' · 실패 ' + r.spent + '번 끝에' : '') + (r.first ? ' · 도감 첫 등록' : '') };
   }
   function recordsHtml() {
@@ -1147,7 +1154,7 @@
       '<button class="btn sm' + (ready ? ' primary' : '') + '" data-act="claimOffline"' + (ready ? '' : ' disabled') + '>즉시 받기</button>';
     var team = MM.offlineTeam(S).map(function (id) { return MM.getMonster(S, id); }).filter(Boolean);
     var items = valid ? '<div class="off-items">' + bagList(bag).map(function (d) {
-        return '<span class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 18) + MM.speciesName(d.el, d.tier) + ' ×' + d.count + '</span>';
+        return '<span class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 18) + MM.soulName(d.el, d.tier) + ' ×' + d.count + '</span>';
       }).join('') + (bag.tickets ? '<span class="soul-item rare">🎟 ' + st.tier + '단계 입장권 ×' + bag.tickets + '</span>' : '') + '<span class="soul-item">' + fmt(bag.gold) + ' G</span><span class="soul-item">EXP ' + fmt(bag.exp) + '</span></div>' : '';
     var teamLine = '<button class="linkish small off-team" data-act="offlineTeamSheet">경험치: ' + (team.length ? team.map(function (m) { return monSvg(m.el, m.tier, 18) + name(m); }).join(' ') : '없음') + (S.offline.team && S.offline.team.length ? '' : ' <span class="muted">(파티)</span>') + ' · 바꾸기 ›</button>';
     return '<div class="card offline-card' + (full ? ' full' : '') + '"><div class="row between"><div><b>방치 보상</b> <span class="small ' + (full ? 'lack' : 'muted') + '">' + hoursText(h) + ' / ' + BAL().OFFLINE_MAX_HOURS + '시간' + (full ? ' · 가득 참' : '') + '</span>' +
@@ -1361,7 +1368,7 @@
     unequip: function (d) { MM.unequip(S, d.el); save(); closeSheet(); render(); },
     craftEquip: function (d) {
       var t2 = +d.tier;
-      askConfirm('장비를 만들까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(d.el, t2, 48) + '</div>' + MM.speciesName(d.el, t2) + ' 소울 <b>' + BAL().EQUIP_CRAFT_SOULS + '개</b> → <b>' + MM.equipName(d.el, t2) + '</b><br><span class="small">' + MM.ELEMENTS[d.el].name + ' 몬스터 체력·공격·방어 ' + pctBonus(BAL().EQUIP_BASE_PER_TIER * t2) + '</span>', '만들기', function () {
+      askConfirm('장비를 만들까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(d.el, t2, 48) + '</div>' + MM.soulName(d.el, t2) + ' <b>' + BAL().EQUIP_CRAFT_SOULS + '개</b> → <b>' + MM.equipName(d.el, t2) + '</b><br><span class="small">' + MM.ELEMENTS[d.el].name + ' 몬스터 체력·공격·방어 ' + pctBonus(BAL().EQUIP_BASE_PER_TIER * t2) + '</span>', '만들기', function () {
         var r = MM.craftEquip(S, d.el, t2);
         if (r.error) { toast(r.error); return; }
         save(); toast(MM.josa(MM.equipName(d.el, t2), '을', '를') + ' 만들었어요' + (MM.isEquipped(S, r.equip) ? ' · 장착했어요' : '')); render();
@@ -1379,7 +1386,7 @@
     decompEquip: function (d) {
       var e = MM.getEquip(S, +d.id); if (!e) return;
       var v = MM.equipDecompValue(e);
-      askConfirm('정말 분해할까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(e.el, e.tier, 48) + '</div><b>' + eqName(e) + '</b> 분해하면<br>' + MM.speciesName(e.el, e.tier) + ' 소울 <b>' + v.souls + '개</b>' + (v.gold ? ' + <b>' + fmt(v.gold) + ' G</b>' : '') + '를 받아요<br><span class="small" style="color:var(--bad)">되돌릴 수 없어요</span>', '분해', function () {
+      askConfirm('정말 분해할까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(e.el, e.tier, 48) + '</div><b>' + eqName(e) + '</b> 분해하면<br>' + MM.soulName(e.el, e.tier) + ' <b>' + v.souls + '개</b>' + (v.gold ? ' + <b>' + fmt(v.gold) + ' G</b>' : '') + '를 받아요<br><span class="small" style="color:var(--bad)">되돌릴 수 없어요</span>', '분해', function () {
         var r = MM.decomposeEquip(S, e.id);
         save(); toast(r.error || ('소울 ' + r.souls + '개' + (r.gold ? ' + ' + fmt(r.gold) + ' G' : '') + '를 받았어요' + (r.wasted ? ' (' + r.wasted + '개 버려짐)' : ''))); render();
       });
@@ -1413,10 +1420,10 @@
     },
     decompSoul: function (d) {
       var t = +d.tier, n = +d.n;
-      askConfirm('정말 분해할까요?', MM.speciesName(d.el, t) + ' 소울 <b>' + n + '개</b> → ' + MM.speciesName(d.el, t - 1) + ' 소울 <b>' + n * BAL().DECOMPOSE_SOUL_SOULS + '개</b><br><span class="small" style="color:var(--bad)">되돌릴 수 없어요</span>', '분해', function () {
+      askConfirm('정말 분해할까요?', MM.soulName(d.el, t) + ' <b>' + n + '개</b> → ' + MM.soulName(d.el, t - 1) + ' <b>' + n * BAL().DECOMPOSE_SOUL_SOULS + '개</b><br><span class="small" style="color:var(--bad)">되돌릴 수 없어요</span>', '분해', function () {
         var r = MM.decomposeSoul(S, d.el, t, n);
         save();
-        toast(r.error || (MM.speciesName(d.el, t - 1) + ' 소울 ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개 버려짐)' : '')));
+        toast(r.error || (MM.soulName(d.el, t - 1) + ' ' + r.added + '개를 받았어요' + (r.wasted ? ' (' + r.wasted + '개 버려짐)' : '')));
         render();
       });
     },
