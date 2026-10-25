@@ -371,6 +371,14 @@
     check('던전 승리 시 같은 단계 보스 입장권', dw.bossTicket === 2 && MM.bossTicketCount(sd, 2) === 1);
   })();
 
+  (function () {
+    var s = MM.newState(t0), last = null;
+    ['fire', 'grass', 'water', 'light'].forEach(function (el) { MM.addMonster(s, el, 2, 17); });
+    check('도감 세트: 4종이면 보상 없음', !(s.dexSets || {})[2] && MM.ticketCount(s, 2) === 0);
+    var m = MM.addMonster(s, 'dark', 2, 17);
+    check('도감 세트: 2단계 5종 완성 → 2단계 입장권 3장 + 보스 입장권 1장 (한 번만)', MM.ticketCount(s, 2) === 3 && MM.bossTicketCount(s, 2) === 1 && !MM.checkDexSet(s, 2));
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);

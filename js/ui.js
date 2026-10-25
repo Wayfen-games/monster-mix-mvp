@@ -960,6 +960,7 @@
       '<div class="pop' + (mainSnap ? '' : ' now') + '">' + monSvg(m.el, m.tier, 130) + '</div></div>' +
       '<div class="reveal' + (mainSnap ? '' : ' now') + '"><div class="big ok">' + line.title + '</div><div class="sub">' + line.sub + '</div>' +
       (dex ? '<div class="new">도감 새 등록! 보상: ' + MM.speciesName(m.el, m.tier) + ' 소울 ' + dex.soul + '개</div>' : '') +
+      (dex && dex.set ? '<div class="new" style="color:var(--accent)">🎉 ' + dex.set.tier + '단계 도감 5종 완성! 입장권 ' + dex.set.tickets + '장 + 보스 입장권 ' + dex.set.boss + '장</div>' : '') +
       '<div class="acts">' + acts + '</div></div></div>');
   }
 
@@ -1015,6 +1016,7 @@
   };
 
   function recLine(r) {
+    if (r.type === 'dexset') return { title: r.tier + '단계 도감 5종 완성!', sub: '입장권 ' + BAL().DEX_SET_TICKETS + '장 + 보스 입장권 ' + BAL().DEX_SET_BOSS_TICKETS + '장' };
     if (r.type === 'boss') return { title: r.tier + '단계 무지개 보스 격파!', sub: '보스 입장권 1장 사용' };
     if (r.type === 'equip') return { title: '장비 강화 +' + r.plus + '!', sub: MM.equipName(r.el, r.tier) + ' +' + r.plus + (r.rate ? ' · 성공률 ' + pct(r.rate) : '') };
     if (r.type === 'gacha') return { title: '소울 뽑기 대박!', sub: MM.speciesName(r.el, r.tier) + ' 소울 뽑기 · ' + (r.kind === 'boss' ? '보스 입장권' : r.kind === 'ticket' ? '입장권 ' + r.n + '장' : '위 단계 소울 ' + r.n + '개') };
@@ -1439,6 +1441,7 @@
   load();
   if (MM.migrateLevels(S) && S.tutorial.done) view.rescaled = true;
   if (MM.clampLevels(S)) view.clamped = true;
+  if (S.tutorial.done) { var oldSets = MM.checkAllDexSets(S); if (oldSets.length) setTimeout(function () { showNotice('🎉 도감 세트 보상', oldSets.map(function (x) { return x.tier + '단계'; }).join(', ') + ' 5종 완성 보상: 입장권·보스 입장권을 받았어요'); }, 900); }
   if (S.tutorial.done) MM.accrueOffline(S, Date.now());
   // 테스트용: 주소 뒤 ?dev=refund-dungeon → 오늘 던전 횟수 1회 돌려주기 (시제품 전용)
   (function devHooks() {

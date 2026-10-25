@@ -51,8 +51,19 @@
     if (s.dex[key]) return null;
     s.dex[key] = true;
     var r = MM.addSouls(s, key, B().FIRST_DEX_SOUL);
-    return { key: key, soul: r.added };
+    return { key: key, soul: r.added, set: MM.checkDexSet(s, tier) };
   };
+  // 도감 세트: 그 단계 5종을 모두 등록하면 1번만 보상 (입장권 + 보스 입장권)
+  MM.checkDexSet = function (s, tier) {
+    s.dexSets = s.dexSets || {};
+    if (s.dexSets[tier] || !MM.RING.every(function (el) { return s.dex[MM.speciesKey(el, tier)]; })) return null;
+    s.dexSets[tier] = true;
+    var b = B();
+    if (s.dungeon) { MM.addTickets(s, tier, b.DEX_SET_TICKETS); MM.addBossTickets(s, tier, b.DEX_SET_BOSS_TICKETS); }
+    MM.addRecord(s, { type: 'dexset', el: 'rainbow', tier: tier });
+    return { tier: tier, tickets: b.DEX_SET_TICKETS, boss: b.DEX_SET_BOSS_TICKETS };
+  };
+  MM.checkAllDexSets = function (s) { var got = []; for (var t = 1; t <= B().MAX_TIER; t++) { var r = MM.checkDexSet(s, t); if (r) got.push(r); } return got; };
 
   MM.addMonster = function (s, el, tier, level) {
     var m = { id: s.nextId++, el: el, tier: tier, level: Math.min(level || 1, MM.maxLevel(tier)), exp: 0, stack: 0 };

@@ -91,7 +91,9 @@ MM.BALANCE = {
   SOUL_COUNT_DIST: [0.70, 0.22, 0.08],
   BOSS_DROP_MULT: 1.5,  // [확정 10-25] 스테이지 보스만 소울 드랍 ×1.5 (골드는 그대로, 시뮬레이션 중앙값 27일)
   FAST_TEST_DROP_MULT: 5,
-  FIRST_DEX_SOUL: 1,    // [확정] 도감 첫 등록 시 그 몬스터 소울 1개
+  FIRST_DEX_SOUL: 1,
+  DEX_SET_TICKETS: 3,       // [사용자 확정 16:53 방향, 개수는 Claude 기본값] n단계 5종 도감 완성 → n단계 입장권 3장
+  DEX_SET_BOSS_TICKETS: 1,  // + n단계 보스 입장권 1장    // [확정] 도감 첫 등록 시 그 몬스터 소울 1개
   FIRST_CLEAR_SOULS: [2, 1, 1, 1, 1], // [확정] 모든 스테이지 첫 클리어 시 보스 소울 확정 (1단계 스테이지만 2개)
 
   // 분해 [확정: 손해 보게]
