@@ -76,6 +76,7 @@
   MM.canDecomposeMonster = function (s, m) {
     if (!m) return '몬스터가 없어요';
     if (s.party.indexOf(m.id) >= 0) return '파티에 있는 몬스터는 분해할 수 없어요';
+    if (MM.inOfflineTeam(s, m.id)) return '방치 보상에 있는 몬스터는 분해할 수 없어요';
     if (s.monsters.length <= 3) return '몬스터가 3마리 이하일 때는 분해할 수 없어요';
     return null;
   };
@@ -221,6 +222,8 @@
     var reasons = [];
     if (!MM.isPair(main, sub)) return { ok: false, reasons: ['이 두 몬스터는 합성할 수 없어요'] };
     if (s.monsters.length < B().MIN_MONSTERS_TO_FUSE) reasons.push('몬스터가 4마리 이상일 때 합성할 수 있어요');
+    // 방치 보상 몬스터로 직접 지정한 몬스터는 빼야 합성 재료로 쓸 수 있음 [사용자 확정]
+    [main, sub].forEach(function (m) { if (MM.inOfflineTeam(s, m.id)) reasons.push(MM.josa(MM.speciesName(m.el, m.tier), '은', '는') + ' 방치 보상에 있어요 (빼야 합성 가능)'); });
     // 주재료 = 합성 조건 레벨, 부재료 = 그 단계 소환 레벨 (확정)
     var req = MM.fuseLevelReq(main.tier), subReq = MM.subLevelReq(sub.tier);
     if (main.level < req) reasons.push(MM.speciesName(main.el, main.tier) + ' Lv ' + req + ' 필요 (현재 ' + main.level + ')');
@@ -422,7 +425,7 @@
     var offlinePaid = null;
     if (firstOfTier && (!cur || !MM.offlineStageValid(s) || cur.tier < tier)) { offlinePaid = MM.setOfflineStage(s, el, tier).paid; autoOffline = s.offline.stage; }
     var ticket = null;
-    if (b.TICKET_DROP > 0 && R(rng)() < b.TICKET_DROP) { s.dungeon.tickets = s.dungeon.tickets || {}; s.dungeon.tickets[tier] = (s.dungeon.tickets[tier] || 0) + 1; ticket = tier; }
+    if (b.TICKET_DROP > 0 && R(rng)() < b.TICKET_DROP) { MM.addTickets(s, tier, 1); ticket = tier; }
     s.cleared[key] = (s.cleared[key] || 0) + 1;
     s.stats.battlesWon++;
     return { ticket: ticket, drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear, autoOffline: autoOffline, offlinePaid: offlinePaid };
@@ -438,12 +441,21 @@
     s.gold += gold;
     var exp = MM.winExp(tier);
     var ups = partyExp(s, exp);
-    s.dungeon.cleared[tier] = true;
+    if (!opts.ticket) s.dungeon.cleared[tier] = true; // 입장권 던전은 요일 던전 진행에 영향 없음
     s.stats.battlesWon++;
     return { drops: drops, gold: gold, exp: exp, levelUps: ups };
   };
 
-  // 던전 입장권 사용 (전투 시작 또는 소탕 시)
+  // 입장권 던전
+  MM.ticketCount = function (s, tier) { return ((s.dungeon.tickets || {})[tier]) || 0; };
+  MM.ticketTotal = function (s) { var tk = s.dungeon.tickets || {}; return Object.keys(tk).reduce(function (a, k) { return a + (tk[k] || 0); }, 0); };
+  MM.useTicket = function (s, tier) {
+    if (MM.ticketCount(s, tier) <= 0) return false;
+    s.dungeon.tickets[tier]--;
+    return true;
+  };
+  MM.addTickets = function (s, tier, n) { s.dungeon.tickets = s.dungeon.tickets || {}; s.dungeon.tickets[tier] = (s.dungeon.tickets[tier] || 0) + n; };
+  // 요일 던전 횟수 사용 (전투 시작 또는 소탕 시)
   MM.useDungeonEntry = function (s, now) {
     if (MM.dungeonLeft(s, now) <= 0) return false;
     s.dungeon.used++;
@@ -468,6 +480,7 @@
     if (!o.team) o.team = [];
     return o;
   }
+  MM.inOfflineTeam = function (s, id) { return !!(s.offline && s.offline.team && s.offline.team.indexOf(id) >= 0); };
   MM.offlineTeam = function (s) {
     var o = offl(s);
     o.team = o.team.filter(function (id) { return MM.getMonster(s, id); });
@@ -487,6 +500,7 @@
       var d = MM.rollDrops(MM.stageEnemies(st.el, st.tier, rng), rng, 1);
       Object.keys(d).forEach(function (k) { o.bag.souls[k] = (o.bag.souls[k] || 0) + d[k]; });
       o.bag.gold += Math.round(tv(b.CLEAR_GOLD, st.tier));
+      if (b.TICKET_DROP > 0 && R(rng)() < b.TICKET_DROP) o.bag.tickets = (o.bag.tickets || 0) + 1;
     }
     o.bag.runs += runs;
     o.bag.exp = MM.winExp(st.tier) * o.bag.runs; // 표시용 최대치 (스테이지 단계 이하 몬스터는 자기 단계 기준)
@@ -511,6 +525,7 @@
     o.bag = emptyBag(); o.pendingMs = 0;
     var drops = MM.applyDrops(s, bag.souls);
     s.gold += bag.gold;
+    if (bag.tickets) MM.addTickets(s, st.tier, bag.tickets);
     var ups = [], expBy = {};
     team.forEach(function (id) {
       var m = MM.getMonster(s, id); if (!m) return;
@@ -518,7 +533,7 @@
       expBy[id] = amount;
       if (MM.giveExp(m, amount)) ups.push({ id: m.id, name: MM.speciesName(m.el, m.tier), level: m.level });
     });
-    return { hours: hours, capped: capped, runs: bag.runs, drops: drops, gold: bag.gold, exp: bag.exp, expBy: expBy, levelUps: ups, team: team.slice(), stage: st ? { el: st.el, tier: st.tier } : null };
+    return { hours: hours, capped: capped, runs: bag.runs, drops: drops, gold: bag.gold, tickets: bag.tickets || 0, exp: bag.exp, expBy: expBy, levelUps: ups, team: team.slice(), stage: st ? { el: st.el, tier: st.tier } : null };
   };
   MM.setOfflineStage = function (s, el, tier) {
     var cur = s.offline.stage;

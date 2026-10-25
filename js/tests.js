@@ -236,8 +236,18 @@
     check('즉시 받기: 몇 분만 쌓여도 받을 수 있음', (MM.accrueOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng), MM.claimOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng) !== null));
     s.gold = 1e6; s.souls.fire1 = 50;
     var e = MM.addMonster(s, 'fire', 1, 5); MM.setOfflineTeam(s, [e.id, b2.id]);
-    var fr = MM.attemptFusion(s, e.id, d.id, null, function () { return 0; });
-    check('방치 보상 몬스터를 합성하면 결과 몬스터가 그 자리에', fr.success && MM.offlineTeam(s).indexOf(fr.monster.id) === 0);
+    check('방치 보상에 지정한 몬스터는 합성 재료로 못 씀', !MM.fusionCheck(s, e, d).ok && MM.fusionCheck(s, e, d).reasons.some(function (r) { return /방치 보상/.test(r); }));
+    check('방치 보상에 지정한 몬스터는 분해 못 함', !!MM.canDecomposeMonster(s, e));
+    MM.setOfflineTeam(s, [b2.id]);
+    check('빼면 합성 가능', MM.fusionCheck(s, e, d).ok);
+    check('지정 안 했을 때(파티가 받음)는 파티 몬스터도 합성 가능', (function () { s.offline.team = []; return MM.fusionCheck(s, e, d).ok; })());
+    // 입장권
+    var s2 = MM.newState(t0), before = MM.ticketCount(s2, 2);
+    B.TICKET_DROP = 1; var tw = MM.grantStageWin(s2, 'fire', 2, MM.stageEnemies('fire', 2)); B.TICKET_DROP = 0.01;
+    check('스테이지 승리 시 같은 단계 입장권', tw.ticket === 2 && MM.ticketCount(s2, 2) === before + 1);
+    var dw = MM.grantDungeonWin(s2, 2, MM.dungeonEnemies(['fire', 'water', 'grass'], 2), null, { ticket: true });
+    check('입장권 던전은 요일 던전 진행(클리어)에 영향 없음', !s2.dungeon.cleared[2] && dw.drops.length > 0);
+    check('입장권 사용', MM.useTicket(s2, 2) && MM.ticketCount(s2, 2) === before && !MM.useTicket(s2, 2));
   })();
 
   (function () {

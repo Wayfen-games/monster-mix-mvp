@@ -180,8 +180,9 @@
   // ================= 전투 탭: 스테이지 / 요일 던전 =================
   SCREENS.stages = function () {
     var html = '<div class="seg"><button class="' + (view.stageSeg === 'stage' ? 'on' : '') + '" data-act="stageSeg" data-v="stage">스테이지</button>' +
-      '<button class="' + (view.stageSeg === 'dungeon' ? 'on' : '') + '" data-act="stageSeg" data-v="dungeon">요일 던전 ' + MM.dungeonLeft(S, Date.now()) + '/' + BAL().DUNGEON_DAILY + '</button></div>';
-    return html + (view.stageSeg === 'dungeon' ? dungeonHtml() : stageListHtml());
+      '<button class="' + (view.stageSeg === 'dungeon' ? 'on' : '') + '" data-act="stageSeg" data-v="dungeon">요일 던전 ' + MM.dungeonLeft(S, Date.now()) + '/' + BAL().DUNGEON_DAILY + '</button>' +
+      '<button class="' + (view.stageSeg === 'ticket' ? 'on' : '') + '" data-act="stageSeg" data-v="ticket">입장권 ' + MM.ticketTotal(S) + '</button></div>';
+    return html + (view.stageSeg === 'dungeon' ? dungeonHtml() : view.stageSeg === 'ticket' ? ticketHtml() : stageListHtml());
   };
 
   function stageListHtml() {
@@ -272,6 +273,23 @@
     return html;
   }
 
+  function ticketHtml() {
+    var els = view.ticketEls, ready = els.length === 3;
+    var html = '<div class="card"><div class="row between"><b>🎟 입장권 던전</b><span class="chip gold">입장권 ' + MM.ticketTotal(S) + '장</span></div>' +
+      '<div class="muted small lh" style="margin-top:6px">입장권으로만 들어가는 던전이에요. 요일 던전 하루 ' + BAL().DUNGEON_DAILY + '번과 별개 · 요일 상관없이 속성 3개 선택 · 보상은 요일 던전과 같아요<br>입장권은 스테이지(자동 반복 포함)와 방치 보상에서 가끔 나와요 · 유효기간 없음 · 이겨서 보상을 받을 때만 1장 써요</div></div>' +
+      '<div class="card"><b>서로 다른 속성 3개 고르기 (' + els.length + '/3)</b><div class="el-pick" style="margin:10px 0 0">' + MM.RING.map(function (el) {
+        return '<button class="' + (els.indexOf(el) >= 0 ? 'on' : '') + '" data-act="tEl" data-el="' + el + '">' + monSvg(el, 2, 28) + '<div>' + MM.ELEMENTS[el].name + '</div></button>';
+      }).join('') + '</div></div>';
+    MM.tiers().forEach(function (t) {
+      var n = MM.ticketCount(S, t);
+      var icons = ready ? els.map(function (e) { return monSvg(e, t, 34); }).join('') : unknownSvg(34) + unknownSvg(34) + unknownSvg(34);
+      html += '<div class="card" style="' + (n ? '' : 'opacity:.55') + '"><div class="row between"><div><b>' + t + '단계 입장권 던전</b> <span class="muted small">' + t + '단계 3마리 · 1단계 소울 확정</span></div><span class="chip' + (n ? ' gold' : '') + '">🎟 ' + n + '장</span></div>' +
+        '<div class="row" style="margin:10px 0;justify-content:center;gap:12px">' + icons + '</div>' +
+        '<button class="btn primary sm block" data-act="startTicket" data-tier="' + t + '"' + (n && ready && S.party.length ? '' : ' disabled') + '>' + (n ? '도전 (이기면 입장권 1장 사용)' : t + '단계 스테이지에서 입장권을 모아 보세요') + '</button></div>';
+    });
+    return html;
+  }
+
   // ================= 전투 =================
   function newSession() { return { runs: 0, wins: 0, losses: 0, gold: 0, exp: 0, drops: {}, firsts: {}, wasted: 0, levelUps: {} }; }
 
@@ -280,7 +298,7 @@
     if (!party.length) { toast('파티에 몬스터를 넣어 주세요'); return; }
     var enemies;
     if (kind === 'stage') enemies = MM.stageEnemies(opts.el, opts.tier);
-    else if (kind === 'dungeon') enemies = MM.dungeonEnemies(opts.els, opts.tier);
+    else if (kind === 'dungeon' || kind === 'ticket') enemies = MM.dungeonEnemies(opts.els, opts.tier);
     else enemies = MM.tutorialEnemies(S.tutorial.starters);
     var prev = view.battle;
     var repeat = !!opts.repeat;
@@ -365,7 +383,7 @@
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
       sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '');
     }
-    var title = Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
+    var title = Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : Bt.kind === 'ticket' ? Bt.tier + '단계 입장권 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
     var en = bt.units.filter(function (u) { return u.side === 'e'; });
     var html = '<div class="battle">' +
       '<div class="row between"><span class="muted small">' + title + ' · ' + bt.round + '라운드' + (bt.partyBonus ? ' · <span style="color:var(--good)">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</span>' +
@@ -430,7 +448,9 @@
     }
     if (win) {
       if (Bt.kind === 'dungeon') { MM.useDungeonEntry(S, Date.now()); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies); }
+      else if (Bt.kind === 'ticket') { MM.useTicket(S, Bt.tier); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies, null, { ticket: true }); }
       else { MM.accrueOffline(S, Date.now()); r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies); }
+      if (r && r.ticket && !Bt.repeat) showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장');
       if (r && r.autoOffline) { showNotice('방치 보상 스테이지 변경', MM.speciesName(r.autoOffline.el, r.autoOffline.tier) + ' 스테이지로 자동 지정' + (r.offlinePaid ? ' · 쌓인 보상은 받았어요' : '')); }
     } else {
       S.stats.battlesLost++;
@@ -444,6 +464,7 @@
         r.drops.forEach(function (d) { ss.drops[d.key] = (ss.drops[d.key] || 0) + d.added; ss.wasted += d.wasted; if (d.first) ss.firsts[d.key] = true; });
         r.levelUps.forEach(function (u) { ss.levelUps[u.id] = u; });
         rareOf(r.drops).forEach(showBanner);
+        if (r.ticket) { ss.tickets = (ss.tickets || 0) + 1; showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장 (이번 반복 ' + ss.tickets + '장)'); }
       }
       checkReadyBanner(Bt);
       if (Bt.stopAfter || MM.autoLeft(S, Date.now()) <= 0) {
@@ -487,13 +508,14 @@
         .sort(function (a, b) { return b.tier - a.tier || b.count - a.count; });
       html = '<div class="reward-title win">자동 반복 끝</div><div class="muted" style="text-align:center;margin-bottom:14px">' + elName(R.el) + ' ' + R.tier + '단계 · ' + ss.runs + '판 (승 ' + ss.wins + ' · 패 ' + ss.losses + ')</div>' +
         '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(list) + '</div>' + (ss.wasted ? '<div class="lack small" style="margin-top:8px">소울이 가득 차서 ' + ss.wasted + '개가 버려졌어요 (종별 최대 ' + BAL().SOUL_CAP + '개)</div>' : '') + '</div>' +
-        '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(ss.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(ss.exp) + '</span></div>' +
+        '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(ss.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(ss.exp) + '</span></div>' + (ss.tickets ? '<div class="cost-line"><span>🎟 입장권</span><span>+' + ss.tickets + '장</span></div>' : '') +
         Object.keys(ss.levelUps).map(function (id) { var u = ss.levelUps[id]; return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
       again = '<button class="btn good block" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 다시 · ' + MM.autoLeft(S, Date.now()) + '판 남음</button>';
     } else {
-      var label = R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
+      var label = R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : R.kind === 'ticket' ? R.tier + '단계 입장권 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
       html = '<div class="reward-title ' + (R.win ? 'win' : 'lose') + '">' + (R.win ? '클리어!' : '패배…') + '</div><div class="muted" style="text-align:center;margin-bottom:14px">' + label + '</div>';
       if (R.win) {
+        if (R.r.ticket) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">🎟 입장권 획득!</b> <span class="muted small">' + R.r.ticket + '단계 입장권 던전 · 보유 ' + MM.ticketCount(S, R.r.ticket) + '장</span></div>';
         if (R.r.firstClear) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상!</b><div class="soul-list" style="margin-top:10px">' + dropsHtml([R.r.firstClear]) + '</div></div>';
         if (R.r.offlinePaid) { var P = R.r.offlinePaid; html += '<div class="card"><b>방치 보상 정산</b><div class="muted small" style="margin:4px 0 8px">방치 보상 스테이지가 ' + MM.speciesName(R.r.autoOffline.el, R.r.autoOffline.tier) + ' 스테이지로 바뀌어서, 지금까지 쌓인 ' + hoursText(P.hours) + ' 보상은 ' + MM.speciesName(P.stage.el, P.stage.tier) + ' 스테이지 기준으로 받았어요</div><div class="soul-list">' + (P.drops.length ? dropsHtml(P.drops) : '<span class="muted small">소울 없음</span>') + '</div><div class="cost-line" style="margin-top:8px"><span>골드</span><span>+' + fmt(P.gold) + ' G</span></div></div>'; }
         html += '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(R.r.drops) + '</div></div>' +
@@ -502,7 +524,8 @@
       } else {
         html += '<div class="card muted">잃은 것은 없어요. 레벨을 올리거나 상성이 유리한 몬스터로 파티를 바꿔 보세요.</div>';
       }
-      if (R.kind === 'dungeon') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="dungeon">' + (R.win ? '던전으로' : '던전으로 (횟수 그대로, 다시 도전 가능)') + '</button>';
+      if (R.kind === 'ticket') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="ticket">' + (R.win ? '입장권 던전으로' : '입장권 던전으로 (입장권 그대로)') + '</button>';
+      else if (R.kind === 'dungeon') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="dungeon">' + (R.win ? '던전으로' : '던전으로 (횟수 그대로, 다시 도전 가능)') + '</button>';
       else again = '<button class="btn primary block" data-act="again">다시 도전</button>' +
         (S.cleared[MM.speciesKey(R.el, R.tier)] ? '<button class="btn good block" style="margin-top:10px" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 시작 · ' + MM.autoLeft(S, Date.now()) + '판 남음</button>' : '');
     }
@@ -562,13 +585,13 @@
         var st = MM.calcStats(m.el, m.tier, m.level);
         var req = m.tier < T() ? MM.fuseLevelReq(m.tier) : null;
         return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + name(m) + '</span><span class="muted small">Lv ' + m.level + (maxed ? ' (최대)' : '') + '</span>' +
-          (inParty ? '<span class="chip party">파티</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') +
+          (inParty ? '<span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? '<span class="chip">방치</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') +
           (req ? '<span class="chip' + (m.level >= req ? ' adv' : '') + '">주재료 Lv' + req + (m.level >= req ? ' ✓' : '') + '</span>' : '') + '</div>' +
           '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 크리 ' + Math.round(st.crit * 100) + '%</div>' +
           '<div class="expbar"><i style="width:' + (maxed ? 100 : m.exp / MM.expToNext(m.level) * 100) + '%"></i></div></div>' +
           '<div class="acts"><button class="btn sm" data-act="party" data-id="' + m.id + '">' + (inParty ? '빼기' : '넣기') + '</button>' +
           (maxed ? '' : '<button class="btn sm" data-act="feedSheet" data-id="' + m.id + '">먹이기</button>') +
-          (inParty ? '' : '<button class="btn sm danger" data-act="decompMon" data-id="' + m.id + '">분해</button>') + '</div></div>';
+          (inParty || MM.inOfflineTeam(S, m.id) ? '' : '<button class="btn sm danger" data-act="decompMon" data-id="' + m.id + '">분해</button>') + '</div></div>';
       }).join('');
     } else {
       html += '<div class="muted small" style="margin-bottom:10px">같은 종 소울 ' + BAL().SOULS_PER_SUMMON + '개 = 몬스터 1마리 · 종별 최대 ' + BAL().SOUL_CAP + '개 (' + BAL().SOUL_WARN + '개부터 주의) · 칸을 누르면 소환·분해</div>';
@@ -723,7 +746,7 @@
     var subs = sortMons(S.monsters.filter(function (x) { return MM.isPair(main, x); })), req = MM.subLevelReq(MM.subTierFor(main.tier));
     var p = MM.partnersOf(main.el).map(function (e) { return MM.ELEMENTS[e].name; }).join('·');
     openSheet('<b>부재료 고르기</b><div class="muted small" style="margin:4px 0 10px">' + MM.subTierFor(main.tier) + '단계 ' + p + ' · Lv ' + req + ' 이상</div><div class="pick-list">' + (subs.length ? subs.map(function (m) {
-      return '<button class="pick' + (view.fusion.subId === m.id ? ' sel' : '') + '" data-act="pickSub" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 34) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '/' + req + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + '</div></button>';
+      return '<button class="pick' + (view.fusion.subId === m.id ? ' sel' : '') + '" data-act="pickSub" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 34) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '/' + req + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? ' <span class="chip">방치</span>' : '') + '</div></button>';
     }).join('') : '<div class="muted">맞는 부재료가 없어요. ' + MM.subTierFor(main.tier) + '단계 ' + p + ' 몬스터가 필요해요.</div>') + '</div>');
   }
 
@@ -885,7 +908,7 @@
     var team = MM.offlineTeam(S).map(function (id) { return MM.getMonster(S, id); }).filter(Boolean);
     var items = valid ? '<div class="off-items">' + bagList(bag).map(function (d) {
         return '<span class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 18) + MM.speciesName(d.el, d.tier) + ' ×' + d.count + '</span>';
-      }).join('') + '<span class="soul-item">' + fmt(bag.gold) + ' G</span><span class="soul-item">EXP ' + fmt(bag.exp) + '</span></div>' : '';
+      }).join('') + (bag.tickets ? '<span class="soul-item rare">🎟 ' + st.tier + '단계 입장권 ×' + bag.tickets + '</span>' : '') + '<span class="soul-item">' + fmt(bag.gold) + ' G</span><span class="soul-item">EXP ' + fmt(bag.exp) + '</span></div>' : '';
     var teamLine = '<button class="linkish small off-team" data-act="offlineTeamSheet">경험치: ' + (team.length ? team.map(function (m) { return monSvg(m.el, m.tier, 18) + name(m); }).join(' ') : '없음') + (S.offline.team && S.offline.team.length ? '' : ' <span class="muted">(파티)</span>') + ' · 바꾸기 ›</button>';
     return '<div class="card offline-card' + (full ? ' full' : '') + '"><div class="row between"><div><b>방치 보상</b> <span class="small ' + (full ? 'lack' : 'muted') + '">' + hoursText(h) + ' / ' + BAL().OFFLINE_MAX_HOURS + '시간' + (full ? ' · 가득 참' : '') + '</span>' +
       '<button class="linkish small" data-act="offlineSheet">' + (valid ? MM.speciesName(st.el, st.tier) + ' 스테이지 · 바꾸기 ›' : '스테이지를 지정하면 쌓이기 시작해요 ›') + '</button></div>' + right + '</div>' +
@@ -894,10 +917,10 @@
   function offlineTeamSheet() {
     if (!view.teamSel) view.teamSel = MM.offlineTeam(S).slice();
     var sel = view.teamSel;
-    var html = '<b>방치 보상 경험치 몬스터</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 몬스터도 돼요 · 부재료 키우기용으로 좋아요<br>스테이지보다 낮은 단계 몬스터는 자기 단계 스테이지만큼 경험치를 받아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 몬스터가 받아요</div><div class="pick-list">' +
+    var html = '<b>방치 보상 경험치 몬스터</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 몬스터도 돼요 · 부재료 키우기용으로 좋아요<br>스테이지보다 낮은 단계 몬스터는 자기 단계 스테이지만큼 경험치를 받아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 몬스터가 받아요 · 여기 넣은 몬스터는 빼야 합성·분해할 수 있어요</div><div class="pick-list">' +
       sortMons(S.monsters).map(function (m) {
         var i = sel.indexOf(m.id);
-        return '<button class="pick' + (i >= 0 ? ' sel' : '') + '" data-act="teamPick" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 30) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + (m.level >= BAL().MAX_LEVEL ? ' (최대)' : '') + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + '</div>' + (i >= 0 ? '<span class="chip adv">' + (i + 1) + '</span>' : '') + '</button>';
+        return '<button class="pick' + (i >= 0 ? ' sel' : '') + '" data-act="teamPick" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 30) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + (m.level >= BAL().MAX_LEVEL ? ' (최대)' : '') + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? ' <span class="chip">방치</span>' : '') + '</div>' + (i >= 0 ? '<span class="chip adv">' + (i + 1) + '</span>' : '') + '</button>';
       }).join('') + '</div><button class="btn primary block" style="margin-top:12px" data-act="teamSave"' + (sel.length ? '' : ' disabled') + '>' + sel.length + '마리로 지정</button>';
     openSheet(html);
   }
@@ -927,7 +950,7 @@
   function showPaid(res, note) {
     showOverlay('<div class="result"><div class="big ok">방치 보상</div>' + (note ? '<div class="muted small" style="margin-top:4px">' + note + '</div>' : '') + '<div class="sub">' + MM.speciesName(res.stage.el, res.stage.tier) + ' 스테이지 · ' + hoursText(res.hours) + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + ' · ' + fmt(res.runs) + '판 분량</div>' +
       '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + (res.drops.length ? dropsHtml(res.drops) : '<span class="muted small">이번에는 소울이 없어요</span>') + '</div></div>' +
-      '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' +
+      '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' + (res.tickets ? '<div class="cost-line"><span>🎟 입장권</span><span>' + res.stage.tier + '단계 +' + res.tickets + '장</span></div>' : '') +
       res.team.map(function (id) { var m = MM.getMonster(S, id); return m ? '<div class="cost-line"><span>' + name(m) + '</span><span>EXP +' + fmt(res.expBy[id] || 0) + '</span></div>' : ''; }).join('') +
       res.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div>');
@@ -993,6 +1016,17 @@
       S.dungeon.weekendEls = view.dungeonEls.slice(); save();
       render();
     },
+    tEl: function (d) {
+      var i = view.ticketEls.indexOf(d.el);
+      if (i >= 0) view.ticketEls.splice(i, 1); else if (view.ticketEls.length < 3) view.ticketEls.push(d.el);
+      S.dungeon.ticketEls = view.ticketEls.slice(); save(); render();
+    },
+    startTicket: function (d) {
+      var tier = +d.tier;
+      if (view.ticketEls.length !== 3) { toast('속성 3개를 골라 주세요'); return; }
+      if (MM.ticketCount(S, tier) <= 0) { toast('입장권이 없어요'); return; }
+      startBattle('ticket', { tier: tier, els: view.ticketEls.slice() });
+    },
     startDungeon: function (d) {
       var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice();
       if (!dEl && els.length !== 3) { toast('주말에는 속성 3개를 골라 주세요'); return; }
@@ -1028,7 +1062,7 @@
       if (d.to === 'souls') { view.monSeg = 'souls'; go('monsters'); }
       else { var r = readyNow(); if (r.pair) view.fusion = { mainId: r.pair.main.id, subId: r.pair.sub.id, soulEl: null }; go('fusion'); }
     },
-    flee: function () { if (confirm('나가면 이번 판 보상은 없어요. 나갈까요?')) go(view.battle && view.battle.kind === 'dungeon' ? 'stages' : 'stageDetail'); },
+    flee: function () { if (confirm('나가면 이번 판 보상은 없어요. 나갈까요?')) go(view.battle && (view.battle.kind === 'dungeon' || view.battle.kind === 'ticket') ? 'stages' : 'stageDetail'); },
     party: function (d) {
       var id = +d.id, i = S.party.indexOf(id);
       if (i >= 0) S.party.splice(i, 1);
@@ -1153,6 +1187,7 @@
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
   })();
   view.dungeonEls = S.dungeon.weekendEls || [];
+  view.ticketEls = S.dungeon.ticketEls || [];
   render();
   if (!S.tutorial.done) showTutorial();
   else save();

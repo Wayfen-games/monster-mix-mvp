@@ -169,13 +169,13 @@ function simulatePlayer(seed) {
       MM.useDungeonEntry(s, dayStart);
       { const r = MM.grantDungeonWin(s, dt, en, rng, { noTopBonus: true }); r.drops.forEach(d => log.wasted += d.wasted); log.dungeonTop = Math.max(log.dungeonTop, dt); }
     }
-    // 던전 입장권 (TICKET_DROP > 0일 때): 오늘 속성으로 그 단계 던전, 이길 만하면 사용 (자동 반복 전·후 2번 처리)
+    // 입장권 던전 (TICKET_DROP > 0일 때): 이길 만하면 바로 사용 (자동 반복 전·후 2번 처리)
     const useTickets = () => {
       const tk = s.dungeon.tickets || {};
       for (let dt = T; dt >= 1; dt--) {
         while ((tk[dt] || 0) > 0) {
           const party = s.party.map(id => MM.getMonster(s, id));
-          const els = dEl ? [dEl] : MM.RING.slice().sort((a, b) => need(b) - need(a)).slice(0, 3);
+          const els = MM.RING.slice().sort((a, b) => need(b) - need(a)).slice(0, 3); // 입장권 던전: 요일 상관없이 3속성
           const r = winRateEst(party, () => MM.dungeonEnemies(els, dt), rng, cache, sig(party) + '|D' + dt + els.join(), 30);
           if (r < 0.15) break;
           const en = MM.dungeonEnemies(els, dt);
@@ -183,7 +183,7 @@ function simulatePlayer(seed) {
           for (let tries = 0; !win && tries < 20; tries++) { const bt = MM.simulateBattle(party, en, rng); log.actions += bt.log.length; log.battles++; win = bt.result === 'win'; }
           if (!win) break;
           tk[dt]--; log.tickets++;
-          const g = MM.grantDungeonWin(s, dt, en, rng, { noTopBonus: true }); g.drops.forEach(d => log.wasted += d.wasted);
+          const g = MM.grantDungeonWin(s, dt, en, rng, { noTopBonus: true, ticket: true }); g.drops.forEach(d => log.wasted += d.wasted);
         }
       }
     };
