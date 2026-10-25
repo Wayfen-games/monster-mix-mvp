@@ -1431,6 +1431,7 @@
   });
 
   load();
+  if (MM.migrateLevels(S) && S.tutorial.done) view.rescaled = true;
   if (MM.clampLevels(S)) view.clamped = true;
   if (S.tutorial.done) MM.accrueOffline(S, Date.now());
   // 테스트용: 주소 뒤 ?dev=refund-dungeon → 오늘 던전 횟수 1회 돌려주기 (시제품 전용)
@@ -1449,7 +1450,8 @@
   render();
   if (!S.tutorial.done) showTutorial();
   else save();
-  if (view.clamped) setTimeout(function () { toast('단계별 최고 레벨이 생겨서 넘는 몬스터는 최고 레벨로 맞췄어요'); }, 400);
+  if (view.rescaled) setTimeout(function () { toast('레벨 개편: 최고 레벨 100, 모든 몬스터 레벨을 새 기준으로 바꿨어요'); }, 300);
+  else if (view.clamped) setTimeout(function () { toast('단계별 최고 레벨이 생겨서 넘는 몬스터는 최고 레벨로 맞췄어요'); }, 400);
   if (view.migrated) toast('새 버전이라 처음부터 시작해요. 이전 기록은 따로 보관했어요');
   setInterval(function () { if (!S.tutorial.done) return; MM.accrueOffline(S, Date.now()); if (view.tab === 'home' && $('sheet').hidden && $('overlay').hidden && document.visibilityState !== 'hidden') render(); }, 30000);
   MM._state = function () { return S; };

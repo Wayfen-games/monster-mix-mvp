@@ -284,15 +284,29 @@
       hp: Math.round(base.hp * mult * mod.hp),
       atk: Math.round(base.atk * mult * mod.atk),
       def: Math.round(base.def * mult * mod.def),
-      spd: Math.round(base.spd * (1 + 0.03 * (tier - 1) + 0.005 * (level - 1)) * mod.spd * 10) / 10,
+      spd: Math.round(base.spd * (1 + 0.03 * (tier - 1) + (B().SPD_PER_LEVEL || 0.005) * (level - 1)) * mod.spd * 10) / 10,
       crit: b.CRIT_BASE + b.CRIT_PER_TIER * tier
     };
   };
 
-  MM.expToNext = function (level) { return Math.round(B().EXP_A * Math.pow(B().EXP_R, level - 1)); };
+  MM.expToNext = function (level) {
+    var b = B(), x = b.EXP_A * Math.pow(b.EXP_R, level - 1);
+    if (b.EXP_HIGH1 && level > b.EXP_HIGH1_FROM) x *= Math.pow(b.EXP_HIGH1, Math.min(level, b.EXP_HIGH1_TO || 999) - b.EXP_HIGH1_FROM);
+    if (b.EXP_HIGH2 && level > b.EXP_HIGH2_FROM) x *= Math.pow(b.EXP_HIGH2, level - b.EXP_HIGH2_FROM);
+    return Math.round(x);
+  };
   MM.winExp = function (stageTier) { return Math.round(B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, stageTier - 1) * tv(B().EXP_EARLY_MULT || [1], stageTier)); };
 
-  MM.maxLevel = function (tier) { return tier ? Math.min(B().MAX_LEVEL, MM.summonLevel(tier + (B().TIER_MAX_LEVEL_OFFSET || 0))) : B().MAX_LEVEL; };
+  MM.maxLevel = function (tier) { return tier ? Math.min(B().MAX_LEVEL, Math.round(tv(B().TIER_MAX_LEVEL, tier))) : B().MAX_LEVEL; };
+  // 레벨 개편(만렙 30 → 100, 3.25배 척도) 전 세이브 변환
+  MM.LEVEL_SCALE_VERSION = 2;
+  MM.migrateLevels = function (s) {
+    if (s.levelScale === MM.LEVEL_SCALE_VERSION) return 0;
+    var n = 0;
+    s.monsters.forEach(function (m) { m.level = Math.round(1 + (m.level - 1) * 3.25); m.exp = 0; n++; });
+    s.levelScale = MM.LEVEL_SCALE_VERSION;
+    return n;
+  };
   // 예전 세이브: 단계 만렙을 넘는 몬스터는 만렙으로 맞춤
   MM.clampLevels = function (s) { var n = 0; s.monsters.forEach(function (m) { var mx = MM.maxLevel(m.tier); if (m.level > mx) { m.level = mx; m.exp = 0; n++; } else if (m.level === mx) m.exp = 0; }); return n; };
   MM.giveExp = function (m, amount) {

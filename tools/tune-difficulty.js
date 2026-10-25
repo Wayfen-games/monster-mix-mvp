@@ -1,6 +1,6 @@
 // 스테이지·던전 적 능력치 보정(STAGE_ENEMY_MULT, DUNGEON_ENEMY_MULT)을 목표 승률에 맞춘다.
 // 목표: n단계 스테이지 = n단계 3마리(서로 다른 속성, 파티 보너스 포함) 합성 조건 레벨에서 60%
-//       던전 n단계 = n단계 3마리 Lv30에서 75% (5단계 던전은 5단계 Lv30에서 60%)
+//       던전 n단계 = n단계 3마리 합성 조건 레벨에서 85% (5단계는 Lv69)
 // 사용: node tools/tune-difficulty.js
 const MM = require('./load');
 const B = MM.BALANCE, T = B.MAX_TIER;
@@ -18,7 +18,7 @@ function search(get, set, rateFn, target) {
 const sm = [], dm = [];
 if (!process.env.DUNGEON_ONLY) B.STAGE_ENEMY_MULT = Array(T).fill(1); B.DUNGEON_ENEMY_MULT = Array(T).fill(1);
 for (let st = 1; st <= T; st++) {
-  const lv = st < T ? MM.fuseLevelReq(st) : 22;
+  const lv = st < T ? MM.fuseLevelReq(st) : (B.TOP_REF_LEVEL || 69);
   if (!process.env.DUNGEON_ONLY) search(null, v => B.STAGE_ENEMY_MULT[st - 1] = v, () => stageRate(st, st, lv, 11 * st, N), 0.6);
   sm.push(B.STAGE_ENEMY_MULT[st - 1]);
   // 던전: n단계 3마리가 합성 조건 레벨(맨 위는 22)에서 85% (첫날에도 무리 없이)
@@ -32,9 +32,9 @@ for (let st = 1; st <= T; st++) {
   const r = [];
   r.push(st + '단계 3마리 소환Lv' + MM.summonLevel(st) + ' ' + Math.round(stageRate(st, st, MM.summonLevel(st), 900 + st, 3000) * 100) + '%');
   if (st < T) r.push('조건Lv' + MM.fuseLevelReq(st) + ' ' + Math.round(stageRate(st, st, MM.fuseLevelReq(st), 910 + st, 3000) * 100) + '%');
-  r.push('Lv30 ' + Math.round(stageRate(st, st, 30, 920 + st, 3000) * 100) + '%');
-  if (st > 1) r.push((st - 1) + '단계 Lv30 ' + Math.round(stageRate(st, st - 1, 30, 930 + st, 3000) * 100) + '%');
+  r.push('만렙' + MM.maxLevel(st) + ' ' + Math.round(stageRate(st, st, MM.maxLevel(st), 920 + st, 3000) * 100) + '%');
+  if (st > 1) r.push((st - 1) + '단계 만렙 ' + Math.round(stageRate(st, st - 1, MM.maxLevel(st - 1), 930 + st, 3000) * 100) + '%');
   if (st < T) r.push((st + 1) + '단계 소환Lv ' + Math.round(stageRate(st, st + 1, MM.summonLevel(st + 1), 940 + st, 3000) * 100) + '%');
   console.log('스테이지 ' + st + ': ' + r.join(' · '));
-  console.log('  던전 ' + st + ': ' + st + '단계 소환Lv ' + Math.round(dungeonRate(st, st, MM.summonLevel(st), 950 + st, 3000) * 100) + '% · 조건Lv ' + Math.round(dungeonRate(st, st, st < T ? MM.fuseLevelReq(st) : 22, 955 + st, 3000) * 100) + '% · Lv30 ' + Math.round(dungeonRate(st, st, 30, 960 + st, 3000) * 100) + '%');
+  console.log('  던전 ' + st + ': ' + st + '단계 소환Lv ' + Math.round(dungeonRate(st, st, MM.summonLevel(st), 950 + st, 3000) * 100) + '% · 조건Lv ' + Math.round(dungeonRate(st, st, st < T ? MM.fuseLevelReq(st) : (B.TOP_REF_LEVEL || 69), 955 + st, 3000) * 100) + '% · Lv30 ' + Math.round(dungeonRate(st, st, 30, 960 + st, 3000) * 100) + '%');
 }

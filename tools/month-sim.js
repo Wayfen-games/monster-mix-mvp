@@ -231,6 +231,7 @@ function simulatePlayer(seed) {
   }
   log.goalDay = goalDone() ? day : null;
   log.levels = s.monsters.map(m => m.tier + '단' + m.level).join(' ');
+  log.maxLv = Math.max(...s.monsters.map(m => m.level)); log.top5 = s.monsters.filter(m => m.tier === T).map(m => m.level).sort((a, b) => b - a).slice(0, 3).join('/');
   log.gold = s.gold;
   return log;
 }
@@ -248,4 +249,6 @@ console.log('판당 평균 행동 수:', avg(r => r.actions / Math.max(1, r.batt
 console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1), '| 입장권 사용', avg(r => r.tickets).toFixed(1), '| 보스', avg(r => r.bosses).toFixed(1));
 console.log('막힘(관리 시점 횟수): 골드', avg(r => r.goldBlocked).toFixed(1), '소울', avg(r => r.soulBlocked).toFixed(1), '레벨', avg(r => r.levelBlocked).toFixed(1));
 console.log('최대 보유 골드', avg(r => r.maxGold).toFixed(0), '| 마지막 골드', avg(r => r.gold).toFixed(0), '| 최고 던전', avg(r => r.dungeonTop).toFixed(1));
+console.log('끝날 때 최고 레벨(플레이어별):', res.map(r => r.maxLv).join(', '));
+console.log('끝날 때 5단계 몬스터 레벨 상위 3(앞 6명):', res.slice(0, 6).map(r => r.top5).join(' | '));
 console.log('예시 마지막 몬스터:', res[0].levels);

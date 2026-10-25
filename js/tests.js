@@ -26,8 +26,8 @@
   // ---- 능력치 ----
   var s1 = MM.calcStats('fire', 1, 1), s2 = MM.calcStats('fire', 2, 1), s30 = MM.calcStats('fire', 1, 30);
   check('단계당 ×1.5', Math.abs(s2.hp / s1.hp - 1.5) < 0.05, (s2.hp / s1.hp).toFixed(2));
-  check('레벨당 +1% (Lv30 = 1.29배)', Math.abs(MM.levelMult(30) - 1.29) < 1e-9);
-  check('만렙 아래 단계 < 다음 단계 Lv1', MM.tierMult(1) * MM.levelMult(30) < MM.tierMult(2) * MM.levelMult(1));
+  check('레벨당 +0.5% (Lv100 = 1.495배)', Math.abs(MM.levelMult(100) - 1.495) < 1e-9);
+  check('만렙 아래 단계 < 다음 단계 Lv1', MM.tierMult(1) * MM.levelMult(MM.maxLevel(1)) < MM.tierMult(2) * MM.levelMult(1));
   check('크리티컬 1단계 4%, 5단계 8%', close(MM.calcStats('fire', 1, 1).crit, 0.04) && close(MM.calcStats('fire', 5, 1).crit, 0.08));
   check('파티 보너스: 서로 다른 3속성', MM.partyHasBonus([{ el: 'fire' }, { el: 'grass' }, { el: 'dark' }]) && !MM.partyHasBonus([{ el: 'fire' }, { el: 'fire' }, { el: 'dark' }]));
 
@@ -35,20 +35,21 @@
   var inc = true;
   for (var L = 1; L < B.MAX_LEVEL - 1; L++) if (MM.expToNext(L + 1) <= MM.expToNext(L)) inc = false;
   check('필요 경험치는 레벨마다 증가', inc);
-  var m = { level: 1, exp: 0 }; MM.giveExp(m, 1e9);
-  check('만렙 30에서 멈춤', m.level === 30 && m.exp === 0);
+  var m = { level: 1, exp: 0 }; MM.giveExp(m, 1e30);
+  check('만렙 ' + B.MAX_LEVEL + '에서 멈춤', m.level === B.MAX_LEVEL && m.exp === 0);
+  check('80레벨 이상은 아주 느림 (90→91이 70→71의 30배 이상)', MM.expToNext(90) > MM.expToNext(70) * 30);
 
   // ---- 합성 ----
   check('스택 2 → +12%p', close(MM.stackBonus(2), 0.12));
   check('8스택이면 100%', MM.successRate(4, 8) === 1);
   var s = MM.newState(); s.gold = 1e6;
-  var a = MM.addMonster(s, 'fire', 1, 5), b = MM.addMonster(s, 'grass', 1, 5), c = MM.addMonster(s, 'dark', 1, 5);
+  var FR = MM.fuseLevelReq(1), a = MM.addMonster(s, 'fire', 1, FR), b = MM.addMonster(s, 'grass', 1, FR), c = MM.addMonster(s, 'dark', 1, FR);
   var chk = MM.fusionCheck(s, a, b);
   check('3마리면 합성 불가', !chk.ok && /4마리/.test(chk.reasons.join()), chk.reasons.join(' / '));
   var d = MM.addMonster(s, 'water', 1, 2);
-  check('4마리 + Lv5 짝이면 1+1 합성 가능', MM.fusionCheck(s, a, b).ok, MM.fusionCheck(s, a, b).reasons.join());
+  check('4마리 + 조건 레벨 짝이면 1+1 합성 가능', MM.fusionCheck(s, a, b).ok, MM.fusionCheck(s, a, b).reasons.join());
   var lowChk = MM.fusionCheck(s, d, b);
-  check('주재료 레벨 미달이면 불가 (이유 표시)', !lowChk.ok && /Lv 5 필요/.test(lowChk.reasons.join()), lowChk.reasons.join(' / '));
+  check('주재료 레벨 미달이면 불가 (이유 표시)', !lowChk.ok && new RegExp('Lv ' + FR + ' 필요').test(lowChk.reasons.join()), lowChk.reasons.join(' / '));
   var s3 = MM.newState(); s3.gold = 1e6; s3.souls.fire2 = 1;
   var m3 = MM.addMonster(s3, 'fire', 3, MM.fuseLevelReq(3)), sub2 = MM.addMonster(s3, 'grass', 2, MM.summonLevel(2)); MM.addMonster(s3, 'water', 1); MM.addMonster(s3, 'dark', 1);
   check('부재료는 소환 레벨이면 바로 합성 가능', MM.fusionCheck(s3, m3, sub2, 'fire').ok, MM.fusionCheck(s3, m3, sub2, 'fire').reasons.join());
@@ -57,20 +58,20 @@
   check('1+1 비용은 골드만', MM.fusionCost(a, b).soulTier === null);
   a.stack = 2;
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
-  a.stack = 0; a.level = 10; b.level = 6;
+  a.stack = 0; a.level = 20; b.level = 6;
   var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
-  check('성공: 결과 레벨 = 평균 올림 8 + 1~3 → 9~11', fr.success && fr.monster.level >= 9 && fr.monster.level <= 11 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
+  check('성공: 결과 레벨 = 평균 올림 13 + 3~9 → 16~22', fr.success && fr.monster.level >= 16 && fr.monster.level <= 22 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
   (function () {
     var seen = {}, mm = { level: 5 }, ss = { level: 1 };
     for (var i = 0; i < 300; i++) seen[MM.fusionResultLevel(mm, ss)] = 1;
-    check('결과 레벨 보너스 1~3 모두 나옴 (5+1 → 4,5,6)', Object.keys(seen).sort().join() === '4,5,6', Object.keys(seen).join());
-    check('결과 레벨은 최대 레벨을 넘지 않음', MM.fusionResultLevel({ level: 30 }, { level: 30 }, function () { return 0.99; }) === B.MAX_LEVEL);
-    check('범위 표시 4~6', MM.fusionRangeText(mm, ss) === '4~6');
+    check('결과 레벨 보너스 3~9 모두 나옴 (5+1 → 6~12)', Object.keys(seen).length === 7 && seen[6] && seen[12], Object.keys(seen).join());
+    check('결과 레벨은 최대 레벨을 넘지 않음', MM.fusionResultLevel({ level: 100 }, { level: 100 }, function () { return 0.99; }) === B.MAX_LEVEL);
+    check('범위 표시 6~12', MM.fusionRangeText(mm, ss) === '6~12');
   })();
   check('성공: 도감 첫 등록 소울 1개', fr.dex && s.souls.fire2 === 1);
   // 실패
   s = MM.newState(); s.gold = 1e6;
-  var w2 = MM.addMonster(s, 'water', 2, 10), g1 = MM.addMonster(s, 'grass', 1, 10); MM.addMonster(s, 'fire', 1); MM.addMonster(s, 'dark', 1);
+  var w2 = MM.addMonster(s, 'water', 2, MM.fuseLevelReq(2)), g1 = MM.addMonster(s, 'grass', 1, 10); MM.addMonster(s, 'fire', 1); MM.addMonster(s, 'dark', 1);
   s.souls.grass1 = 2;
   var gold0 = s.gold, f2 = MM.attemptFusion(s, w2.id, g1.id, 'grass', NEVER);
   check('실패: 재료 유지, 스택 +1', !f2.success && MM.getMonster(s, w2.id) && MM.getMonster(s, g1.id) && w2.stack === 1);
@@ -235,7 +236,7 @@
     check('받기: 지정 몬스터(파티 밖 포함)만 경험치', r2 && d.level > 1 && r2.team.join() === [d.id, a.id].join());
     check('즉시 받기: 몇 분만 쌓여도 받을 수 있음', (MM.accrueOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng), MM.claimOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng) !== null));
     s.gold = 1e6; s.souls.fire1 = 50;
-    var e = MM.addMonster(s, 'fire', 1, 5); MM.setOfflineTeam(s, [e.id, b2.id]);
+    var e = MM.addMonster(s, 'fire', 1, MM.fuseLevelReq(1)); MM.setOfflineTeam(s, [e.id, b2.id]);
     check('방치 보상에 지정한 몬스터는 합성 재료로 못 씀', !MM.fusionCheck(s, e, d).ok && MM.fusionCheck(s, e, d).reasons.some(function (r) { return /방치 보상/.test(r); }));
     check('방치 보상에 지정한 몬스터는 분해 못 함', !!MM.canDecomposeMonster(s, e));
     MM.setOfflineTeam(s, [b2.id]);
@@ -256,7 +257,7 @@
     MM.accrueOffline(s, t0 + 3 * 3600000, rng);
     var r = MM.claimOffline(s, t0 + 3 * 3600000, rng);
     check('방치 경험치: 단계 상관없이 스테이지 경험치 그대로', r.expBy[lo.id] === MM.winExp(3) * r.runs && r.expBy[hi.id] === MM.winExp(3) * r.runs);
-    check('대신 단계별 만렙에서 멈춤 (1단계 → Lv ' + MM.maxLevel(1) + ')', lo.level === MM.maxLevel(1));
+    check('단계별 만렙은 넘지 않음 (1단계 Lv ' + MM.maxLevel(1) + ')', lo.level > 1 && lo.level <= MM.maxLevel(1));
   })();
 
   // ---- 장비 ----
@@ -284,7 +285,7 @@
   // ---- 몬스터 강화 ----
   (function () {
     var s = MM.newState(t0); s.gold = 1e9; s.souls.fire1 = 50;
-    var m = MM.addMonster(s, 'fire', 1, 5), n = 0;
+    var m = MM.addMonster(s, 'fire', 1, MM.fuseLevelReq(1)), n = 0;
     while ((m.plus || 0) < 3 && n < 50) { MM.enhanceMonster(s, m.id); n++; }
     check('몬스터 강화 +3까지 (천장: 실패마다 +15%p)', m.plus === 3 && !!MM.enhanceMonster(s, m.id).error, n);
     check('몬스터 강화 +3 = 15%', Math.abs(MM.playerMult(s, m) - 1.15) < 1e-9);
@@ -312,9 +313,10 @@
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
 
-  check('단계별 만렙 = (n+2)단계 소환 레벨: 10/14/18/23/30', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '10,14,18,23,30', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
+  check('단계별 만렙 40/55/70/85/100', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '40,55,70,85,100', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
   check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', [1, 2, 3, 4].every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
-  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 25; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 10); })();
+  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 50; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 40);
+  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 3, 1); m.level = 14; MM.migrateLevels(s); check('레벨 개편 변환: 예전 Lv14 → Lv43 (합성 조건 그대로)', m.level === 43 && s.levelScale === 2 && MM.migrateLevels(s) === 0); })(); })();
   // ---- 보스 ----
   (function () {
     var rr = MM.seededRng(5);
