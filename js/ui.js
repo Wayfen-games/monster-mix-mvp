@@ -150,7 +150,7 @@
   SCREENS.gacha = function () {
     var c = BAL().GACHA_COST;
     var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🎁 소울 뽑기</h2>' +
-      '<div class="muted small lh" style="margin-bottom:10px">같은 소울 ' + c + '개로 한 번 뽑아요. 꽝, 소울, 입장권, 한 단계 위 소울, 가끔 대박이 나와요.</div>' +
+      '<div class="muted small lh" style="margin-bottom:10px">같은 소울 ' + c + '개로 한 번 뽑아요. 꽝 없음! 소울 10개, 입장권, 한 단계 위 소울, 가끔 대박이 나와요.</div>' +
       '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
     MM.RING.forEach(function (el) {
       html += '<div class="el">' + elName(el) + '</div>';
@@ -180,7 +180,7 @@
     var showTier = best === 'jackpot' ? Math.min(5, tier + 2) : best === 'up' ? Math.min(5, tier + 1) : tier;
     showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + (big ? raysClass(Math.max(4, showTier)) : 'rays reveal now') + '"></div><div class="pop now" style="font-size:96px;line-height:130px">' + (best === 'jackpot' ? '💎' : best === 'up' ? '✨' : best === 'ticket' ? '🎟' : best === 'souls' ? '🎁' : '📦') + '</div></div>' +
       '<div class="reveal now"><div class="big ok">' + GACHA_LABEL[best] + '</div><div class="sub">' + MM.speciesName(el, tier) + ' 소울 뽑기 ' + res.length + '번' + (res.length > 1 ? ' · ' + ['jackpot', 'up', 'ticket', 'souls', 'none'].map(function (k) { var c = res.filter(function (r) { return r.kind === k; }).length; return c ? GACHA_LABEL[k].replace(/!/g, '') + ' ' + c : ''; }).filter(Boolean).join(' · ') : '') + '</div>' +
-      '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare">🎟 ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + (!list.length && !tickets ? '<span class="muted">아무것도 안 나왔어요…</span>' : '') + '</div></div>' +
+      '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare">🎟 ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + (!list.length && !tickets ? '' : '') + '</div></div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div></div>');
     var rare = rareOf(list); if (rare.length) rare.forEach(showBanner);
   }
