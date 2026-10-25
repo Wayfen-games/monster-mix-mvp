@@ -252,6 +252,8 @@ const t3 = res.map(r => r.t3Day == null ? 99 : r.t3Day).sort((a, b) => a - b);
 console.log('첫 3단계 획득(일, 0.5 = 첫날 자동 반복 절반):', t3.map(x => x.toFixed(2)).join(', '));
 const t4 = res.map(r => r.t4Day == null ? 99 : r.t4Day).sort((a, b) => a - b);
 console.log('첫 4단계 획득(일):', t4.map(x => x.toFixed(2)).join(', '), '| 중앙값', t4[Math.floor(t4.length / 2)].toFixed(2));
+const f5 = res.map(r => { const v = Object.values(r.e5Day); return v.length ? Math.min(...v) : 99; }).sort((a, b) => a - b);
+console.log('첫 5단계 획득(일):', f5.map(x => x.toFixed(1)).join(', '), '| 중앙값', f5[Math.floor(f5.length / 2)].toFixed(1));
 console.log('5단계 속성별 첫 완성일(평균):', MM.RING.map(e => e + ' ' + avg(r => r.e5Day[e] == null ? MAX_DAYS : r.e5Day[e]).toFixed(1)).join(' / '));
 console.log('판당 평균 행동 수:', avg(r => r.actions / Math.max(1, r.battles)).toFixed(1), '| 패배율', (avg(r => r.losses / Math.max(1, r.battles)) * 100).toFixed(1) + '%');
 console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1), '| 입장권 사용', avg(r => r.tickets).toFixed(1), '| 보스', avg(r => r.bosses).toFixed(1), '| 골드 대신 쓴 소울', avg(r => r.soulSwap).toFixed(1));
