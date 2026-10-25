@@ -882,7 +882,7 @@
       var rate = MM.successRate(main.tier, main.stack), next = MM.successRate(main.tier, main.stack + 1);
       var meter = '';
       for (var i = 1; i <= BAL().STACK_GUARANTEE; i++) meter += '<i class="' + (i <= main.stack ? 'on' : '') + '"></i>';
-      var nextGold = Math.round(MM.tierVal(BAL().FUSION_GOLD, main.tier) * (1 + BAL().FUSION_GOLD_STACK_UP * (main.stack + 1)) / 10) * 10;
+      var nextGold = MM.fusionCost({ el: main.el, tier: main.tier, stack: main.stack + 1 }, sub, f.soulN).gold;
       html += '<div class="card" style="margin-top:14px"><div class="rate-big">' + pct(rate) + '</div>' +
         '<div class="rate-sub">성공률' + (main.stack ? ' (기본 ' + pct(MM.tierVal(BAL().BASE_SUCCESS, main.tier)) + ' + 실패 스택 ' + main.stack + ')' : '') + '</div><div class="stack-meter">' + meter + '</div>' +
         '<div class="rate-sub">' + (rate >= 1 ? '이번엔 반드시 성공해요' : '실패해도 재료는 그대로 · 실패하면 다음 시도 <b style="color:var(--text)">' + pct(next) + '</b> (골드 ' + fmt(nextGold) + ')') + '</div></div>';
@@ -910,7 +910,7 @@
         }).join('') + '</div>';
       }
     }
-    html += '<div class="card muted small lh" style="margin-top:12px">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계 · 결과 속성은 주재료<br>부재료는 원형 이웃 속성만 (불-풀-물-빛-어둠-불) · 같은 속성은 안 돼요<br>주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상 · 결과 레벨은 두 재료의 평균<br>실패해도 재료는 남고 성공률이 올라요 (' + BAL().STACK_GUARANTEE + '스택이면 100%)</div>';
+    html += '<div class="card muted small lh" style="margin-top:12px">규칙: 1단계+1단계 = 2단계 · n단계 + (n-1)단계 = (n+1)단계 · 결과 속성은 주재료<br>부재료는 원형 이웃 속성만 (불-풀-물-빛-어둠-불) · 같은 속성은 안 돼요<br>주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상 · 결과 레벨은 두 재료의 평균(올림) + 3~9<br>실패해도 재료는 남고 성공률이 올라요 (' + BAL().STACK_GUARANTEE + '스택이면 100%)</div>';
     return html;
   };
   DOCKS.fusion = function () {
