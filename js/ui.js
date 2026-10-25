@@ -601,6 +601,12 @@
   }
 
   // ================= 보상 =================
+  function lootHtml(list, tickets, bossTickets) {
+    var extra = (tickets || []).map(function (x) { return '<div class="soul-item rare">🎟 ' + x.tier + '단계 입장권 ×' + x.n + '</div>'; }).join('') +
+      (bossTickets || []).map(function (x) { return '<div class="soul-item rare">🌈 ' + x.tier + '단계 보스 입장권 ×' + x.n + '</div>'; }).join('');
+    if (!list.length && !extra) return '<span class="muted">이번에는 전리품이 없어요</span>';
+    return extra + (list.length ? dropsHtml(list) : '');
+  }
   function dropsHtml(list) {
     if (!list.length) return '<span class="muted">이번에는 소울이 나오지 않았어요</span>';
     return list.map(function (d) {
@@ -617,19 +623,17 @@
       var list = Object.keys(ss.drops).map(function (k) { var p = MM.parseKey(k); return { key: k, el: p.el, tier: p.tier, count: ss.drops[k], added: ss.drops[k], wasted: 0, first: !!ss.firsts[k] }; })
         .sort(function (a, b) { return b.tier - a.tier || b.count - a.count; });
       html = '<div class="reward-title win">자동 반복 끝</div><div class="muted" style="text-align:center;margin-bottom:14px">' + elName(R.el) + ' ' + R.tier + '단계 · ' + ss.runs + '판 (승 ' + ss.wins + ' · 패 ' + ss.losses + ')</div>' +
-        '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(list) + '</div>' + (ss.wasted ? '<div class="lack small" style="margin-top:8px">소울이 가득 차서 ' + ss.wasted + '개가 버려졌어요 (종별 최대 ' + BAL().SOUL_CAP + '개)</div>' : '') + '</div>' +
-        '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(ss.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(ss.exp) + '</span></div>' + (ss.tickets ? '<div class="cost-line"><span>🎟 입장권</span><span>+' + ss.tickets + '장</span></div>' : '') +
+        '<div class="card"><b>전리품</b><div class="soul-list" style="margin-top:10px">' + lootHtml(list, ss.tickets ? [{ tier: ss.ticketTier, n: ss.tickets }] : []) + '</div>' + (ss.wasted ? '<div class="lack small" style="margin-top:8px">소울이 가득 차서 ' + ss.wasted + '개가 버려졌어요 (종별 최대 ' + BAL().SOUL_CAP + '개)</div>' : '') + '</div>' +
+        '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(ss.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(ss.exp) + '</span></div>' +
         Object.keys(ss.levelUps).map(function (id) { var u = ss.levelUps[id]; return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
       again = '<button class="btn good block" data-act="againRepeat"' + (MM.autoLeft(S, Date.now()) ? '' : ' disabled') + '>자동 반복 다시 · ' + MM.autoLeft(S, Date.now()) + '판 남음</button>';
     } else {
       var label = R.kind === 'boss' ? R.tier + '단계 무지개 보스' : R.kind === 'dungeon' ? R.tier + '단계 요일 던전' : R.kind === 'ticket' ? R.tier + '단계 입장권 던전' : elName(R.el) + ' ' + R.tier + '단계 스테이지';
       html = '<div class="reward-title ' + (R.win ? 'win' : 'lose') + '">' + (R.win ? '클리어!' : '패배…') + '</div><div class="muted" style="text-align:center;margin-bottom:14px">' + label + '</div>';
       if (R.win) {
-        if (R.r.bossTicket) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">🌈 보스 입장권 획득!!</b> <span class="muted small">' + R.r.bossTicket + '단계 무지개 보스 · 보유 ' + MM.bossTicketCount(S, R.r.bossTicket) + '장</span></div>';
-        if (R.r.ticket) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">🎟 입장권 획득!</b> <span class="muted small">' + R.r.ticket + '단계 입장권 던전 · 보유 ' + MM.ticketCount(S, R.r.ticket) + '장</span></div>';
         if (R.r.firstClear) html += '<div class="card" style="border-color:var(--accent)"><b style="color:var(--accent)">첫 클리어 보상!</b><div class="soul-list" style="margin-top:10px">' + dropsHtml([R.r.firstClear]) + '</div></div>';
         if (R.r.offlinePaid) { var P = R.r.offlinePaid; html += '<div class="card"><b>방치 보상 정산</b><div class="muted small" style="margin:4px 0 8px">방치 보상 스테이지가 ' + MM.speciesName(R.r.autoOffline.el, R.r.autoOffline.tier) + ' 스테이지로 바뀌어서, 지금까지 쌓인 ' + hoursText(P.hours) + ' 보상은 ' + MM.speciesName(P.stage.el, P.stage.tier) + ' 스테이지 기준으로 받았어요</div><div class="soul-list">' + (P.drops.length ? dropsHtml(P.drops) : '<span class="muted small">소울 없음</span>') + '</div><div class="cost-line" style="margin-top:8px"><span>골드</span><span>+' + fmt(P.gold) + ' G</span></div></div>'; }
-        html += '<div class="card"><b>얻은 소울</b><div class="soul-list" style="margin-top:10px">' + dropsHtml(R.r.drops) + '</div></div>' +
+        html += '<div class="card"><b>전리품</b><div class="soul-list" style="margin-top:10px">' + lootHtml(R.r.drops, R.r.ticket ? [{ tier: R.r.ticket, n: 1 }] : [], R.r.bossTicket ? [{ tier: R.r.bossTicket, n: 1 }] : []) + '</div></div>' +
           '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(R.r.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(R.r.exp) + '</span></div>' +
           R.r.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
       } else {
