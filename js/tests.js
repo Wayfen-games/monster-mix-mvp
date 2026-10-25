@@ -69,14 +69,14 @@
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
   a.stack = 0; a.level = 20; b.level = 6;
   var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
-  check('성공: 결과 레벨 = 평균 올림 13 + 3~9, 높은 재료 레벨(20)까지 → 16~20', fr.success && fr.monster.level >= 16 && fr.monster.level <= 20 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
+  check('성공: 결과 레벨 = 평균 올림 13 + 1~3 → 14~16', fr.success && fr.monster.level >= 14 && fr.monster.level <= 16 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
   (function () {
     var seen = {}, mm = { level: 30 }, ss = { level: 10 };
     for (var i = 0; i < 300; i++) seen[MM.fusionResultLevel(mm, ss)] = 1;
-    check('결과 레벨 보너스 3~9 모두 나옴 (30+10 → 23~29)', Object.keys(seen).length === 7 && seen[23] && seen[29], Object.keys(seen).join());
-    check('결과 레벨은 높은 재료 레벨을 넘지 않음 (20+19 → 최대 20)', MM.fusionResultLevel({ level: 20 }, { level: 19 }, function () { return 0.99; }) === 20);
+    check('결과 레벨 보너스 1~3 모두 나옴 (30+10 → 21~23)', Object.keys(seen).length === 3 && seen[21] && seen[23], Object.keys(seen).join());
+    check('10렙 + 10렙 → 11~13 (재료 레벨 상한 없음)', MM.fusionResultLevel({ level: 10 }, { level: 10 }, function () { return 0.99; }) === 13);
     check('결과 레벨은 최대 레벨을 넘지 않음', MM.fusionResultLevel({ level: 100 }, { level: 100 }, function () { return 0.99; }) === B.MAX_LEVEL);
-    check('범위 표시 23~29', MM.fusionRangeText(mm, ss) === '23~29');
+    check('범위 표시 21~23', MM.fusionRangeText(mm, ss) === '21~23');
   })();
   check('성공: 도감 첫 등록 소울 1개', fr.dex && s.souls.fire2 === 1);
   // 실패
@@ -323,6 +323,7 @@
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
 
+  (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; }; var r = [1, 2, 3, 4].map(runs); check('소환 → 조건 레벨 판수: 초반 빠르게, 갈수록 느리게', r[0] < r[1] && r[1] < r[2] && r[2] < r[3], r.join('/')); })();
   check('단계별 만렙 40/55/70/85/100', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '40,55,70,85,100', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
   check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', [1, 2, 3, 4].every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
   (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 50; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 40);

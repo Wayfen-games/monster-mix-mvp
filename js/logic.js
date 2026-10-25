@@ -291,6 +291,7 @@
 
   MM.expToNext = function (level) {
     var b = B(), x = b.EXP_A * Math.pow(b.EXP_R, level - 1);
+    if (b.EXP_BAND_FROM) { var bm = 1; for (var i = 0; i < b.EXP_BAND_FROM.length; i++) if (level >= b.EXP_BAND_FROM[i]) bm = b.EXP_BAND_MULT[i]; x *= bm; }
     if (b.EXP_HIGH1 && level > b.EXP_HIGH1_FROM) x *= Math.pow(b.EXP_HIGH1, Math.min(level, b.EXP_HIGH1_TO || 999) - b.EXP_HIGH1_FROM);
     if (b.EXP_HIGH2 && level > b.EXP_HIGH2_FROM) x *= Math.pow(b.EXP_HIGH2, level - b.EXP_HIGH2_FROM);
     return Math.round(x);
