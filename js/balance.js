@@ -151,13 +151,17 @@ MM.BALANCE = {
   BOSS_EXP_MULT: 3,            // 경험치 = (n+1)단계 스테이지 승리 경험치 × 3
   BOSS_MAX_ROUNDS: 60,
   BOSS_LEVEL: [1, 6, 10, 14, 18], // = 소환 레벨
-  BOSS_HP_MULT: [8.8, 9.35, 7, 5, 6.5],   // [조정: tune-boss.js] 소환 레벨 3마리: 공격만 19~43% · 예고 대응 66~77%, 이긴 판 중앙 19~21라운드
-  BOSS_ATK_MULT: [0.65, 0.61, 0.75, 0.82, 0.69],
+  BOSS_HP_MULT: [6.5, 8.65, 6.2, 5.35, 4.7],   // [조정: tune-boss.js] 소환 레벨 3마리: 공격만 0~1% · 예고 대응(방어·집중·회복·부활) 71~78%, 이긴 판 중앙 17~21라운드
+  BOSS_ATK_MULT: [1.32, 0.79, 1.11, 0.97, 1.09],
   BOSS_SPD_MULT: 1.1,
   // 보스는 다음 행동을 예고함. 아군은 보스전에서 공격 / 방어(받는 피해 절반) / 집중(쉬고 다음 공격 2배) 선택 [사용자 확정: 전략으로 깨게]
   // 목표: 소환 레벨 3마리로 공격만 하면 약 25%, 예고에 맞춰 대응하면 약 75% [tools/tune-boss.js]
   BOSS_GUARD_CUT: 0.3,         // 방어하면 받는 피해 30%만
   BOSS_FOCUS_MULT: 2,
+  BOSS_HEALS: 3,               // 회복: 보스전 1판에 팀 공용 3번, 고른 아군 체력 25% [Claude 기본값]
+  BOSS_HEAL_PCT: 0.25,
+  BOSS_REVIVES: 1,             // 부활: 1판에 1번, 쓰러진 아군을 체력 30%로 [사용자 확정]
+  BOSS_REVIVE_PCT: 0.3,
   BOSS_SKILLS: {
     1: [{ type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 4, turns: 2 }],
     2: [{ type: 'smash', every: 3, mult: 3 }, { type: 'sweep', every: 4, mult: 1.2 }],

@@ -413,13 +413,15 @@
   }
   function unitHtml(u, bt, actor, pickable) {
     var r = u.hp / u.maxHp;
-    var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.boss ? ' bossu' : '') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 ? ' pickable' : '');
+    var allyPick = pickable === 'heal' ? u.hp > 0 : pickable === 'revive' ? u.hp <= 0 : false;
+    if (pickable === 'heal' || pickable === 'revive') pickable = false;
+    var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.boss ? ' bossu' : '') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 || allyPick ? ' pickable' : '');
     var adv = '';
     if (u.side === 'e' && actor && actor.side === 'p') {
       var up = MM.beats(actor.el, u.el), down = MM.beats(u.el, actor.el);
       if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
     }
-    return '<div class="' + cls + '" id="u' + u.uid + '"' + (pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
+    return '<div class="' + cls + '" id="u' + u.uid + '"' + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
       monSvg(u.el, u.tier, u.raid ? 84 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.raid ? '<div class="weak">상성 없음</div>' : u.side === 'e' ? weakText(u.el) : '') +
       (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
@@ -475,7 +477,7 @@
     else if (actor) msg = (actor.side === 'e' ? '적 ' : '') + actor.name + '의 공격';
     if (Bt.last && !bt.result && (Bt.last.skip || Bt.last.skill || Bt.last.action)) {
       var L = Bt.last, la = bt.units[L.actor];
-      sub = L.action === 'defend' ? la.name + ' 방어 자세 (다음 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '%)' : L.action === 'focus' ? la.name + ' 힘을 모았어요 (다음 공격 ×' + BAL().BOSS_FOCUS_MULT + ')' : L.skill === 'smash' ? '강타! ' + bt.units[L.target].name + ' -' + L.dmg + (L.guarded ? ' (방어)' : '') + (L.ko ? ' · 쓰러짐' : '') : L.skip ? la.name + '은(는) 봉인되어 움직이지 못했어요' : L.skill === 'seal' ? '봉인! ' + bt.units[L.target].name + ' ' + L.turns + '턴 동안 못 움직여요' :
+      sub = L.action === 'heal' ? la.name + '의 회복! ' + bt.units[L.target].name + ' +' + L.amount : L.action === 'revive' ? la.name + '의 부활! ' + bt.units[L.target].name + '이(가) 체력 ' + L.amount + '으로 일어났어요' : L.action === 'defend' ? la.name + ' 방어 자세 (다음 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '%)' : L.action === 'focus' ? la.name + ' 힘을 모았어요 (다음 공격 ×' + BAL().BOSS_FOCUS_MULT + ')' : L.skill === 'smash' ? '강타! ' + bt.units[L.target].name + ' -' + L.dmg + (L.guarded ? ' (방어)' : '') + (L.ko ? ' · 쓰러짐' : '') : L.skip ? la.name + '은(는) 봉인되어 움직이지 못했어요' : L.skill === 'seal' ? '봉인! ' + bt.units[L.target].name + ' ' + L.turns + '턴 동안 못 움직여요' :
         L.skill === 'sweep' ? '휩쓸기! 아군 전체 ' + L.hits.map(function (h) { return '-' + h.dmg; }).join(' ') : L.skill === 'shield' ? '보호막! ' + L.turns + '턴 동안 받는 피해 절반' : L.skill === 'heal' ? '회복! 체력 +' + L.heal : '';
     } else if (Bt.last && !myTurn && !bt.result) {
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
@@ -489,15 +491,18 @@
       '<div class="side enemies">' + en.map(function (u) { return unitHtml(u, bt, actor, myTurn); }).join('') + '</div>' +
       (bt.raid && !bt.result ? bossPlanHtml(bt) : '') +
       '<div class="battle-mid"><div class="msg">' + msg + '</div><div class="muted small">' + sub + '</div></div>' +
-      '<div class="side">' + bt.units.filter(function (u) { return u.side === 'p'; }).map(function (u) { return unitHtml(u, bt, actor, false); }).join('') + '</div>';
+      '<div class="side">' + bt.units.filter(function (u) { return u.side === 'p'; }).map(function (u) { return unitHtml(u, bt, actor, myTurn && Bt.pending ? Bt.pending : false); }).join('') + '</div>';
     if (Bt.repeat) {
       var ss = Bt.session;
       html += '<div class="repeat-box"><div class="row between"><b>자동 반복 ' + (ss.runs + (bt.result ? 0 : 1)) + '판째</b><span class="muted small">오늘 남은 ' + MM.autoLeft(S, Date.now()) + '판</span></div>' +
         '<div class="muted small">승 ' + ss.wins + ' · 패 ' + ss.losses + ' · 골드 +' + fmt(ss.gold) + '</div>' + sessionTally(ss) + readyNotice() + '</div>' +
         '<div class="battle-bar"><button class="btn' + (Bt.stopAfter ? ' toggle on' : '') + '" data-act="stopAfter">' + (Bt.stopAfter ? '이번 판 후 멈춤 ✓' : '이번 판 후 멈추기') + '</button><button class="btn danger" data-act="stopNow">지금 멈추기</button></div>';
     } else if (Bt.kind === 'boss') {
-      html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + (myTurn ? '' : ' disabled') + '>⚔ 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + (myTurn ? '' : ' disabled') + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + (myTurn ? '' : ' disabled') + '>✊ 집중</button></div>' +
-        '<div class="muted small" style="text-align:center;margin-top:6px">방어: 다음 내 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '% · 집중: 이번엔 쉬고 다음 공격 ×' + BAL().BOSS_FOCUS_MULT + '<br>보스전은 자동 전투가 안 돼요 · 지면 입장권은 그대로</div>';
+      var dead = bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; }), dis = function (ok) { return myTurn && ok ? '' : ' disabled'; };
+      if (Bt.pending && myTurn) html += '<div class="boss-plan" style="border-color:var(--good)">' + (Bt.pending === 'heal' ? '💚 회복할 아군을 누르세요' : '✨ 살릴 아군을 누르세요') + ' <button class="btn sm" data-act="bossCancel">취소</button></div>';
+      html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + dis(true) + '>⚔ 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + dis(true) + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + dis(true) + '>✊ 집중</button></div>' +
+        '<div class="battle-bar boss-acts two" style="margin-top:8px"><button class="btn good" data-act="bossAct" data-a="heal"' + dis(bt.healsLeft > 0) + '>💚 회복 ' + bt.healsLeft + '</button><button class="btn good" data-act="bossAct" data-a="revive"' + dis(bt.revivesLeft > 0 && dead) + '>✨ 부활 ' + bt.revivesLeft + '</button></div>' +
+        '<div class="muted small lh" style="text-align:center;margin-top:6px">방어: 다음 내 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '% · 집중: 쉬고 다음 공격 ×' + BAL().BOSS_FOCUS_MULT + '<br>회복: 아군 1마리 체력 ' + Math.round(BAL().BOSS_HEAL_PCT * 100) + '% (1판 ' + BAL().BOSS_HEALS + '번) · 부활: 쓰러진 아군 체력 ' + Math.round(BAL().BOSS_REVIVE_PCT * 100) + '%로 (1판 ' + BAL().BOSS_REVIVES + '번)<br>보스전은 자동 전투가 안 돼요 · 지면 입장권은 그대로</div>';
     } else if (Bt.kind !== 'tutorial') {
       html += '<div class="battle-bar"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON' : 'OFF') + '</button></div>';
     }
@@ -1210,9 +1215,19 @@
       var Bt = view.battle; if (!Bt || Bt.busy || Bt.kind !== 'boss') return;
       var actor = MM.currentActor(Bt.bt); if (!actor || actor.side !== 'p') return;
       Bt.busy = true;
+      if (d.a === 'heal' || d.a === 'revive') { Bt.busy = false; Bt.pending = d.a; render(); return; }
+      Bt.pending = null;
       if (d.a === 'attack') { doAct(null); return; }
       var ev = MM.act(Bt.bt, null, null, { action: d.a }); Bt.last = ev; render();
       Bt.timer = setTimeout(battleTick, 380);
+    },
+    bossCancel: function () { if (view.battle) { view.battle.pending = null; render(); } },
+    allyPick: function (d) {
+      var Bt = view.battle; if (!Bt || !Bt.pending || Bt.busy) return;
+      var action = Bt.pending; Bt.pending = null; Bt.busy = true;
+      var ev = MM.act(Bt.bt, null, null, { action: action, target: +d.uid }); Bt.last = ev; render();
+      var node = $('u' + d.uid); if (node && ev && ev.amount) { var dd = document.createElement('div'); dd.className = 'dmg heal'; dd.textContent = '+' + ev.amount; node.appendChild(dd); }
+      Bt.timer = setTimeout(battleTick, 450);
     },
     startBoss: function (d) { var tier = +d.tier; if (MM.bossTicketCount(S, tier) <= 0) { toast('보스 입장권이 없어요'); return; } startBattle('boss', { tier: tier }); },
     startTicket: function (d) {
@@ -1242,7 +1257,7 @@
       var Bt = view.battle; if (!Bt || Bt.busy) return;
       var actor = MM.currentActor(Bt.bt);
       if (!actor || actor.side !== 'p') return;
-      Bt.busy = true; doAct(+d.uid);
+      Bt.pending = null; Bt.busy = true; doAct(+d.uid);
     },
     auto: function () {
       var Bt = view.battle; if (!Bt) return;

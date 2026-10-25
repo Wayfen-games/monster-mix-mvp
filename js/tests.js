@@ -336,11 +336,17 @@
     var b2 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 2, level: 6 }], 2, rr);
     check('보스는 다음 행동을 예고함', !!b2.units[1].plan && !!b2.units[1].plan.type);
     var me = b2.units[0], boss2 = b2.units[1];
-    while (MM.currentActor(b2, rr) !== me) MM.act(b2, null, rr);
+    for (var g2 = 0; g2 < 50 && !b2.result && MM.currentActor(b2, rr) !== me; g2++) MM.act(b2, null, rr);
     MM.act(b2, null, rr, { action: 'defend' });
     check('방어: 다음 내 차례까지 받는 피해 30%', me.guard === true);
-    while (!b2.result && MM.currentActor(b2, rr) !== me) MM.act(b2, null, rr);
+    for (var g4 = 0; g4 < 50 && !b2.result && MM.currentActor(b2, rr) !== me; g4++) MM.act(b2, null, rr);
     if (!b2.result) { MM.act(b2, null, rr, { action: 'focus' }); check('집중: 다음 공격 2배', me.focus === true && !me.guard); }
+    var b3 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 2, level: 6 }, { id: 2, el: 'water', tier: 2, level: 6 }], 2, rr), m0 = b3.units[0], m1 = b3.units[1];
+    m1.hp = 0; m0.hp = m0.maxHp = 99999;
+    for (var g3 = 0; g3 < 50 && !b3.result && MM.currentActor(b3, rr) !== m0; g3++) MM.act(b3, null, rr, { action: 'defend' });
+    var rv = MM.act(b3, null, rr, { action: 'revive', target: m1.uid });
+    check('부활: 쓰러진 아군 체력 30%, 1판 1번', rv.action === 'revive' && m1.hp === Math.round(m1.maxHp * 0.3) && b3.revivesLeft === 0);
+    check('회복: 1판 ' + B.BOSS_HEALS + '번', b3.healsLeft === B.BOSS_HEALS);
     var s = MM.newState(t0); MM.addBossTickets(s, 3, 1);
     var g = MM.grantBossWin(s, 3, rr);
     check('보스 보상: 한 단계 위 스테이지 드랍 ×100 (상위 소울 포함 가능), 골드 없음', g.gold === 0 && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));

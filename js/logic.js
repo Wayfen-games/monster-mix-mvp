@@ -831,7 +831,7 @@
     return ev;
   }
   // 보스전 아군 행동: attack(기본) / defend(다음 내 차례까지 받는 피해 절반) / focus(이번 턴 쉬고 다음 공격 2배)
-  MM.BOSS_ACTIONS = ['attack', 'defend', 'focus'];
+  MM.BOSS_ACTIONS = ['attack', 'defend', 'focus', 'heal', 'revive'];
   // 시뮬레이션용 판단: naive = 공격만, smart = 예고를 보고 대응
   MM.bossAI = function (bt, actor, policy) {
     if (policy !== 'smart') return 'attack';
@@ -840,6 +840,8 @@
     var hit = boss.atk * boss.atk / (boss.atk + actor.def) * 1.05; // 예상 피해(넉넉히)
     var inc = p.type === 'sweep' ? hit * p.sk.mult : (p.type === 'smash' && p.target === actor.uid) ? hit * p.sk.mult : (p.type === 'attack' && p.target === actor.uid) ? hit : 0;
     if (inc >= actor.hp * 0.8) return 'defend';      // 맞으면 쓰러지거나 위험하면 방어
+    if (bt.revivesLeft > 0 && bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; })) return 'revive';
+    if (bt.healsLeft > 0 && MM.alive(bt, 'p').some(function (u) { return u.hp < u.maxHp * 0.35; })) return 'heal';
     if (boss.shield > 1) return actor.focus ? 'attack' : 'focus'; // 보호막 동안은 힘 모으기
     return 'attack';
   };
@@ -855,6 +857,19 @@
     if (actor.raid) return bossTurn(bt, actor, rng);
     if (bt.raid && actor.side === 'p') {
       var action = opts && opts.action || (bt.policy ? MM.bossAI(bt, actor, bt.policy) : 'attack');
+      if (action === 'heal' || action === 'revive') {
+        var cand = action === 'heal' ? (bt.healsLeft > 0 ? MM.alive(bt, 'p') : []) : (bt.revivesLeft > 0 ? bt.units.filter(function (u) { return u.side === 'p' && u.hp <= 0; }) : []);
+        var tgt = opts && opts.target != null ? bt.units[opts.target] : null;
+        if (!tgt || cand.indexOf(tgt) < 0) tgt = cand.sort(function (a, b) { return action === 'heal' ? a.hp / a.maxHp - b.hp / b.maxHp : b.atk - a.atk; })[0];
+        if (tgt) {
+          var amt;
+          if (action === 'heal') { amt = Math.min(tgt.maxHp - tgt.hp, Math.round(tgt.maxHp * B().BOSS_HEAL_PCT)); tgt.hp += amt; bt.healsLeft--; }
+          else { tgt.hp = amt = Math.round(tgt.maxHp * B().BOSS_REVIVE_PCT); tgt.sealed = 0; tgt.guard = false; tgt.focus = false; bt.revivesLeft--; }
+          var hev = { actor: actor.uid, action: action, target: tgt.uid, amount: amt };
+          bt.log.push(hev); bt.queue.shift(); return hev;
+        }
+        action = 'attack';
+      }
       if (action === 'defend' || action === 'focus') {
         if (action === 'defend') actor.guard = true; else actor.focus = true;
         var aev = { actor: actor.uid, action: action };
@@ -886,7 +901,7 @@
     u.spd = Math.round(u.spd * b.BOSS_SPD_MULT * 10) / 10;
     u.skills = b.BOSS_SKILLS[tier] || [];
     u.raid = true; u.name = tier + '단계 무지개 보스';
-    bt.maxRounds = b.BOSS_MAX_ROUNDS; bt.raid = tier;
+    bt.maxRounds = b.BOSS_MAX_ROUNDS; bt.raid = tier; bt.healsLeft = b.BOSS_HEALS; bt.revivesLeft = b.BOSS_REVIVES;
     MM.newRound(bt, rng); bt.round = 1; // 보스 속도 반영해서 첫 라운드 순서 다시
     MM.planBoss(bt, u, rng);
     return bt;

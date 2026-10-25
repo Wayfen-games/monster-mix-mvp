@@ -283,3 +283,6 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .seg button { font-size: 13px; }
 .boss-plan { text-align: center; background: var(--panel2); border: 1px dashed var(--bad); border-radius: 10px; padding: 6px 10px; margin: 8px 0; font-size: 13px; }
 .boss-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.boss-acts.two { grid-template-columns: repeat(2, 1fr); }
+.dmg.heal { color: var(--good); }
+.btn.good { border-color: var(--good); }
