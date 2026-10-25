@@ -894,7 +894,7 @@
   function offlineTeamSheet() {
     if (!view.teamSel) view.teamSel = MM.offlineTeam(S).slice();
     var sel = view.teamSel;
-    var html = '<b>방치 보상 경험치 몬스터</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 몬스터도 돼요 · 부재료 키우기용으로 좋아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 몬스터가 받아요</div><div class="pick-list">' +
+    var html = '<b>방치 보상 경험치 몬스터</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 몬스터도 돼요 · 부재료 키우기용으로 좋아요<br>스테이지보다 낮은 단계 몬스터는 자기 단계 스테이지만큼 경험치를 받아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 몬스터가 받아요</div><div class="pick-list">' +
       sortMons(S.monsters).map(function (m) {
         var i = sel.indexOf(m.id);
         return '<button class="pick' + (i >= 0 ? ' sel' : '') + '" data-act="teamPick" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 30) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + (m.level >= BAL().MAX_LEVEL ? ' (최대)' : '') + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + '</div>' + (i >= 0 ? '<span class="chip adv">' + (i + 1) + '</span>' : '') + '</button>';
@@ -928,7 +928,7 @@
     showOverlay('<div class="result"><div class="big ok">방치 보상</div>' + (note ? '<div class="muted small" style="margin-top:4px">' + note + '</div>' : '') + '<div class="sub">' + MM.speciesName(res.stage.el, res.stage.tier) + ' 스테이지 · ' + hoursText(res.hours) + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + ' · ' + fmt(res.runs) + '판 분량</div>' +
       '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + (res.drops.length ? dropsHtml(res.drops) : '<span class="muted small">이번에는 소울이 없어요</span>') + '</div></div>' +
       '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' +
-      '<div class="cost-line"><span>경험치</span><span>' + res.team.map(function (id) { var m = MM.getMonster(S, id); return m ? name(m) : ''; }).filter(Boolean).join(', ') + ' 각 EXP ' + fmt(res.exp) + '</span></div>' +
+      res.team.map(function (id) { var m = MM.getMonster(S, id); return m ? '<div class="cost-line"><span>' + name(m) + '</span><span>EXP +' + fmt(res.expBy[id] || 0) + '</span></div>' : ''; }).join('') +
       res.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div>');
     var rare = rareOf(res.drops); if (rare.length) rare.forEach(showBanner);

@@ -240,6 +240,14 @@
     check('방치 보상 몬스터를 합성하면 결과 몬스터가 그 자리에', fr.success && MM.offlineTeam(s).indexOf(fr.monster.id) === 0);
   })();
 
+  (function () {
+    var s = MM.newState(t0); s.cleared.fire3 = 1; s.offline.stage = { el: 'fire', tier: 3 };
+    var lo = MM.addMonster(s, 'water', 1, 1), hi = MM.addMonster(s, 'grass', 3, 10); s.party = [lo.id, hi.id];
+    MM.accrueOffline(s, t0 + 3 * 3600000, rng);
+    var r = MM.claimOffline(s, t0 + 3 * 3600000, rng);
+    check('방치 경험치: 낮은 단계 몬스터는 자기 단계 스테이지 경험치만', r.expBy[lo.id] === MM.winExp(1) * r.runs && r.expBy[hi.id] === MM.winExp(3) * r.runs);
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);

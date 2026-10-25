@@ -97,6 +97,7 @@ MM.BALANCE = {
   DUNGEON_TOP_BONUS: 1.3,      // [확정] 맨 위 단계 던전은 소울 조금 더 (덤, 시뮬레이션 제외)
   // 던전 적은 1단계 소울을 반드시 떨어뜨림 (한 판 최소 3개) [확정]
   DUNGEON_GOLD_MULT: 2,
+  TICKET_DROP: 0,              // [검토 중] 스테이지 승리 시 같은 단계 던전 입장권 드랍 확률 (0 = 끔)
   // 요일(0=일 ~ 6=토) 속성. 주말은 null = 서로 다른 3속성을 직접 고름 [확정]
   DUNGEON_DAY_ELEMENT: [null, 'light', 'fire', 'water', 'grass', 'dark', null],
 

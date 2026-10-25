@@ -12,7 +12,7 @@
     return {
       version: MM.SAVE_VERSION, gold: B().START_GOLD, nextId: 1,
       monsters: [], souls: {}, soulSeen: {}, party: [], dex: {}, cleared: {},
-      dungeon: { cleared: {}, day: '', used: 0 },
+      dungeon: { cleared: {}, day: '', used: 0, tickets: {} },
       autoRepeat: { day: '', bank: null },
       offline: { stage: null, lastSeen: now, pendingMs: 0, carry: 0, bag: { souls: {}, gold: 0, exp: 0, runs: 0 }, team: [] },
       tutorial: { step: 0, done: false },
@@ -421,9 +421,11 @@
     var cur = s.offline.stage;
     var offlinePaid = null;
     if (firstOfTier && (!cur || !MM.offlineStageValid(s) || cur.tier < tier)) { offlinePaid = MM.setOfflineStage(s, el, tier).paid; autoOffline = s.offline.stage; }
+    var ticket = null;
+    if (b.TICKET_DROP > 0 && R(rng)() < b.TICKET_DROP) { s.dungeon.tickets = s.dungeon.tickets || {}; s.dungeon.tickets[tier] = (s.dungeon.tickets[tier] || 0) + 1; ticket = tier; }
     s.cleared[key] = (s.cleared[key] || 0) + 1;
     s.stats.battlesWon++;
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear, autoOffline: autoOffline, offlinePaid: offlinePaid };
+    return { ticket: ticket, drops: drops, gold: gold, exp: exp, levelUps: ups, firstClear: firstClear, autoOffline: autoOffline, offlinePaid: offlinePaid };
   };
 
   // 던전 승리 보상 (소탕도 같은 보상). 맨 위 단계 던전은 1~5단계 소울 조금 더 (덤).
@@ -485,11 +487,13 @@
       var d = MM.rollDrops(MM.stageEnemies(st.el, st.tier, rng), rng, 1);
       Object.keys(d).forEach(function (k) { o.bag.souls[k] = (o.bag.souls[k] || 0) + d[k]; });
       o.bag.gold += Math.round(tv(b.CLEAR_GOLD, st.tier));
-      o.bag.exp += MM.winExp(st.tier);
     }
     o.bag.runs += runs;
+    o.bag.exp = MM.winExp(st.tier) * o.bag.runs; // 표시용 최대치 (스테이지 단계 이하 몬스터는 자기 단계 기준)
     return o.pendingMs;
   };
+  // 방치 보상 1판 경험치: 몬스터 단계가 스테이지보다 낮으면 자기 단계 스테이지 경험치까지만 [사용자 확정]
+  MM.offlineExpFor = function (m, stageTier) { return MM.winExp(Math.min(m.tier, stageTier)); };
   MM.offlinePendingMs = function (s) { return offl(s).pendingMs; };
   MM.offlineBag = function (s) { return offl(s).bag; };
   MM.offlineReady = function (s) { var o = offl(s); return o.bag.runs > 0 || o.bag.gold > 0; };
@@ -507,8 +511,14 @@
     o.bag = emptyBag(); o.pendingMs = 0;
     var drops = MM.applyDrops(s, bag.souls);
     s.gold += bag.gold;
-    var ups = teamExp(s, team, bag.exp);
-    return { hours: hours, capped: capped, runs: bag.runs, drops: drops, gold: bag.gold, exp: bag.exp, levelUps: ups, team: team.slice(), stage: st ? { el: st.el, tier: st.tier } : null };
+    var ups = [], expBy = {};
+    team.forEach(function (id) {
+      var m = MM.getMonster(s, id); if (!m) return;
+      var amount = MM.offlineExpFor(m, st.tier) * bag.runs;
+      expBy[id] = amount;
+      if (MM.giveExp(m, amount)) ups.push({ id: m.id, name: MM.speciesName(m.el, m.tier), level: m.level });
+    });
+    return { hours: hours, capped: capped, runs: bag.runs, drops: drops, gold: bag.gold, exp: bag.exp, expBy: expBy, levelUps: ups, team: team.slice(), stage: st ? { el: st.el, tier: st.tier } : null };
   };
   MM.setOfflineStage = function (s, el, tier) {
     var cur = s.offline.stage;
