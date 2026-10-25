@@ -51,15 +51,54 @@
     if (tier === 6) return '<polygon points="' + polyPoints(6, 50, 54, 46, -Math.PI / 2) + '" stroke-linejoin="round"/><polygon points="' + polyPoints(6, 50, 54, 30, -Math.PI / 2) + '" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3"/>';
     return '<polygon points="' + polyPoints(tier - 1, 50, 54, 48, -Math.PI / 2, 26) + '" stroke-linejoin="round"/>';
   }
-  var EYE_Y = { 1: 52, 2: 66, 3: 50, 4: 54, 5: 56, 6: 54 };
+  var EYE_Y = { 1: 52, 2: 64, 3: 50, 4: 54, 5: 56, 6: 54 };
+  var HEAD_Y = { 1: 16, 2: 12, 3: 14, 4: 12, 5: 8, 6: 10 };
+  // 속성 장식 (머리 위, x=50 기준)
+  function elemDeco(el, y) {
+    var c = MM.ELEMENTS[el] ? MM.ELEMENTS[el].color : '#fff';
+    if (el === 'fire') return '<path d="M50 ' + (y - 16) + ' C58 ' + (y - 8) + ' 58 ' + y + ' 50 ' + (y + 4) + ' C42 ' + y + ' 43 ' + (y - 7) + ' 47 ' + (y - 9) + ' C47 ' + (y - 5) + ' 50 ' + (y - 4) + ' 50 ' + (y - 16) + 'Z" fill="#ffb03a" stroke="#c2410c" stroke-width="2"/>';
+    if (el === 'water') return '<path d="M50 ' + (y - 15) + ' C57 ' + (y - 5) + ' 58 ' + y + ' 50 ' + (y + 4) + ' C42 ' + y + ' 43 ' + (y - 5) + ' 50 ' + (y - 15) + 'Z" fill="#8fd3ff" stroke="#1d4ed8" stroke-width="2"/><circle cx="47.5" cy="' + (y - 3) + '" r="1.8" fill="#fff"/>';
+    if (el === 'grass') return '<path d="M50 ' + (y + 3) + ' L50 ' + (y - 6) + '" stroke="#166534" stroke-width="2.5"/><ellipse cx="44" cy="' + (y - 9) + '" rx="7" ry="4" transform="rotate(-25 44 ' + (y - 9) + ')" fill="#86efac" stroke="#166534" stroke-width="2"/><ellipse cx="56" cy="' + (y - 9) + '" rx="7" ry="4" transform="rotate(25 56 ' + (y - 9) + ')" fill="#86efac" stroke="#166534" stroke-width="2"/>';
+    if (el === 'light') return '<polygon points="' + polyPoints(5, 50, y - 5, 9, -Math.PI / 2, 4) + '" fill="#fff3a3" stroke="#b45309" stroke-width="2" stroke-linejoin="round"/>';
+    if (el === 'dark') return '<path d="M54 ' + (y - 14) + ' A9 9 0 1 0 54 ' + (y + 2) + ' A7 7 0 1 1 54 ' + (y - 14) + 'Z" fill="#c4b5fd" stroke="#4c1d95" stroke-width="2"/>';
+    return '';
+  }
+  function crown(y, gem) {
+    return '<path d="M36 ' + (y + 4) + ' L38 ' + (y - 8) + ' L44 ' + (y - 1) + ' L50 ' + (y - 11) + ' L56 ' + (y - 1) + ' L62 ' + (y - 8) + ' L64 ' + (y + 4) + 'Z" fill="#ffd54a" stroke="#a16207" stroke-width="2" stroke-linejoin="round"/><circle cx="50" cy="' + (y - 1) + '" r="2.6" fill="' + gem + '" stroke="#a16207" stroke-width="1"/>';
+  }
   function monInner(el, tier, sil) {
+    var boss = el === 'rainbow';
     var color = sil ? '#3a355f' : MM.ELEMENTS[el].color;
-    var ey = EYE_Y[tier] || 56;
-    var eyes = sil ? '' :
-      '<circle cx="40" cy="' + ey + '" r="7" fill="#fff"/><circle cx="60" cy="' + ey + '" r="7" fill="#fff"/>' +
-      '<circle cx="41.5" cy="' + (ey + 1) + '" r="3.5" fill="#1b1830"/><circle cx="61.5" cy="' + (ey + 1) + '" r="3.5" fill="#1b1830"/>';
-    var defs = el === 'rainbow' && !sil ? '<defs><linearGradient id="rbw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5a5a"/><stop offset=".25" stop-color="#ffc83d"/><stop offset=".5" stop-color="#4cd964"/><stop offset=".75" stop-color="#3fa3ff"/><stop offset="1" stop-color="#b45cff"/></linearGradient></defs>' : '';
-    return defs + '<g fill="' + color + '" stroke="rgba(0,0,0,.28)" stroke-width="4">' + shapeFor(tier) + '</g>' + eyes;
+    var ey = EYE_Y[tier] || 56, hy = HEAD_Y[tier] || 10, shape = shapeFor(tier);
+    var defs = boss && !sil ? '<defs><linearGradient id="rbw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5a5a"/><stop offset=".25" stop-color="#ffc83d"/><stop offset=".5" stop-color="#4cd964"/><stop offset=".75" stop-color="#3fa3ff"/><stop offset="1" stop-color="#b45cff"/></linearGradient></defs>' : '';
+    // 몸: 굵은 외곽선 위에 같은 색으로 한 번 더 그려서 모서리를 둥글게
+    var body = '<g fill="' + (sil ? color : 'rgba(0,0,0,.35)') + '" stroke="' + (sil ? color : 'rgba(0,0,0,.35)') + '" stroke-width="12" stroke-linejoin="round">' + shape + '</g>' +
+      (sil ? '' : '<g fill="' + color + '" stroke="' + color + '" stroke-width="7" stroke-linejoin="round">' + shape + '</g>');
+    if (sil) return body;
+    var back = '', front = '', face;
+    if (boss) {
+      // 멋있게: 가시 오라 + 뿔 + 찌푸린 눈 + 송곳니
+      back += '<polygon points="' + polyPoints(12, 50, 54, 50, -Math.PI / 2, 38) + '" fill="rgba(180,92,255,.35)"/>';
+      front += '<path d="M30 ' + (hy + 10) + ' L22 ' + (hy - 8) + ' L38 ' + (hy + 4) + 'Z" fill="#fff" stroke="#1b1830" stroke-width="2" stroke-linejoin="round"/><path d="M70 ' + (hy + 10) + ' L78 ' + (hy - 8) + ' L62 ' + (hy + 4) + 'Z" fill="#fff" stroke="#1b1830" stroke-width="2" stroke-linejoin="round"/>';
+      face = '<path d="M31 ' + (ey - 9) + ' L46 ' + (ey - 3) + '" stroke="#1b1830" stroke-width="4" stroke-linecap="round"/><path d="M69 ' + (ey - 9) + ' L54 ' + (ey - 3) + '" stroke="#1b1830" stroke-width="4" stroke-linecap="round"/>' +
+        '<ellipse cx="40" cy="' + (ey + 2) + '" rx="6" ry="4.5" fill="#fff"/><ellipse cx="60" cy="' + (ey + 2) + '" rx="6" ry="4.5" fill="#fff"/><circle cx="41" cy="' + (ey + 2) + '" r="2.6" fill="#e11d48"/><circle cx="59" cy="' + (ey + 2) + '" r="2.6" fill="#e11d48"/>' +
+        '<path d="M42 ' + (ey + 12) + ' Q50 ' + (ey + 9) + ' 58 ' + (ey + 12) + '" stroke="#1b1830" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M44 ' + (ey + 11) + ' L46 ' + (ey + 16) + ' L48 ' + (ey + 10.5) + 'Z M56 ' + (ey + 11) + ' L54 ' + (ey + 16) + ' L52 ' + (ey + 10.5) + 'Z" fill="#fff"/>';
+    } else {
+      // 귀엽게: 큰 눈 + 하이라이트 + 볼터치 + 작은 입, 단계마다 장식이 늘어남
+      if (tier >= 5) back += '<circle cx="50" cy="54" r="49" fill="' + color + '" opacity=".22"/><circle cx="50" cy="54" r="44" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-dasharray="3 6"/>';
+      if (tier >= 3) { var wy = ey - 12; back += '<ellipse cx="9" cy="' + wy + '" rx="15" ry="9" transform="rotate(-35 9 ' + wy + ')" fill="#fff" fill-opacity=".9" stroke="rgba(0,0,0,.3)" stroke-width="2"/><ellipse cx="91" cy="' + wy + '" rx="15" ry="9" transform="rotate(35 91 ' + wy + ')" fill="#fff" fill-opacity=".9" stroke="rgba(0,0,0,.3)" stroke-width="2"/>'; }
+      if (tier === 2) back += '<circle cx="31" cy="38" r="8" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="69" cy="38" r="8" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/>';
+      if (tier === 2) front += '<circle cx="27" cy="36" r="7" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="27" cy="36" r="3" fill="#ff8fab" opacity=".8"/><circle cx="73" cy="36" r="7" fill="' + color + '" stroke="rgba(0,0,0,.35)" stroke-width="3"/><circle cx="73" cy="36" r="3" fill="#ff8fab" opacity=".8"/>';
+      if (tier >= 4) { var by = ey + 23; front += crown(hy + 2, MM.ELEMENTS[el].color) + '<g transform="translate(50 ' + by + ') scale(.55) translate(-50 ' + (-by) + ')">' + elemDeco(el, by + 6) + '</g>'; }
+      else front += elemDeco(el, hy);
+      if (tier >= 5) front += '<path d="M14 24 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z" fill="#fff"/><path d="M84 80 l1.6 4 4 1.6 -4 1.6 -1.6 4 -1.6 -4 -4 -1.6 4 -1.6z" fill="#fff"/>';
+      face = '<circle cx="39" cy="' + ey + '" r="8" fill="#fff"/><circle cx="61" cy="' + ey + '" r="8" fill="#fff"/>' +
+        '<circle cx="40" cy="' + (ey + 1) + '" r="5" fill="#1b1830"/><circle cx="62" cy="' + (ey + 1) + '" r="5" fill="#1b1830"/>' +
+        '<circle cx="42" cy="' + (ey - 1.5) + '" r="1.8" fill="#fff"/><circle cx="64" cy="' + (ey - 1.5) + '" r="1.8" fill="#fff"/>' +
+        '<ellipse cx="29" cy="' + (ey + 9) + '" rx="5" ry="3" fill="#ff8fab" opacity=".75"/><ellipse cx="71" cy="' + (ey + 9) + '" rx="5" ry="3" fill="#ff8fab" opacity=".75"/>' +
+        '<path d="M46 ' + (ey + 9) + ' Q50 ' + (ey + 13) + ' 54 ' + (ey + 9) + '" stroke="#1b1830" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+    }
+    return defs + back + body + front + face;
   }
   function monSvg(el, tier, size, sil) {
     return '<span class="mon"><svg width="' + size + '" height="' + size + '" viewBox="0 0 100 100">' + monInner(el, tier, sil) + '</svg></span>';
@@ -1468,5 +1507,6 @@
   if (view.migrated) toast('새 버전이라 처음부터 시작해요. 이전 기록은 따로 보관했어요');
   setInterval(function () { if (!S.tutorial.done) return; MM.accrueOffline(S, Date.now()); if (view.tab === 'home' && $('sheet').hidden && $('overlay').hidden && document.visibilityState !== 'hidden') render(); }, 30000);
   MM._state = function () { return S; };
+  MM._monSvg = monSvg;
   MM._view = function () { return view; };
 })((typeof globalThis !== 'undefined' ? globalThis : window).MM);
