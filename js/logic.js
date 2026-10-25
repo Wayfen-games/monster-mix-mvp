@@ -55,7 +55,7 @@
   };
 
   MM.addMonster = function (s, el, tier, level) {
-    var m = { id: s.nextId++, el: el, tier: tier, level: level || 1, exp: 0, stack: 0 };
+    var m = { id: s.nextId++, el: el, tier: tier, level: Math.min(level || 1, MM.maxLevel(tier)), exp: 0, stack: 0 };
     s.monsters.push(m);
     m._dex = MM.registerDex(s, el, tier);
     return m;
@@ -106,14 +106,14 @@
   MM.canFeed = function (s, m, el, tier) {
     if (!m) return '몬스터가 없어요';
     if (m.el !== el) return '같은 속성 소울만 먹일 수 있어요';
-    if (m.level >= B().MAX_LEVEL) return '이미 최대 레벨이에요';
+    if (m.level >= MM.maxLevel(m.tier)) return '이미 최대 레벨이에요';
     if ((s.souls[MM.speciesKey(el, tier)] || 0) < 1) return '소울이 부족해요';
     return null;
   };
   // 미리보기: count개를 먹이면 (실제로 쓰는 개수, 결과 레벨, 경험치)
   MM.feedPreview = function (m, tier, count) {
-    var c = { level: m.level, exp: m.exp }, used = 0, per = MM.soulExp(tier);
-    while (used < count && c.level < B().MAX_LEVEL) { used++; MM.giveExp(c, per); }
+    var c = { level: m.level, exp: m.exp, tier: m.tier }, used = 0, per = MM.soulExp(tier);
+    while (used < count && c.level < MM.maxLevel(m.tier)) { used++; MM.giveExp(c, per); }
     return { used: used, level: c.level, exp: c.exp, gained: used * per };
   };
   MM.feedSouls = function (s, monId, tier, count) {
@@ -123,7 +123,7 @@
     var key = MM.speciesKey(m.el, tier), have = s.souls[key] || 0;
     count = Math.min(count || 1, have);
     var before = m.level, used = 0, per = MM.soulExp(tier);
-    while (used < count && m.level < B().MAX_LEVEL) { used++; MM.giveExp(m, per); }
+    while (used < count && m.level < MM.maxLevel(m.tier)) { used++; MM.giveExp(m, per); }
     s.souls[key] -= used;
     s.stats.soulsFed = (s.stats.soulsFed || 0) + used;
     return { used: used, exp: used * per, before: before, level: m.level, ups: m.level - before };
@@ -291,8 +291,11 @@
   MM.expToNext = function (level) { return Math.round(B().EXP_A * Math.pow(B().EXP_R, level - 1)); };
   MM.winExp = function (stageTier) { return Math.round(B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, stageTier - 1) * tv(B().EXP_EARLY_MULT || [1], stageTier)); };
 
+  MM.maxLevel = function (tier) { return tier ? Math.min(B().MAX_LEVEL, MM.summonLevel(tier + (B().TIER_MAX_LEVEL_OFFSET || 0))) : B().MAX_LEVEL; };
+  // 예전 세이브: 단계 만렙을 넘는 몬스터는 만렙으로 맞춤
+  MM.clampLevels = function (s) { var n = 0; s.monsters.forEach(function (m) { var mx = MM.maxLevel(m.tier); if (m.level > mx) { m.level = mx; m.exp = 0; n++; } else if (m.level === mx) m.exp = 0; }); return n; };
   MM.giveExp = function (m, amount) {
-    var ups = 0, max = B().MAX_LEVEL;
+    var ups = 0, max = m.tier ? MM.maxLevel(m.tier) : B().MAX_LEVEL;
     if (m.level >= max) return 0;
     m.exp += amount;
     while (m.level < max && m.exp >= MM.expToNext(m.level)) {
@@ -326,13 +329,13 @@
   // 결과 레벨 = 평균(올림) + 보너스(1~3 랜덤), 최대 레벨 이하
   MM.fusionResultBase = function (main, sub) { return Math.ceil((main.level + sub.level) / 2); };
   MM.fusionResultRange = function (main, sub) {
-    var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS, mx = MM.BALANCE.MAX_LEVEL;
+    var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS, mx = MM.maxLevel(main.tier + 1);
     return [Math.min(mx, b + bo[0]), Math.min(mx, b + bo[1])];
   };
   MM.fusionResultLevel = function (main, sub, rng) {
     var b = MM.fusionResultBase(main, sub), bo = MM.BALANCE.FUSION_LEVEL_BONUS;
     var bonus = bo[0] + Math.floor(R(rng)() * (bo[1] - bo[0] + 1));
-    return Math.min(MM.BALANCE.MAX_LEVEL, b + bonus);
+    return Math.min(MM.maxLevel(main.tier + 1), b + bonus);
   };
   MM.fusionRangeText = function (main, sub) {
     var r = MM.fusionResultRange(main, sub);
@@ -651,7 +654,7 @@
     return o.pendingMs;
   };
   // 방치 보상 1판 경험치: 몬스터 단계가 스테이지보다 낮으면 자기 단계 스테이지 경험치까지만 [사용자 확정]
-  MM.offlineExpFor = function (m, stageTier) { return MM.winExp(Math.min(m.tier, stageTier)); };
+  MM.offlineExpFor = function (m, stageTier) { return MM.winExp(stageTier); }; // [10-25 변경] 단계 상관없이 스테이지 경험치 그대로 (대신 단계별 만렙)
   MM.offlinePendingMs = function (s) { return offl(s).pendingMs; };
   MM.offlineBag = function (s) { return offl(s).bag; };
   MM.offlineReady = function (s) { var o = offl(s); return o.bag.runs > 0 || o.bag.gold > 0; };

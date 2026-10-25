@@ -400,7 +400,7 @@
   function expHtml(u) {
     if (u.side !== 'p' || !u.monsterId) return '';
     var m = MM.getMonster(S, u.monsterId); if (!m) return '';
-    var maxed = m.level >= BAL().MAX_LEVEL, r = maxed ? 1 : Math.min(0.999, m.exp / MM.expToNext(m.level));
+    var maxed = m.level >= MM.maxLevel(m.tier), r = maxed ? 1 : Math.min(0.999, m.exp / MM.expToNext(m.level));
     return '<div class="expbar" style="margin-top:5px"><i style="width:' + (r * 100).toFixed(1) + '%"></i></div>' +
       '<div class="hpnum">' + (maxed ? '최대 레벨' : 'EXP ' + (Math.floor(r * 1000) / 10).toFixed(1) + '%') + '</div>';
   }
@@ -647,10 +647,10 @@
       var pm = partyMons();
       html += '<div class="row between" style="margin-bottom:10px"><span class="muted small">파티 ' + S.party.length + '/3</span>' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</div>';
       html += sortMons(S.monsters).map(function (m) {
-        var inParty = S.party.indexOf(m.id) >= 0, maxed = m.level >= BAL().MAX_LEVEL;
+        var inParty = S.party.indexOf(m.id) >= 0, maxed = m.level >= MM.maxLevel(m.tier);
         var st = MM.calcStats(m.el, m.tier, m.level, MM.playerMult(S, m));
         var req = m.tier < T() ? MM.fuseLevelReq(m.tier) : null;
-        return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + name(m) + (m.plus ? ' <span class="plus">+' + m.plus + '</span>' : '') + '</span><span class="muted small">Lv ' + m.level + (maxed ? ' (최대)' : '') + '</span>' +
+        return '<div class="mon-row">' + monSvg(m.el, m.tier, 44) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + name(m) + (m.plus ? ' <span class="plus">+' + m.plus + '</span>' : '') + '</span><span class="muted small">Lv ' + m.level + '/' + MM.maxLevel(m.tier) + (maxed ? ' (최대)' : '') + '</span>' +
           (inParty ? '<span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? '<span class="chip">방치</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') +
           (req ? '<span class="chip' + (m.level >= req ? ' adv' : '') + '">주재료 Lv' + req + (m.level >= req ? ' ✓' : '') + '</span>' : '') + '</div>' +
           '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 크리 ' + Math.round(st.crit * 100) + '%</div>' +
@@ -751,7 +751,7 @@
 
   function feedSheet(id) {
     var m = MM.getMonster(S, id); if (!m) return;
-    var html = '<div class="row" style="gap:12px">' + monSvg(m.el, m.tier, 52) + '<div><b>' + name(m) + '에게 소울 먹이기</b><div class="muted small">Lv ' + m.level + ' / ' + BAL().MAX_LEVEL + ' · ' + elName(m.el) + ' 소울만 먹일 수 있어요</div></div></div>' +
+    var html = '<div class="row" style="gap:12px">' + monSvg(m.el, m.tier, 52) + '<div><b>' + name(m) + '에게 소울 먹이기</b><div class="muted small">Lv ' + m.level + ' / ' + MM.maxLevel(m.tier) + ' · ' + elName(m.el) + ' 소울만 먹일 수 있어요</div></div></div>' +
       '<div class="expbar" style="margin:10px 0 4px"><i style="width:' + (m.exp / MM.expToNext(m.level) * 100) + '%"></i></div>' +
       '<div class="muted small" style="margin-bottom:10px">다음 레벨까지 EXP ' + fmt(MM.expToNext(m.level) - m.exp) + '</div><div class="pick-list">';
     var any = false;
@@ -1059,7 +1059,7 @@
     var html = '<b>방치 보상 경험치 몬스터</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 몬스터도 돼요 · 부재료 키우기용으로 좋아요<br>스테이지보다 낮은 단계 몬스터는 자기 단계 스테이지만큼 경험치를 받아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 몬스터가 받아요 · 여기 넣은 몬스터는 빼야 합성·분해할 수 있어요</div><div class="pick-list">' +
       sortMons(S.monsters).map(function (m) {
         var i = sel.indexOf(m.id);
-        return '<button class="pick' + (i >= 0 ? ' sel' : '') + '" data-act="teamPick" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 30) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + (m.level >= BAL().MAX_LEVEL ? ' (최대)' : '') + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? ' <span class="chip">방치</span>' : '') + '</div>' + (i >= 0 ? '<span class="chip adv">' + (i + 1) + '</span>' : '') + '</button>';
+        return '<button class="pick' + (i >= 0 ? ' sel' : '') + '" data-act="teamPick" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 30) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + (m.level >= MM.maxLevel(m.tier) ? ' (최대)' : '') + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? ' <span class="chip">방치</span>' : '') + '</div>' + (i >= 0 ? '<span class="chip adv">' + (i + 1) + '</span>' : '') + '</button>';
       }).join('') + '</div><button class="btn primary block" style="margin-top:12px" data-act="teamSave"' + (sel.length ? '' : ' disabled') + '>' + sel.length + '마리로 지정</button>';
     openSheet(html);
   }
@@ -1280,7 +1280,7 @@
       toast('소울 ' + r.used + '개 · EXP +' + fmt(r.exp) + (r.ups ? ' · Lv ' + r.before + ' → ' + r.level : ''));
       render();
       var m = MM.getMonster(S, +d.id);
-      if (m && m.level < BAL().MAX_LEVEL) feedSheet(m.id); else closeSheet();
+      if (m && m.level < MM.maxLevel(m.tier)) feedSheet(m.id); else closeSheet();
     },
     summon: function (d) {
       closeSheet();
@@ -1361,6 +1361,7 @@
   });
 
   load();
+  if (MM.clampLevels(S)) view.clamped = true;
   if (S.tutorial.done) MM.accrueOffline(S, Date.now());
   // 테스트용: 주소 뒤 ?dev=refund-dungeon → 오늘 던전 횟수 1회 돌려주기 (시제품 전용)
   (function devHooks() {
@@ -1378,6 +1379,7 @@
   render();
   if (!S.tutorial.done) showTutorial();
   else save();
+  if (view.clamped) setTimeout(function () { toast('단계별 최고 레벨이 생겨서 넘는 몬스터는 최고 레벨로 맞췄어요'); }, 400);
   if (view.migrated) toast('새 버전이라 처음부터 시작해요. 이전 기록은 따로 보관했어요');
   setInterval(function () { if (!S.tutorial.done) return; MM.accrueOffline(S, Date.now()); if (view.tab === 'home' && $('sheet').hidden && $('overlay').hidden && document.visibilityState !== 'hidden') render(); }, 30000);
   MM._state = function () { return S; };

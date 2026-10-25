@@ -10,7 +10,8 @@ var MM = (typeof globalThis !== 'undefined' ? globalThis : window).MM || {};
 MM.BALANCE = {
   // ---------- 규모 ----------
   MAX_TIER: 5,          // [확정] 정식 출시 때 10 예정
-  MAX_LEVEL: 30,        // [확정] 정식 출시 때 100 예정
+  MAX_LEVEL: 30,        // [확정] 전체 최고 레벨 (정식 출시 때 100 예정)
+  TIER_MAX_LEVEL_OFFSET: 2, // [확정 10-25] n단계 몬스터 만렙 = (n+2)단계 소환 레벨 (1단계 10 · 2단계 14 · 3단계 18 · 4단계 23 · 5단계 30)
 
   // ---------- 능력치 ----------
   BASE_STATS: { hp: 40, atk: 10, def: 6, spd: 10 },

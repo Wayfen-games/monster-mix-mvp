@@ -57,9 +57,9 @@
   check('1+1 비용은 골드만', MM.fusionCost(a, b).soulTier === null);
   a.stack = 2;
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
-  a.stack = 0; a.level = 20; b.level = 7;
+  a.stack = 0; a.level = 10; b.level = 6;
   var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
-  check('성공: 결과 레벨 = 평균 올림 14 + 1~3 → 15~17', fr.success && fr.monster.level >= 15 && fr.monster.level <= 17 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
+  check('성공: 결과 레벨 = 평균 올림 8 + 1~3 → 9~11', fr.success && fr.monster.level >= 9 && fr.monster.level <= 11 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
   (function () {
     var seen = {}, mm = { level: 5 }, ss = { level: 1 };
     for (var i = 0; i < 300; i++) seen[MM.fusionResultLevel(mm, ss)] = 1;
@@ -185,10 +185,10 @@
   for (var st = 1; st <= B.MAX_TIER; st++) {
     var req = st < B.MAX_TIER ? MM.fuseLevelReq(st) : 20;
     var lo = winRate(function (rr, j) { return MM.simulateBattle(trio(st, MM.summonLevel(st), j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300);
-    var hi = winRate(function (rr, j) { return MM.simulateBattle(trio(st, B.MAX_LEVEL, j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300);
-    var under = st > 1 ? winRate(function (rr, j) { return MM.simulateBattle(trio(st - 1, B.MAX_LEVEL, j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300) : 0;
-    table.push(st + '단계 스테이지: ' + st + '단계 3마리 소환Lv' + MM.summonLevel(st) + ' ' + Math.round(lo * 100) + '% / Lv30 ' + Math.round(hi * 100) + '%' + (st > 1 ? ' · ' + (st - 1) + '단계 Lv30 ' + Math.round(under * 100) + '%' : ''));
-    check(st + '단계 스테이지: 같은 단계 만렙이면 깸', hi > 0.9, Math.round(hi * 100) + '%');
+    var hi = winRate(function (rr, j) { return MM.simulateBattle(trio(st, MM.maxLevel(st), j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300);
+    var under = st > 1 ? winRate(function (rr, j) { return MM.simulateBattle(trio(st - 1, MM.maxLevel(st - 1), j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300) : 0;
+    table.push(st + '단계 스테이지: ' + st + '단계 3마리 소환Lv' + MM.summonLevel(st) + ' ' + Math.round(lo * 100) + '% / 만렙 Lv' + MM.maxLevel(st) + ' ' + Math.round(hi * 100) + '%' + (st > 1 ? ' · ' + (st - 1) + '단계 만렙 ' + Math.round(under * 100) + '%' : ''));
+    check(st + '단계 스테이지: 같은 단계 만렙이면 대부분 깸', hi > 0.8, Math.round(hi * 100) + '%');
     if (st > 1) check(st + '단계 스테이지: 아래 단계 만렙으로는 어려움', under < 0.35, Math.round(under * 100) + '%');
   }
 
@@ -255,7 +255,8 @@
     var lo = MM.addMonster(s, 'water', 1, 1), hi = MM.addMonster(s, 'grass', 3, 10); s.party = [lo.id, hi.id];
     MM.accrueOffline(s, t0 + 3 * 3600000, rng);
     var r = MM.claimOffline(s, t0 + 3 * 3600000, rng);
-    check('방치 경험치: 낮은 단계 몬스터는 자기 단계 스테이지 경험치만', r.expBy[lo.id] === MM.winExp(1) * r.runs && r.expBy[hi.id] === MM.winExp(3) * r.runs);
+    check('방치 경험치: 단계 상관없이 스테이지 경험치 그대로', r.expBy[lo.id] === MM.winExp(3) * r.runs && r.expBy[hi.id] === MM.winExp(3) * r.runs);
+    check('대신 단계별 만렙에서 멈춤 (1단계 → Lv ' + MM.maxLevel(1) + ')', lo.level === MM.maxLevel(1));
   })();
 
   // ---- 장비 ----
@@ -311,6 +312,9 @@
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
 
+  check('단계별 만렙 = (n+2)단계 소환 레벨: 10/14/18/23/30', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '10,14,18,23,30', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
+  check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', [1, 2, 3, 4].every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
+  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 25; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 10); })();
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);
@@ -321,9 +325,9 @@
     check('같은 속성 소울 2개 먹이면 2개 소모 + 경험치', r.used === 2 && s.souls.fire1 === 3 && r.exp === MM.soulExp(1) * 2);
     var p = MM.feedPreview(m, 2, 3), r2 = MM.feedSouls(s, m.id, 2, 3);
     check('미리보기와 실제 결과가 같음', p.level === r2.level && p.used === r2.used);
-    var mx = MM.addMonster(s, 'fire', 1, B.MAX_LEVEL - 1); mx.exp = MM.expToNext(B.MAX_LEVEL - 1) - 1; s.souls.fire5 = 50;
+    var mx = MM.addMonster(s, 'fire', 1, MM.maxLevel(1) - 1); mx.exp = MM.expToNext(MM.maxLevel(1) - 1) - 1; s.souls.fire5 = 50;
     var r3 = MM.feedSouls(s, mx.id, 5, 50);
-    check('최대 레벨이 되면 멈추고 남은 소울은 안 씀', mx.level === B.MAX_LEVEL && r3.used === 1 && s.souls.fire5 === 49);
+    check('최대 레벨이 되면 멈추고 남은 소울은 안 씀', mx.level === MM.maxLevel(1) && r3.used === 1 && s.souls.fire5 === 49);
     check('최대 레벨이면 먹일 수 없음', !!MM.feedSouls(s, mx.id, 5, 1).error);
     var have1 = s.souls.fire1, r4 = MM.feedSouls(s, m.id, 1, 99);
     check('가진 것보다 많이 요청하면 가진 만큼만', r4.used === have1 && s.souls.fire1 === 0, JSON.stringify(r4));

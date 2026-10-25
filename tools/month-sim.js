@@ -89,7 +89,7 @@ function simulatePlayer(seed) {
     if (!process.env.NOFEED) for (const sp of MM.allSpecies()) {
       let extra = (s.souls[sp.key] || 0) - FEED_KEEP;
       if (extra <= 0) continue;
-      const targets = s.monsters.filter(m => m.el === sp.el && m.level < B.MAX_LEVEL && m.tier <= sp.tier + 1)
+      const targets = s.monsters.filter(m => m.el === sp.el && m.level < MM.maxLevel(m.tier) && m.tier <= sp.tier + 1)
         .map(m => ({ m, req: m.tier < T ? Math.max(MM.fuseLevelReq(m.tier), 0) : B.MAX_LEVEL }))
         .filter(x => x.m.level < x.req).sort((a, b) => b.m.tier - a.m.tier);
       for (const x of targets) {
