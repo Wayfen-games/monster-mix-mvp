@@ -70,6 +70,9 @@ MM.BALANCE = {
   STACK_GUARANTEE: 8,        // [확정] 8스택이면 100%
   FUSION_GOLD: [100, 1500, 15000, 100000], // [조정] 주재료 단계별 1회 골드
   FUSION_GOLD_STACK_UP: 0.2,           // [확정] 실패 스택마다 골드 +20%
+  // [사용자 확정 10-25] 합성 비용 소울을 1~10개 중 고름: 1개 늘릴 때마다 골드 -8% (10개면 골드 28%) [비율은 Claude 기본값]
+  FUSION_SOUL_MAX: 10,
+  FUSION_SOUL_GOLD_CUT: 0.08,
   MIN_MONSTERS_TO_FUSE: 4,   // [확정] 3마리 이하면 합성 불가
   FUSION_LEVEL_BONUS: [3, 9], // [확정] 결과 레벨 = 두 재료 평균(올림) + 1~3 랜덤 (최대 레벨 넘지 않음)
 

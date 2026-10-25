@@ -56,6 +56,15 @@
   sub2.level = MM.summonLevel(2) - 1;
   check('부재료가 소환 레벨보다 낮으면 불가', !MM.fusionCheck(s3, m3, sub2, 'fire').ok);
   check('1+1 비용은 골드만', MM.fusionCost(a, b).soulTier === null);
+  (function () {
+    var mm = { el: 'fire', tier: 3, stack: 0 }, base = MM.fusionCost(mm, null, 1), ten = MM.fusionCost(mm, null, 10), over = MM.fusionCost(mm, null, 99);
+    check('합성 소울 1~10개: 소울 10개면 골드 28%', base.souls === 1 && ten.souls === 10 && Math.abs(ten.gold / base.gold - 0.28) < 0.01 && over.souls === 10);
+    var s9 = MM.newState(); s9.gold = 1e6; s9.souls.fire2 = 5;
+    var m9 = MM.addMonster(s9, 'fire', 3, MM.fuseLevelReq(3)), sb = MM.addMonster(s9, 'grass', 2, MM.summonLevel(2)); MM.addMonster(s9, 'water', 1); MM.addMonster(s9, 'dark', 1);
+    check('소울이 모자라면 그 개수로는 불가', !MM.fusionCheck(s9, m9, sb, 'fire', 6).ok && MM.fusionCheck(s9, m9, sb, 'fire', 5).ok);
+    var g9 = s9.gold, r9 = MM.attemptFusion(s9, m9.id, sb.id, 'fire', function () { return 0.99; }, { souls: 5 });
+    check('고른 개수만큼 소울 쓰고 골드는 깎인 만큼만', s9.souls.fire2 === 0 && g9 - s9.gold === MM.fusionCost({ el: 'fire', tier: 3, stack: 0 }, null, 5).gold);
+  })();
   a.stack = 2;
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
   a.stack = 0; a.level = 20; b.level = 6;

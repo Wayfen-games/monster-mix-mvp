@@ -874,10 +874,10 @@
     var html = '<h2>합성</h2><div class="fuse-box">' + slotHtml(main, '주재료', 'pickMainSheet') + '<div class="fuse-op">+</div>' + slotHtml(sub, '부재료', 'pickSubSheet') + '<div class="fuse-op">=</div>' + res + '</div>';
 
     if (main && sub) {
-      var chk = MM.fusionCheck(S, main, sub, f.soulEl), cost = chk.cost;
+      var chk = MM.fusionCheck(S, main, sub, f.soulEl, f.soulN), cost = chk.cost;
       if (cost.soulTier && cost.soulOptions.indexOf(f.soulEl) < 0) {
         f.soulEl = cost.soulOptions.slice().sort(function (a, b) { return (S.souls[MM.speciesKey(b, cost.soulTier)] || 0) - (S.souls[MM.speciesKey(a, cost.soulTier)] || 0); })[0];
-        chk = MM.fusionCheck(S, main, sub, f.soulEl);
+        chk = MM.fusionCheck(S, main, sub, f.soulEl, f.soulN);
       }
       var rate = MM.successRate(main.tier, main.stack), next = MM.successRate(main.tier, main.stack + 1);
       var meter = '';
@@ -894,7 +894,8 @@
       html += '<div class="card"><b>비용</b><div class="cost-line" style="margin-top:6px"><span>골드' + (main.stack ? ' (스택 +' + Math.round(BAL().FUSION_GOLD_STACK_UP * main.stack * 100) + '%)' : '') + '</span><span class="' + (S.gold >= cost.gold ? '' : 'lack') + '">' + fmt(cost.gold) + ' G</span></div>';
       if (cost.soulTier) {
         var have = S.souls[MM.speciesKey(f.soulEl, cost.soulTier)] || 0;
-        html += '<div class="cost-line"><span>' + cost.soulTier + '단계 소울 1개</span><span class="' + (have ? '' : 'lack') + '">보유 ' + have + '</span></div>';
+        html += '<div class="cost-line"><span>' + cost.soulTier + '단계 소울 ' + cost.souls + '개</span><span class="' + (have >= cost.souls ? '' : 'lack') + '">보유 ' + have + '</span></div>';
+        html += '<div class="soul-n"><button class="btn sm" data-act="soulN" data-d="-1"' + (cost.souls > 1 ? '' : ' disabled') + '>−</button><div><b>소울 ' + cost.souls + '개</b><div class="muted small">' + (cost.souls > 1 ? '골드 -' + Math.round(BAL().FUSION_SOUL_GOLD_CUT * (cost.souls - 1) * 100) + '%' : '소울을 더 쓰면 골드가 줄어요') + '</div></div><button class="btn sm" data-act="soulN" data-d="1"' + (cost.souls < BAL().FUSION_SOUL_MAX ? '' : ' disabled') + '>+</button></div>';
         if (cost.soulOptions.length > 1) html += '<div class="soul-choice">' + cost.soulOptions.map(function (el) {
           return '<button class="' + (el === f.soulEl ? 'on' : '') + '" data-act="soulEl" data-el="' + el + '">' + MM.speciesName(el, cost.soulTier) + ' (' + (S.souls[MM.speciesKey(el, cost.soulTier)] || 0) + ')</button>';
         }).join('') + '</div>';
@@ -915,7 +916,7 @@
   DOCKS.fusion = function () {
     var sel = fusionSel();
     if (!sel.main || !sel.sub) return '';
-    var chk = MM.fusionCheck(S, sel.main, sel.sub, view.fusion.soulEl);
+    var chk = MM.fusionCheck(S, sel.main, sel.sub, view.fusion.soulEl, view.fusion.soulN);
     return '<button class="btn primary block" data-act="fuse"' + (chk.ok ? '' : ' disabled') + '>' + (chk.ok ? '합성 시도 · ' + pct(MM.successRate(sel.main.tier, sel.main.stack)) : chk.reasons[0]) + '</button>';
   };
 
@@ -960,10 +961,10 @@
 
   function confirmFuse() {
     var sel = fusionSel(); if (!sel.main || !sel.sub) return;
-    var chk = MM.fusionCheck(S, sel.main, sel.sub, view.fusion.soulEl);
+    var chk = MM.fusionCheck(S, sel.main, sel.sub, view.fusion.soulEl, view.fusion.soulN);
     if (!chk.ok) { toast(chk.reasons[0]); return; }
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
-    var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 1개' : '');
+    var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.speciesName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' 소울 ' + c.souls + '개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
       name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>' + ([sel.main, sel.sub].some(function (m) { return m.plus; }) ? '<br><span class="small" style="color:var(--bad)">강화한 몬스터가 있어요. 성공하면 강화(' + [sel.main, sel.sub].filter(function (m) { return m.plus; }).map(function (m) { return name(m) + ' +' + m.plus; }).join(', ') + ')는 사라져요</span>' : ''), '합성', doFuse);
   }
@@ -971,7 +972,7 @@
   function doFuse() {
     var sel = fusionSel(); if (!sel.main || !sel.sub) return;
     var mainSnap = { el: sel.main.el, tier: sel.main.tier }, subSnap = { el: sel.sub.el, tier: sel.sub.tier };
-    var res = MM.attemptFusion(S, sel.main.id, sel.sub.id, view.fusion.soulEl);
+    var res = MM.attemptFusion(S, sel.main.id, sel.sub.id, view.fusion.soulEl, null, { souls: view.fusion.soulN });
     if (res.error) { toast(res.error); render(); return; }
     save();
     if (res.success) {
@@ -981,7 +982,7 @@
         '<button class="btn primary block" data-act="closeOverlay" data-tab="fusion">계속 합성</button><button class="btn block" data-act="closeOverlay" data-tab="monsters">몬스터 보기</button>', mainSnap, subSnap);
     } else {
       var main = MM.getMonster(S, view.fusion.mainId), sub = MM.getMonster(S, view.fusion.subId);
-      var chk = MM.fusionCheck(S, main, sub, view.fusion.soulEl);
+      var chk = MM.fusionCheck(S, main, sub, view.fusion.soulEl, view.fusion.soulN);
       showOverlay('<div class="result fail"><div class="stage-anim"><div class="charge">' + monSvg(mainSnap.el, mainSnap.tier, 64) + monSvg(subSnap.el, subSnap.tier, 64) + '</div><div class="fizzle">💨</div><div class="reveal">' + monSvg(mainSnap.el, mainSnap.tier, 90) + '</div></div>' +
         '<div class="reveal"><div class="big no">실패…</div><div class="sub">재료는 그대로 남았어요</div>' +
         '<div class="sub">실패 스택 ' + res.stack + ' → 다음 성공률 <b style="color:var(--accent);font-size:20px">' + pct(res.nextRate) + '</b></div>' +
@@ -1382,6 +1383,7 @@
     pickSub: function (d) { view.fusion.subId = +d.id; view.fusion.soulEl = null; closeSheet(); render(); },
     quickPair: function (d) { view.fusion = { mainId: +d.main, subId: +d.sub, soulEl: null }; render(); },
     soulEl: function (d) { view.fusion.soulEl = d.el; render(); },
+    soulN: function (d) { var f = view.fusion; f.soulN = Math.max(1, Math.min(BAL().FUSION_SOUL_MAX, (f.soulN || 1) + +d.d)); render(); },
     fuse: function () { confirmFuse(); },
     retryFuse: function () { hideOverlay(); confirmFuse(); },
     confirmYes: function () { var f = pendingYes; pendingYes = null; closeSheet(); if (f) f(); },

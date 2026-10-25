@@ -370,17 +370,19 @@
     return MM.elementCompatible(main.el, sub.el);
   };
 
-  MM.fusionCost = function (main, sub) {
+  MM.fusionCost = function (main, sub, souls) {
     var b = B();
-    var gold = Math.round(tv(b.FUSION_GOLD, main.tier) * (1 + b.FUSION_GOLD_STACK_UP * main.stack) / 10) * 10;
-    if (main.tier === 1) return { gold: gold, soulTier: null, soulOptions: [] };
+    var gold = tv(b.FUSION_GOLD, main.tier) * (1 + b.FUSION_GOLD_STACK_UP * main.stack);
+    if (main.tier === 1) return { gold: Math.round(gold / 10) * 10, soulTier: null, soulOptions: [], souls: 0 };
+    var n = Math.max(1, Math.min(b.FUSION_SOUL_MAX || 1, Math.round(souls || 1)));
+    gold *= 1 - (b.FUSION_SOUL_GOLD_CUT || 0) * (n - 1);
     var opts = [main.el];
     if (sub && sub.el !== main.el) opts.push(sub.el);
-    return { gold: gold, soulTier: main.tier - 1, soulOptions: opts };
+    return { gold: Math.round(gold / 10) * 10, soulTier: main.tier - 1, soulOptions: opts, souls: n };
   };
 
   // 합성 가능 여부와 막힌 이유들
-  MM.fusionCheck = function (s, main, sub, soulEl) {
+  MM.fusionCheck = function (s, main, sub, soulEl, souls) {
     var reasons = [];
     if (!MM.isPair(main, sub)) return { ok: false, reasons: ['이 두 몬스터는 합성할 수 없어요'] };
     if (s.monsters.length < B().MIN_MONSTERS_TO_FUSE) reasons.push('몬스터가 4마리 이상일 때 합성할 수 있어요');
@@ -390,12 +392,12 @@
     var req = MM.fuseLevelReq(main.tier), subReq = MM.subLevelReq(sub.tier);
     if (main.level < req) reasons.push(MM.speciesName(main.el, main.tier) + ' Lv ' + req + ' 필요 (현재 ' + main.level + ')');
     if (sub.level < subReq) reasons.push(MM.speciesName(sub.el, sub.tier) + ' Lv ' + subReq + ' 필요 (현재 ' + sub.level + ')');
-    var cost = MM.fusionCost(main, sub);
+    var cost = MM.fusionCost(main, sub, souls);
     if (s.gold < cost.gold) reasons.push(MM.josa('골드', '이', '가') + ' 부족해요');
     if (cost.soulTier) {
       var el = cost.soulOptions.indexOf(soulEl) >= 0 ? soulEl : cost.soulOptions[0];
       var key = MM.speciesKey(el, cost.soulTier);
-      if ((s.souls[key] || 0) < 1) reasons.push(MM.josa(MM.speciesName(el, cost.soulTier) + ' 소울', '이', '가') + ' 필요해요');
+      if ((s.souls[key] || 0) < cost.souls) reasons.push(MM.josa(MM.speciesName(el, cost.soulTier) + ' 소울', '이', '가') + ' ' + cost.souls + '개 필요해요');
     }
     return { ok: reasons.length === 0, reasons: reasons, cost: cost, req: req, subReq: subReq };
   };
@@ -404,7 +406,7 @@
   MM.attemptFusion = function (s, mainId, subId, soulEl, rng, opts) {
     opts = opts || {};
     var main = MM.getMonster(s, mainId), sub = MM.getMonster(s, subId);
-    var chk = MM.fusionCheck(s, main, sub, soulEl);
+    var chk = MM.fusionCheck(s, main, sub, soulEl, opts.souls);
     if (!chk.ok) return { error: chk.reasons[0], reasons: chk.reasons };
     var cost = chk.cost;
     s.gold -= cost.gold;
@@ -412,7 +414,7 @@
     if (cost.soulTier) {
       if (cost.soulOptions.indexOf(soulEl) < 0) soulEl = cost.soulOptions[0];
       soulKey = MM.speciesKey(soulEl, cost.soulTier);
-      s.souls[soulKey]--;
+      s.souls[soulKey] -= cost.souls;
     }
     s.stats.fusionTries++;
     var rate = MM.successRate(main.tier, main.stack);

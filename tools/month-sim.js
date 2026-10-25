@@ -32,7 +32,7 @@ function simulatePlayer(seed) {
   const s = MM.newState(t0);
   const cache = makeCache();
   const log = { t3Day: null, t2Day: null, e5Day: {}, goalDay: null, fusions: 0, fails: 0, goldBlocked: 0, soulBlocked: 0, levelBlocked: 0,
-    actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0 };
+    actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0, soulSwap: 0 };
 
   // ---- 튜토리얼 ----
   const shuffled = MM.RING.slice().sort(() => rng() - 0.5);
@@ -112,13 +112,18 @@ function simulatePlayer(seed) {
         }
         chk = MM.fusionCheck(s, c.main, c.sub, soulEl);
       }
+      let nSouls = 1;
+      // 골드가 모자라면 소울을 더 써서 골드를 줄임 (FUSION_SOUL_MAX까지, SOULN=0이면 안 씀)
+      if (!chk.ok && cost.soulTier && process.env.SOULN !== '0' && chk.reasons.some(r => /골드/.test(r))) {
+        for (let n = 2; n <= (B.FUSION_SOUL_MAX || 1); n++) { const c2 = MM.fusionCheck(s, c.main, c.sub, soulEl, n); if (c2.ok) { chk = c2; nSouls = n; log.soulSwap += n - 1; break; } }
+      }
       if (!chk.ok) {
         if (chk.reasons.some(r => /골드/.test(r))) log.goldBlocked++;
         else if (chk.reasons.some(r => /소울/.test(r))) log.soulBlocked++;
         else if (chk.reasons.some(r => /Lv/.test(r))) log.levelBlocked++;
         return c; // 막힌 후보 → 파티로 키우기
       }
-      const r = MM.attemptFusion(s, c.main.id, c.sub.id, soulEl, rng);
+      const r = MM.attemptFusion(s, c.main.id, c.sub.id, soulEl, rng, { souls: nSouls });
       if (r.success && r.monster.tier >= 3 && log.t3Day == null) log.t3Day = (now - t0) / 86400000;
       if (r.success) { log.fusions++; if (r.monster.tier === T && log.e5Day[r.monster.el] == null) log.e5Day[r.monster.el] = (now - t0) / 86400000; }
       else log.fails++;
@@ -246,7 +251,7 @@ const t3 = res.map(r => r.t3Day == null ? 99 : r.t3Day).sort((a, b) => a - b);
 console.log('첫 3단계 획득(일, 0.5 = 첫날 자동 반복 절반):', t3.map(x => x.toFixed(2)).join(', '));
 console.log('5단계 속성별 첫 완성일(평균):', MM.RING.map(e => e + ' ' + avg(r => r.e5Day[e] == null ? MAX_DAYS : r.e5Day[e]).toFixed(1)).join(' / '));
 console.log('판당 평균 행동 수:', avg(r => r.actions / Math.max(1, r.battles)).toFixed(1), '| 패배율', (avg(r => r.losses / Math.max(1, r.battles)) * 100).toFixed(1) + '%');
-console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1), '| 입장권 사용', avg(r => r.tickets).toFixed(1), '| 보스', avg(r => r.bosses).toFixed(1));
+console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1), '| 입장권 사용', avg(r => r.tickets).toFixed(1), '| 보스', avg(r => r.bosses).toFixed(1), '| 골드 대신 쓴 소울', avg(r => r.soulSwap).toFixed(1));
 console.log('막힘(관리 시점 횟수): 골드', avg(r => r.goldBlocked).toFixed(1), '소울', avg(r => r.soulBlocked).toFixed(1), '레벨', avg(r => r.levelBlocked).toFixed(1));
 console.log('최대 보유 골드', avg(r => r.maxGold).toFixed(0), '| 마지막 골드', avg(r => r.gold).toFixed(0), '| 최고 던전', avg(r => r.dungeonTop).toFixed(1));
 console.log('끝날 때 최고 레벨(플레이어별):', res.map(r => r.maxLv).join(', '));
