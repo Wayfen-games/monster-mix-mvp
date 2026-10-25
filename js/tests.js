@@ -323,7 +323,7 @@
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
 
-  (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; }; var r = [1, 2, 3, 4].map(runs); check('소환 → 조건 레벨 판수: 초반 빠르게, 갈수록 느리게', r[0] < r[1] && r[1] < r[2] && r[2] < r[3], r.join('/')); })();
+  (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; }; var r = [1, 2, 3, 4].map(runs); check('소환 → 조건 레벨 판수: 모든 단계 비슷하게 (±10%)', Math.max.apply(null, r) / Math.min.apply(null, r) < 1.1, r.join('/')); })();
   check('단계별 만렙 40/55/70/85/100', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '40,55,70,85,100', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
   check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', [1, 2, 3, 4].every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
   (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 50; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 40);
