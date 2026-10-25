@@ -32,7 +32,7 @@ function simulatePlayer(seed) {
   const s = MM.newState(t0);
   const cache = makeCache();
   const log = { t3Day: null, t2Day: null, e5Day: {}, goalDay: null, fusions: 0, fails: 0, goldBlocked: 0, soulBlocked: 0, levelBlocked: 0,
-    actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0 };
+    actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0 };
 
   // ---- 튜토리얼 ----
   const shuffled = MM.RING.slice().sort(() => rng() - 0.5);
@@ -189,7 +189,21 @@ function simulatePlayer(seed) {
         }
       }
     };
-    useTickets();
+    // 보스 (입장권 있으면, 이길 만하면 바로)
+    const useBoss = () => {
+      const bk = s.dungeon.bossTickets || {};
+      for (let bt = T; bt >= 1; bt--) {
+        while ((bk[bt] || 0) > 0) {
+          const party = MM.battleParty(s, s.party.map(id => MM.getMonster(s, id)));
+          let win = false;
+          for (let tries = 0; !win && tries < 10; tries++) { const b = MM.simulateBossBattle(party, bt, rng); log.actions += b.log.length; log.battles++; win = b.result === 'win'; }
+          if (!win) break;
+          bk[bt]--; log.bosses++;
+          const g = MM.grantBossWin(s, bt, rng); g.drops.forEach(d => log.wasted += d.wasted);
+        }
+      }
+    };
+    useTickets(); useBoss();
     // 자동 반복
     blocked = manage(dayStart);
     pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
@@ -209,7 +223,7 @@ function simulatePlayer(seed) {
       if (bt.result === 'win') { const r = MM.grantStageWin(s, stage.el, stage.tier, en, rng); r.drops.forEach(d => log.wasted += d.wasted); }
       else { log.losses++; s.stats.battlesLost++; }
     }
-    useTickets();
+    useTickets(); useBoss();
     s.offline.stage = { el: stage.el, tier: stage.tier };
     s.cleared[MM.speciesKey(stage.el, stage.tier)] = s.cleared[MM.speciesKey(stage.el, stage.tier)] || 1;
     log.maxGold = Math.max(log.maxGold, s.gold);
@@ -231,7 +245,7 @@ const t3 = res.map(r => r.t3Day == null ? 99 : r.t3Day).sort((a, b) => a - b);
 console.log('첫 3단계 획득(일, 0.5 = 첫날 자동 반복 절반):', t3.map(x => x.toFixed(2)).join(', '));
 console.log('5단계 속성별 첫 완성일(평균):', MM.RING.map(e => e + ' ' + avg(r => r.e5Day[e] == null ? MAX_DAYS : r.e5Day[e]).toFixed(1)).join(' / '));
 console.log('판당 평균 행동 수:', avg(r => r.actions / Math.max(1, r.battles)).toFixed(1), '| 패배율', (avg(r => r.losses / Math.max(1, r.battles)) * 100).toFixed(1) + '%');
-console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1), '| 입장권 사용', avg(r => r.tickets).toFixed(1));
+console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1), '| 입장권 사용', avg(r => r.tickets).toFixed(1), '| 보스', avg(r => r.bosses).toFixed(1));
 console.log('막힘(관리 시점 횟수): 골드', avg(r => r.goldBlocked).toFixed(1), '소울', avg(r => r.soulBlocked).toFixed(1), '레벨', avg(r => r.levelBlocked).toFixed(1));
 console.log('최대 보유 골드', avg(r => r.maxGold).toFixed(0), '| 마지막 골드', avg(r => r.gold).toFixed(0), '| 최고 던전', avg(r => r.dungeonTop).toFixed(1));
 console.log('예시 마지막 몬스터:', res[0].levels);

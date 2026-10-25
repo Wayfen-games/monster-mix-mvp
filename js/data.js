@@ -12,7 +12,8 @@
     grass: { name: '풀',   color: '#3fae49' },
     water: { name: '물',   color: '#2e86de' },
     light: { name: '빛',   color: '#e8b500' },
-    dark:  { name: '어둠', color: '#6c4ab6' }
+    dark:  { name: '어둠', color: '#6c4ab6' },
+    rainbow: { name: '무지개', color: 'url(#rbw)' } // 보스 전용 (상성 없음, RING에는 없음)
   };
 
   // 부재료 짝: 원형에서 양옆 두 속성만 (같은 속성은 안 됨)

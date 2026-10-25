@@ -23,7 +23,8 @@ MM.BALANCE = {
     water: { hp: 1.134, atk: 0.962, def: 1.012, spd: 0.95 },
     grass: { hp: 1.105, atk: 1.000, def: 1.179, spd: 0.92 },
     light: { hp: 0.932, atk: 0.982, def: 0.962, spd: 1.12 },
-    dark:  { hp: 0.962, atk: 1.039, def: 0.886, spd: 1.05 }
+    dark:  { hp: 0.962, atk: 1.039, def: 0.886, spd: 1.05 },
+    rainbow: { hp: 1, atk: 1, def: 1, spd: 1 }
   },
   PARTY_BONUS: 0.05,    // [확정] 서로 다른 속성 3마리 파티면 전원 +5%
 
@@ -129,7 +130,8 @@ MM.BALANCE = {
   // 평균: 소울 8.5개 돌려받음(약 72% 소각), 위 단계 소울 0.095개, 입장권 0.53장
   GACHA_COST: 30,
   GACHA_TABLE: [
-    { kind: 'souls', n: 10, p: 0.40 },
+    { kind: 'souls', n: 10, p: 0.399 },
+    { kind: 'boss', n: 1, p: 0.001, big: true },   // 보스 입장권 [사용자 확정 0.1%]
     { kind: 'souls', n: 20, p: 0.15 },
     { kind: 'souls', n: 30, p: 0.05 },
     { kind: 'ticket', n: 1, p: 0.20 },
@@ -140,6 +142,27 @@ MM.BALANCE = {
     { kind: 'up', n: 2, p: 0.015 },
     { kind: 'up', n: 3, p: 0.005, big: true }
   ],
+
+  // ---------- 보스 [사용자 확정 10-25, 숫자는 Claude 기본값] ----------
+  // 보스 입장권으로만 입장 (이기면 1장 차감), 자동 전투 불가, 상성 없음(무지개), 단계별 스킬
+  // 보상: (n+1)단계 스테이지 소울 드랍 ×100 (5단계 보스는 5단계 스테이지 ×100) + 경험치. 골드 없음
+  // 난이도: 같은 단계 소환 레벨 3마리로 깰 수 있지만 20턴쯤 걸리게 [tools/tune-boss.js]
+  BOSS_DROP_MULT_STAGE: 100,
+  BOSS_EXP_MULT: 3,            // 경험치 = (n+1)단계 스테이지 승리 경험치 × 3
+  BOSS_MAX_ROUNDS: 60,
+  BOSS_LEVEL: [1, 6, 10, 14, 18], // = 소환 레벨
+  BOSS_HP_MULT: [7.65, 10.5, 7.35, 5.65, 6.5],  // [조정: tune-boss.js] 소환 레벨 3마리 승률 69~74%, 이긴 판 중앙 19~21라운드
+  BOSS_ATK_MULT: [1.05, 0.81, 0.86, 1.16, 0.92],
+  BOSS_SPD_MULT: 1.1,
+  BOSS_SKILLS: {
+    1: [{ type: 'seal', every: 3, turns: 2 }],
+    2: [{ type: 'sweep', every: 4, mult: 0.6 }],
+    3: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'seal', every: 3, turns: 2 }],
+    4: [{ type: 'shield', every: 3, turns: 2, cut: 0.5 }, { type: 'sweep', every: 5, mult: 0.6 }],
+    5: [{ type: 'enrage', at: 0.5, mult: 1.3 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'sweep', every: 4, mult: 0.6 }, { type: 'seal', every: 3, turns: 2 }]
+  },
+  // 보스 입장권: 던전(요일·입장권 던전) 승리 시 같은 단계 2%, 소울 뽑기 0.1%
+  BOSS_TICKET_DROP: 0.02,
 
   // ---------- 골드 ----------
   START_GOLD: 300,

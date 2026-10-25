@@ -257,6 +257,7 @@
     var out = { kind: row.kind, n: row.n, big: !!row.big, souls: {}, tickets: 0 }, top = tier >= b.MAX_TIER;
     if (row.kind === 'souls') out.souls[MM.speciesKey(MM.RING[Math.floor(R(rng)() * MM.RING.length)], tier)] = row.n;
     else if (row.kind === 'ticket') out.tickets = row.n;
+    else if (row.kind === 'boss') { out.bossTickets = row.n; MM.addBossTickets(s, tier, row.n); }
     else if (row.kind === 'up') out.souls[MM.speciesKey(el, top ? tier : tier + 1)] = row.n * (top ? 5 : 1);
     out.drops = MM.applyDrops(s, out.souls);
     if (out.tickets) MM.addTickets(s, tier, out.tickets);
@@ -589,8 +590,10 @@
     var exp = MM.winExp(tier);
     var ups = partyExp(s, exp);
     if (!opts.ticket) s.dungeon.cleared[tier] = true; // 입장권 던전은 요일 던전 진행에 영향 없음
+    var bossTicket = null;
+    if (b.BOSS_TICKET_DROP > 0 && !opts.noBossTicket && R(rng)() < b.BOSS_TICKET_DROP) { MM.addBossTickets(s, tier, 1); bossTicket = tier; }
     s.stats.battlesWon++;
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, bossTicket: bossTicket };
   };
 
   // 입장권 던전
@@ -732,7 +735,8 @@
 
   MM.newRound = function (bt, rng) {
     bt.round++;
-    if (bt.round > B().MAX_ROUNDS) { bt.result = 'lose'; return; }
+    if (bt.round > (bt.maxRounds || B().MAX_ROUNDS)) { bt.result = 'lose'; return; }
+    if (bt.round > 1) bt.units.forEach(function (u) { if (u.sealed > 0) u.sealed--; if (u.shield > 0) u.shield--; });
     bt.queue = MM.alive(bt).map(function (u) { return { uid: u.uid, r: u.spd + R(rng)() * 0.01 }; })
       .sort(function (a, b) { return b.r - a.r; })
       .map(function (x) { return x.uid; });
@@ -748,6 +752,7 @@
   };
 
   MM.elementMult = function (atkEl, defEl) {
+    if (atkEl === 'rainbow' || defEl === 'rainbow') return 1;
     if (MM.beats(atkEl, defEl)) return B().ELEMENT_ADV_MULT;
     if (MM.beats(defEl, atkEl) && !MM.beats(atkEl, defEl)) return B().ELEMENT_DISADV_MULT;
     return 1;
@@ -773,19 +778,99 @@
     return ps[Math.floor(R(rng)() * ps.length)];
   };
 
+  function hurt(bt, target, dmg) {
+    if (target.shield > 0 && target.shieldCut) dmg = Math.max(1, Math.round(dmg * (1 - target.shieldCut)));
+    target.hp = Math.max(0, target.hp - dmg);
+    var ev = null;
+    if (target.skills) target.skills.forEach(function (sk) {
+      if (sk.type === 'enrage' && !target.enraged && target.hp > 0 && target.hp <= target.maxHp * sk.at) { target.enraged = true; target.atk = Math.round(target.atk * sk.mult); ev = 'enrage'; }
+    });
+    return { dmg: dmg, enrage: ev };
+  }
+  function endCheck(bt) {
+    if (!MM.alive(bt, 'e').length) bt.result = 'win';
+    else if (!MM.alive(bt, 'p').length) bt.result = 'lose';
+  }
+  // 보스 스킬: 보스 자기 차례 횟수(turns)가 every의 배수일 때, 목록 앞쪽부터 하나 사용 (그 턴은 일반 공격 대신)
+  function bossSkill(bt, boss, rng) {
+    boss.turns = (boss.turns || 0) + 1;
+    var sk = (boss.skills || []).filter(function (x) { return x.every && boss.turns % x.every === 0; })[0];
+    if (!sk) return null;
+    var allies = MM.alive(bt, 'p'), ev = { actor: boss.uid, skill: sk.type, hits: [] };
+    if (sk.type === 'seal') {
+      var free = allies.filter(function (u) { return !(u.sealed > 0); });
+      if (!free.length) return null;
+      var tg = free[Math.floor(R(rng)() * free.length)];
+      tg.sealed = sk.turns + 1; // 이번 라운드 끝에 1 줄어서 다음 2라운드 동안 못 움직임
+      ev.target = tg.uid; ev.turns = sk.turns;
+    } else if (sk.type === 'sweep') {
+      allies.forEach(function (u) { var d = MM.calcDamage(boss, u, rng), h = hurt(bt, u, Math.max(1, Math.round(d.dmg * sk.mult))); ev.hits.push({ target: u.uid, dmg: h.dmg, ko: u.hp === 0 }); });
+    } else if (sk.type === 'shield') {
+      boss.shield = sk.turns + 1; boss.shieldCut = sk.cut; ev.turns = sk.turns;
+    } else if (sk.type === 'heal') {
+      var amt = Math.round(boss.maxHp * sk.pct); boss.hp = Math.min(boss.maxHp, boss.hp + amt); ev.heal = amt;
+    }
+    return ev;
+  }
+
   MM.act = function (bt, targetUid, rng) {
     var actor = MM.currentActor(bt, rng);
     if (!actor) return null;
+    if (actor.sealed > 0) { // 봉인: 차례를 건너뜀
+      var sev = { actor: actor.uid, skip: true };
+      bt.log.push(sev); bt.queue.shift(); return sev;
+    }
+    if (actor.boss && actor.skills) {
+      var bev = bossSkill(bt, actor, rng);
+      if (bev) { bt.log.push(bev); bt.queue.shift(); endCheck(bt); return bev; }
+    }
     var target = targetUid == null ? MM.autoTarget(bt, actor, rng) : bt.units[targetUid];
     if (!target || target.hp <= 0 || target.side === actor.side) target = MM.autoTarget(bt, actor, rng);
     var d = MM.calcDamage(actor, target, rng);
-    target.hp = Math.max(0, target.hp - d.dmg);
-    var ev = { actor: actor.uid, target: target.uid, dmg: d.dmg, crit: d.crit, ko: target.hp === 0, mult: MM.elementMult(actor.el, target.el) };
+    var h = hurt(bt, target, d.dmg);
+    var ev = { actor: actor.uid, target: target.uid, dmg: h.dmg, crit: d.crit, ko: target.hp === 0, mult: MM.elementMult(actor.el, target.el), enrage: h.enrage, shielded: target.shield > 0 };
     bt.log.push(ev);
     bt.queue.shift();
-    if (!MM.alive(bt, 'e').length) bt.result = 'win';
-    else if (!MM.alive(bt, 'p').length) bt.result = 'lose';
+    endCheck(bt);
     return ev;
+  };
+
+  // ================= 보스 =================
+  MM.bossSrc = function (tier) {
+    var b = B();
+    return { el: 'rainbow', tier: tier, level: tv(b.BOSS_LEVEL, tier), boss: true, raid: true };
+  };
+  MM.createBossBattle = function (partyMonsters, tier, rng) {
+    var b = B(), bt = MM.createBattle(partyMonsters, [MM.bossSrc(tier)], rng);
+    var u = bt.units.filter(function (x) { return x.side === 'e'; })[0];
+    u.maxHp = u.hp = Math.round(u.maxHp * tv(b.BOSS_HP_MULT, tier));
+    u.atk = Math.round(u.atk * tv(b.BOSS_ATK_MULT, tier));
+    u.spd = Math.round(u.spd * b.BOSS_SPD_MULT * 10) / 10;
+    u.skills = b.BOSS_SKILLS[tier] || [];
+    u.raid = true; u.name = tier + '단계 무지개 보스';
+    bt.maxRounds = b.BOSS_MAX_ROUNDS; bt.raid = tier;
+    MM.newRound(bt, rng); bt.round = 1; // 보스 속도 반영해서 첫 라운드 순서 다시
+    return bt;
+  };
+  MM.simulateBossBattle = function (partyMonsters, tier, rng) {
+    var bt = MM.createBossBattle(partyMonsters, tier, rng);
+    while (!bt.result) MM.act(bt, null, rng);
+    return bt;
+  };
+  MM.bossTicketCount = function (s, tier) { return ((s.dungeon.bossTickets || {})[tier]) || 0; };
+  MM.bossTicketTotal = function (s) { var tk = s.dungeon.bossTickets || {}; return Object.keys(tk).reduce(function (a, k) { return a + (tk[k] || 0); }, 0); };
+  MM.addBossTickets = function (s, tier, n) { s.dungeon.bossTickets = s.dungeon.bossTickets || {}; s.dungeon.bossTickets[tier] = (s.dungeon.bossTickets[tier] || 0) + n; };
+  MM.useBossTicket = function (s, tier) { if (MM.bossTicketCount(s, tier) <= 0) return false; s.dungeon.bossTickets[tier]--; return true; };
+  MM.grantBossWin = function (s, tier, rng) {
+    var b = B(), st = Math.min(tier + 1, b.MAX_TIER);
+    var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
+    var drops = MM.applyDrops(s, MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1)));
+    var exp = MM.winExp(st) * b.BOSS_EXP_MULT;
+    var ups = partyExp(s, exp);
+    s.stats.battlesWon++;
+    s.stats.bossWins = (s.stats.bossWins || 0) + 1;
+    MM.addRecord(s, { type: 'boss', el: 'rainbow', tier: tier });
+    return { drops: drops, gold: 0, exp: exp, levelUps: ups };
   };
 
   MM.simulateBattle = function (partyMonsters, enemies, rng) {

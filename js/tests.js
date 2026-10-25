@@ -305,7 +305,7 @@
     check('제단 보너스: 그 속성만 능력치·경험치', MM.playerMult(s, m) > 1 && MM.altarExpBonus(s, 'water') === 0);
     var s2 = MM.newState(t0), seen = {}, acc = 0;
     B.GACHA_TABLE.forEach(function (row) { var x = acc + row.p / 2; acc += row.p; s2.souls.water2 = 100; var g = MM.gachaPull(s2, 'water', 2, function () { return x; }); seen[g.kind + g.n] = g; });
-    check('뽑기: 꽝 없이 10가지 당첨 품목이 다 나옴', Object.keys(seen).length === 10 && seen.souls10 && seen.ticket5 && seen.up3);
+    check('뽑기: 꽝 없이 11가지 당첨 품목이 다 나옴 (보스 입장권 포함)', Object.keys(seen).length === 11 && seen.souls10 && seen.ticket5 && seen.up3 && seen.boss1 && MM.bossTicketCount(s2, 2) === 1);
     check('뽑기 입장권은 같은 단계 (1+2+3+5장)', MM.ticketCount(s2, 2) === 11);
     check('뽑기 위 단계 소울 (1+2+3개, 같은 속성)', (s2.souls.water3 || 0) === 6, s2.souls.water3);
     check('뽑기 확률 합 100%', Math.abs(B.GACHA_TABLE.reduce(function (a, r) { return a + r.p; }, 0) - 1) < 1e-9);
@@ -315,6 +315,28 @@
   check('단계별 만렙 = (n+2)단계 소환 레벨: 10/14/18/23/30', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '10,14,18,23,30', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
   check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', [1, 2, 3, 4].every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
   (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 25; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 10); })();
+  // ---- 보스 ----
+  (function () {
+    var rr = MM.seededRng(5);
+    check('무지개 보스는 상성 없음', MM.elementMult('fire', 'rainbow') === 1 && MM.elementMult('rainbow', 'grass') === 1);
+    for (var bt = 1; bt <= B.MAX_TIER; bt++) {
+      var w = 0, rounds = [], lv = MM.summonLevel(bt);
+      for (var i = 0; i < 200; i++) { var b = MM.simulateBossBattle([{ id: 1, el: 'fire', tier: bt, level: lv }, { id: 2, el: 'water', tier: bt, level: lv }, { id: 3, el: 'grass', tier: bt, level: lv }], bt, rr); if (b.result === 'win') { w++; rounds.push(b.round); } }
+      rounds.sort(function (a, c) { return a - c; });
+      var med = rounds[Math.floor(rounds.length / 2)];
+      check(bt + '단계 보스: 소환 레벨 3마리로 깰 수 있고 20라운드쯤', w / 200 > 0.45 && w / 200 < 0.99 && med >= 15 && med <= 26, Math.round(w / 2) + '% · ' + med + '라운드');
+    }
+    var b1 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 1, level: 1 }], 1, rr), sealed = false, skipped = false;
+    while (!b1.result) { var ev = MM.act(b1, null, rr); if (ev && ev.skill === 'seal') sealed = true; if (ev && ev.skip) skipped = true; }
+    check('1단계 보스 스킬: 봉인 → 차례 건너뜀', sealed && skipped);
+    var s = MM.newState(t0); MM.addBossTickets(s, 3, 1);
+    var g = MM.grantBossWin(s, 3, rr);
+    check('보스 보상: 한 단계 위 스테이지 드랍 ×100 (상위 소울 포함 가능), 골드 없음', g.gold === 0 && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
+    check('보스 입장권 사용', MM.useBossTicket(s, 3) && !MM.useBossTicket(s, 3));
+    var sd = MM.newState(t0); B.BOSS_TICKET_DROP = 1; var dw = MM.grantDungeonWin(sd, 2, MM.dungeonEnemies(['fire'], 2)); B.BOSS_TICKET_DROP = 0.02;
+    check('던전 승리 시 같은 단계 보스 입장권', dw.bossTicket === 2 && MM.bossTicketCount(sd, 2) === 1);
+  })();
+
   // ---- 소울 먹이기 ----
   (function () {
     var s = MM.newState(), m = MM.addMonster(s, 'fire', 2, 6);
