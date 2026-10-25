@@ -659,7 +659,7 @@
   SCREENS.fusion = function () {
     var sel = fusionSel(), main = sel.main, sub = sel.sub, f = view.fusion;
     var res = main ? '<div class="fuse-slot">' + monSvg(main.el, main.tier + 1, 46, !S.dex[MM.speciesKey(main.el, main.tier + 1)]) + '<div>' + MM.speciesName(main.el, main.tier + 1) + '</div>' +
-      (sub ? '<span class="small" style="color:var(--accent)">Lv ' + MM.fusionResultLevel(main, sub) + '</span>' : '') +
+      (sub ? '<span class="small" style="color:var(--accent)">Lv ' + MM.fusionRangeText(main, sub) + '</span>' : '') +
       (!S.dex[MM.speciesKey(main.el, main.tier + 1)] ? '<span class="chip">미발견</span>' : '') + '</div>' : '<div class="fuse-slot empty">결과</div>';
     var html = '<h2>합성</h2><div class="fuse-box">' + slotHtml(main, '주재료', 'pickMainSheet') + '<div class="fuse-op">+</div>' + slotHtml(sub, '부재료', 'pickSubSheet') + '<div class="fuse-op">=</div>' + res + '</div>';
 
