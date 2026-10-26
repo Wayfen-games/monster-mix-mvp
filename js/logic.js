@@ -849,8 +849,9 @@
   MM.planBoss = function (bt, boss, rng) {
     var n = (boss.turns || 0) + 1;
     var sk = (boss.skills || []).filter(function (x) { return x.every && n % x.every === 0; })[0];
-    var plan = { type: sk ? sk.type : 'attack', sk: sk || null };
-    if (plan.type === 'attack' || plan.type === 'smash') { var tg = pickAlly(bt, rng); plan.target = tg ? tg.uid : null; }
+    if (boss.charged) sk = boss.charged; // 힘을 모았으면 다음 차례는 무조건 대폭발
+    var plan = { type: sk ? (boss.charged ? 'blast' : sk.type) : 'attack', sk: sk || null };
+    if (plan.type === 'attack' || plan.type === 'smash' || plan.type === 'drain') { var tg = pickAlly(bt, rng); plan.target = tg ? tg.uid : null; }
     boss.plan = plan;
     return plan;
   };
@@ -858,13 +859,19 @@
     if (!boss.plan) MM.planBoss(bt, boss, rng);
     var plan = boss.plan, sk = plan.sk, ev = { actor: boss.uid, skill: plan.type, hits: [] };
     boss.turns = (boss.turns || 0) + 1;
-    if (plan.type === 'attack' || plan.type === 'smash') {
+    if (plan.type === 'attack' || plan.type === 'smash' || plan.type === 'drain') {
       var tg = plan.target != null && bt.units[plan.target].hp > 0 ? bt.units[plan.target] : pickAlly(bt, rng);
       if (tg) {
-        var d = MM.calcDamage(boss, tg, rng), h = hurt(bt, tg, Math.max(1, Math.round(d.dmg * (plan.type === 'smash' ? sk.mult : 1))));
+        var d = MM.calcDamage(boss, tg, rng), h = hurt(bt, tg, Math.max(1, Math.round(d.dmg * (plan.type === 'attack' ? 1 : sk.mult))));
         ev.target = tg.uid; ev.dmg = h.dmg; ev.crit = d.crit; ev.ko = tg.hp === 0; ev.mult = 1; ev.guarded = !!tg.guard;
+        if (plan.type === 'drain') { var dr = Math.min(boss.maxHp - boss.hp, Math.round(h.dmg * sk.pct)); boss.hp += dr; ev.heal = dr; }
         if (plan.type === 'attack') ev.skill = null;
       }
+    } else if (plan.type === 'charge') {
+      boss.charged = sk; // 다음 차례 대폭발 (예고에 표시)
+    } else if (plan.type === 'blast') {
+      boss.charged = null;
+      MM.alive(bt, 'p').forEach(function (u) { var d = MM.calcDamage(boss, u, rng), h = hurt(bt, u, Math.max(1, Math.round(d.dmg * sk.mult))); ev.hits.push({ target: u.uid, dmg: h.dmg, ko: u.hp === 0, guarded: !!u.guard }); });
     } else if (plan.type === 'seal') {
       var free = pickAlly(bt, rng, function (u) { return !(u.sealed > 0); });
       if (free) { free.sealed = sk.turns + 1; ev.target = free.uid; ev.turns = sk.turns; } // 이번 라운드 끝에 1 줄어서 다음 2라운드 동안 못 움직임
@@ -887,7 +894,7 @@
     var boss = MM.alive(bt, 'e')[0]; if (!boss) return 'attack';
     var p = boss.plan || {};
     var hit = boss.atk * boss.atk / (boss.atk + actor.def) * 1.05; // 예상 피해(넉넉히)
-    var inc = p.type === 'sweep' ? hit * p.sk.mult : (p.type === 'smash' && p.target === actor.uid) ? hit * p.sk.mult : (p.type === 'attack' && p.target === actor.uid) ? hit : 0;
+    var inc = (p.type === 'sweep' || p.type === 'blast') ? hit * p.sk.mult : ((p.type === 'smash' || p.type === 'drain') && p.target === actor.uid) ? hit * p.sk.mult : (p.type === 'attack' && p.target === actor.uid) ? hit : 0;
     if (inc >= actor.hp * 0.8) return 'defend';      // 맞으면 쓰러지거나 위험하면 방어
     if (bt.revivesLeft > 0 && bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; })) return 'revive';
     if (bt.healsLeft > 0 && MM.alive(bt, 'p').some(function (u) { return u.hp < u.maxHp * 0.35; })) return 'heal';
@@ -948,7 +955,7 @@
     u.maxHp = u.hp = Math.round(u.maxHp * tv(b.BOSS_HP_MULT, tier));
     u.atk = Math.round(u.atk * tv(b.BOSS_ATK_MULT, tier));
     u.spd = Math.round(u.spd * b.BOSS_SPD_MULT * 10) / 10;
-    u.skills = b.BOSS_SKILLS[tier] || b.BOSS_SKILLS[5] || []; // 6단계 이상은 5단계 스킬 묶음 (나중에 단계별로)
+    u.skills = b.BOSS_SKILLS[tier] || b.BOSS_SKILLS[Object.keys(b.BOSS_SKILLS).length] || [];
     u.raid = true; u.name = MM.bossName(tier);
     bt.maxRounds = b.BOSS_MAX_ROUNDS; bt.raid = tier; bt.healsLeft = b.BOSS_HEALS; bt.revivesLeft = b.BOSS_REVIVES;
     MM.newRound(bt, rng); bt.round = 1; // 보스 속도 반영해서 첫 라운드 순서 다시

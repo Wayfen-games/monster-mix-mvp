@@ -353,6 +353,15 @@
     var b1 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 1, level: 10 }, { id: 2, el: 'water', tier: 1, level: 10 }], 1, rr), sealed = false, skipped = false, smashed = false;
     while (!b1.result) { var ev = MM.act(b1, null, rr); if (ev && ev.skill === 'seal') sealed = true; if (ev && ev.skip) skipped = true; if (ev && ev.skill === 'smash') smashed = true; }
     check('1단계 보스 스킬: 강타 + 봉인 → 차례 건너뜀', sealed && skipped && smashed);
+    var b6 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 6, level: 70 }, { id: 2, el: 'water', tier: 6, level: 70 }, { id: 3, el: 'grass', tier: 6, level: 70 }], 6, rr), seq = [];
+    b6.units.forEach(function (u) { if (u.side === 'p') u.hp = u.maxHp = 1e7; });
+    for (var g6 = 0; g6 < 400 && !b6.result; g6++) { var e6 = MM.act(b6, null, rr); if (e6 && e6.skill) seq.push(e6.skill); }
+    var ci = seq.indexOf('charge');
+    check('충전 다음 보스 차례는 대폭발 (6단계)', ci >= 0 && seq[ci + 1] === 'blast', seq.slice(0, 12).join(','));
+    var b7 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 7, level: 70 }], 7, rr), boss7 = b7.units[1], drained = null;
+    b7.units[0].hp = b7.units[0].maxHp = 1e7; boss7.hp = Math.round(boss7.maxHp / 2);
+    for (var g7 = 0; g7 < 200 && !drained; g7++) { var e7 = MM.act(b7, null, rr); if (e7 && e7.skill === 'drain') drained = e7; }
+    check('흡수: 1마리 공격 + 준 피해의 50% 회복 (7단계)', drained && drained.heal === Math.round(drained.dmg * 0.5), drained && drained.dmg + '/' + drained.heal);
     var b2 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 2, level: 6 }], 2, rr);
     check('보스는 다음 행동을 예고함', !!b2.units[1].plan && !!b2.units[1].plan.type);
     var me = b2.units[0], boss2 = b2.units[1];

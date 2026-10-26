@@ -20,7 +20,7 @@ function measure(tier) {
   }
   return out;
 }
-for (let tier = 1; tier <= B.MAX_TIER; tier++) {
+for (let tier = +(process.env.FROM || 1); tier <= B.MAX_TIER; tier++) {
   // 2차원 격자 탐색 (체력 × 공격): 목표와의 차이가 가장 작은 조합
   let best = null;
   const score = m => Math.max(0, m.naive.win - TARGET_NAIVE) * 10 + Math.abs(m.smart.win - TARGET_SMART) * 10 + Math.abs(m.smart.rounds - TARGET_ROUNDS) / 1.5;

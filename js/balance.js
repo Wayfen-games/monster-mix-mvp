@@ -163,8 +163,8 @@ MM.BALANCE = {
   BOSS_GOLD_MULT: 100,
   BOSS_MAX_ROUNDS: 60,
   // 보스 레벨 = 그 단계 소환 레벨. 체력·공격 배율 [조정: tools/tune-boss.js]
-  BOSS_HP_MULT: [6.5, 8.2, 6, 5.5, 5.85, 4.7, 5, 4.65, 4.85, 4.85], // 소환 레벨 3마리: 공격만 0~1% · 예고 대응 71~85% (17~20라운드)
-  BOSS_ATK_MULT: [1.32, 0.79, 1.15, 0.95, 0.91, 1.09, 1.05, 1.11, 1.07, 1.07],
+  BOSS_HP_MULT: [6.5, 8.2, 6, 5.5, 5.85, 7.5, 3.85, 6.65, 4, 5.35], // 소환 레벨 3마리: 공격만 0~1% · 예고 대응 71~85% (15~20라운드)
+  BOSS_ATK_MULT: [1.32, 0.79, 1.15, 0.95, 0.91, 0.71, 1.35, 0.84, 1.25, 0.72],
   BOSS_SPD_MULT: 1.1,
   // 보스는 다음 행동을 예고함. 아군은 보스전에서 공격 / 방어(받는 피해 절반) / 집중(쉬고 다음 공격 2배) 선택 [사용자 확정: 전략으로 깨게]
   // 목표: 소환 레벨 3마리로 공격만 하면 약 25%, 예고에 맞춰 대응하면 약 75% [tools/tune-boss.js]
@@ -179,7 +179,13 @@ MM.BALANCE = {
     2: [{ type: 'smash', every: 3, mult: 3 }, { type: 'sweep', every: 4, mult: 1.2 }],
     3: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'seal', every: 3, turns: 2 }, { type: 'smash', every: 4, mult: 3 }],
     4: [{ type: 'shield', every: 4, turns: 2, cut: 0.7 }, { type: 'sweep', every: 3, mult: 1.2 }, { type: 'smash', every: 5, mult: 3 }],
-    5: [{ type: 'enrage', at: 0.5, mult: 1.3 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'sweep', every: 4, mult: 1.2 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 5, turns: 2 }]
+    5: [{ type: 'enrage', at: 0.5, mult: 1.3 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'sweep', every: 4, mult: 1.2 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 5, turns: 2 }],
+    // [10-26, Claude 설계] 6~10단계: 새 스킬 '충전'(한 차례 힘을 모은 뒤 다음 차례 아군 전체 대폭발 → 예고 보고 다 같이 방어)과 '흡수'(1마리 강타 + 준 피해 일부 회복 → 오래 끌수록 불리)
+    6: [{ type: 'enrage', at: 0.5, mult: 1.3 }, { type: 'charge', every: 5, mult: 2.5 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 4, turns: 2 }],
+    7: [{ type: 'shield', every: 4, turns: 2, cut: 0.7 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }, { type: 'sweep', every: 5, mult: 1.2 }, { type: 'seal', every: 7, turns: 2 }],
+    8: [{ type: 'enrage', at: 0.5, mult: 1.4 }, { type: 'heal', every: 8, pct: 0.1 }, { type: 'charge', every: 4, mult: 2.5 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }],
+    9: [{ type: 'enrage', at: 0.4, mult: 1.5 }, { type: 'shield', every: 6, turns: 2, cut: 0.7 }, { type: 'charge', every: 4, mult: 3 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 5, turns: 2 }],
+    10: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'shield', every: 7, turns: 2, cut: 0.7 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'charge', every: 4, mult: 3 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }, { type: 'seal', every: 5, turns: 2 }]
   },
   // 보스 입장권: 던전(요일·입장권 던전) 승리 시 같은 단계 2%, 소울 뽑기 0.1%
   BOSS_TICKET_DROP: 0.02,
