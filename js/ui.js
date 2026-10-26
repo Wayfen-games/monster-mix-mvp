@@ -404,12 +404,12 @@
   };
   function bossHtml() {
     var leftB = MM.bossLeftToday(S, Date.now());
-    var html = '<div class="card"><div class="row between"><b>🌈 무지개 보스</b><span class="chip gold">입장권 ' + MM.bossTicketTotal(S) + '장</span></div>' +
+    var html = '<div class="card"><div class="row between"><b>🌈 레인보우 샤들링</b><span class="chip gold">입장권 ' + MM.bossTicketTotal(S) + '장</span></div>' +
       '<div class="row between small" style="margin-top:6px"><span>오늘 보상 <b>' + leftB + '/' + BAL().BOSS_DAILY_REWARDS + '</b>번 남음</span><span>🪶 무지개 깃털 <b>' + MM.featherCount(S) + '</b>개</span></div>' +
       '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×0.1% 확률로 🪶 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 입장권은 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
     MM.tiers().forEach(function (t) {
       var n = MM.bossTicketCount(S, t), sk = BAL().BOSS_SKILLS[t] || [];
-      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 무지개 보스</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
+      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 레인보우 샤들링</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
         '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + MM.summonLevel(t) + ' 이상 3마리</div></div>' +
         '<button class="btn primary sm block" data-act="startBoss" data-tier="' + t + '"' + (n && S.party.length && leftB ? '' : ' disabled') + '>' + (n ? (leftB ? '도전 (이기면 입장권 1장 사용)' : '오늘 보상을 다 받았어요') : t + '단계 던전에서 입장권을 모아 보세요') + '</button></div>';
     });
@@ -618,7 +618,7 @@
       else if (Bt.kind === 'ticket') { MM.useTicket(S, Bt.tier); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies, null, { ticket: true }); }
       else if (Bt.kind === 'boss') { MM.useBossTicket(S, Bt.tier); r = MM.grantBossWin(S, Bt.tier, null, Date.now()); if (r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 보스에서 무지개 깃털이 나왔어요 (+' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)'); }
       else { MM.accrueOffline(S, Date.now()); r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies); }
-      if (r && r.bossTicket) showNotice('🌈 보스 입장권!!', r.bossTicket + '단계 무지개 보스 입장권 1장');
+      if (r && r.bossTicket) showNotice('🌈 보스 입장권!!', r.bossTicket + '단계 레인보우 샤들링 입장권 1장');
       if (r && r.ticket && !Bt.repeat) showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장');
       if (r && r.autoOffline) { showNotice('방치 보상 스테이지 변경', MM.stageLabel(r.autoOffline.el, r.autoOffline.tier) + '로 자동 지정' + (r.offlinePaid ? ' · 쌓인 보상은 받았어요' : '')); }
     } else {

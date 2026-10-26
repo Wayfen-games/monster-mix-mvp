@@ -13,7 +13,7 @@
     water: { name: '물',   color: '#2e86de' },
     light: { name: '빛',   color: '#e8b500' },
     dark:  { name: '어둠', color: '#6c4ab6' },
-    rainbow: { name: '무지개', color: 'url(#rbw)' } // 보스 전용 (상성 없음, RING에는 없음)
+    rainbow: { name: '레인보우', color: 'url(#rbw)' } // 보스 전용 (상성 없음, RING에는 없음)
   };
 
   // 부재료 짝: 원형에서 양옆 두 속성만 (같은 속성은 안 됨)
@@ -46,7 +46,7 @@
   MM.soulName = function (el, tier) { return tier + '단계 ' + MM.ELEMENTS[el].name + '의 소울'; };
   // 보스 이름 [10-26 1~3단계는 그림에 맞춰 Claude가 다시 지음: 무지개 보석 슬라임 계열 프리즈미 → 프리즈모 → 프리즈론]
   MM.BOSS_NAMES = ['프리즈미', '프리즈모', '프리즈론', '크로마', '레인보 엠퍼러'];
-  MM.bossName = function (tier) { return MM.BOSS_NAMES[tier - 1] || (tier + '단계 무지개 보스'); };
+  MM.bossName = function (tier) { return MM.BOSS_NAMES[tier - 1] || (tier + '단계 레인보우 샤들링'); };
 
   MM.maxTier = function () { return MM.BALANCE.MAX_TIER; };
   MM.tiers = function () { var a = []; for (var t = 1; t <= MM.maxTier(); t++) a.push(t); return a; };
