@@ -5,7 +5,8 @@
 const MM = require('./load');
 const B = MM.BALANCE, T = B.MAX_TIER;
 const PLAYERS = +process.argv[2] || 12, MAX_DAYS = +process.argv[3] || 60;
-const FEED_KEEP = +(process.env.FEED_KEEP || 20);
+const FEED_KEEP = +(process.env.FEED_KEEP || (B.SOULS_PER_SUMMON + 10));
+const STOP_FIRST = process.env.STOP !== 'all'; // 기본: 첫 맨 위 단계(10단계)를 만들면 그 플레이어는 끝
 const OFFLINE_CLAIMS_PER_DAY = +(process.env.OFFLINE_CLAIMS || 1);
 // 실험용 덮어쓰기: DROP=드랍 배율, EXPA, EXPP, EXPW=승리 경험치 배율, OVR='{"키":값}'
 if (process.env.DROP) B.SOUL_DROP_AVG = B.SOUL_DROP_AVG.map(v => v * +process.env.DROP);
@@ -32,9 +33,12 @@ function simulatePlayer(seed) {
   const s = MM.newState(t0);
   const cache = makeCache();
   const log = { t3Day: null, t2Day: null, e5Day: {}, goalDay: null, fusions: 0, fails: 0, goldBlocked: 0, soulBlocked: 0, levelBlocked: 0,
-    actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0, soulSwap: 0 };
+    first: {}, cum: {}, cum30: {}, actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0, soulSwap: 0 };
 
   // ---- 튜토리얼 ----
+  const applyOrig = MM.applyDrops;
+  const now0 = { t: t0 };
+  MM.applyDrops = function (st, drops) { if (st === s) Object.keys(drops).forEach(k => { log.cum[k] = (log.cum[k] || 0) + drops[k]; const tr = MM.parseKey(k).tier; if (log.cum[k] >= B.SOULS_PER_SUMMON && log.cum30[tr] == null) log.cum30[tr] = (now0.t - t0) / 86400000; }); return applyOrig.apply(this, arguments); };
   const shuffled = MM.RING.slice().sort(() => rng() - 0.5);
   MM.tutorialPickStarters(s, shuffled.slice(0, 3));
   MM.tutorialBattleReward(s);
@@ -47,7 +51,7 @@ function simulatePlayer(seed) {
     const best = Math.max(0, ...s.monsters.filter(m => m.el === el).map(m => m.tier));
     return T - best;
   };
-  const goalDone = () => MM.RING.every(el => s.monsters.some(m => m.el === el && m.tier === T));
+  const goalDone = () => STOP_FIRST ? s.monsters.some(m => m.tier === T) : MM.RING.every(el => s.monsters.some(m => m.el === el && m.tier === T));
 
   function pickParty(focusIds) {
     const pool = s.monsters.slice();
@@ -77,6 +81,7 @@ function simulatePlayer(seed) {
   }
 
   function manage(now) {
+    now0.t = now;
     // 1) 소환 (합성 비용용 1개는 남김)
     for (const sp of MM.allSpecies()) {
       while ((s.souls[sp.key] || 0) >= B.SOULS_PER_SUMMON + 1) {
@@ -113,9 +118,14 @@ function simulatePlayer(seed) {
         chk = MM.fusionCheck(s, c.main, c.sub, soulEl);
       }
       let nSouls = 1;
-      // 골드가 모자라면 소울을 더 써서 골드를 줄임 (FUSION_SOUL_MAX까지, SOULN=0이면 안 씀)
-      if (!chk.ok && cost.soulTier && process.env.SOULN !== '0' && chk.reasons.some(r => /골드/.test(r))) {
-        for (let n = 2; n <= (B.FUSION_SOUL_MAX || 1); n++) { const c2 = MM.fusionCheck(s, c.main, c.sub, soulEl, n); if (c2.ok) { chk = c2; nSouls = n; log.soulSwap += n - 1; break; } }
+      // 소울이 넉넉하면(소환용 FEED_KEEP개 남기고) 남는 만큼 넣어 골드를 아낌, 골드가 모자라면 더 넣어 봄 (SOULN=0이면 안 씀)
+      if (cost.soulTier && process.env.SOULN !== '0') {
+        const have = s.souls[MM.speciesKey(soulEl, cost.soulTier)] || 0;
+        const spare = Math.max(1, Math.min(B.FUSION_SOUL_MAX || 1, have - FEED_KEEP));
+        if (spare > 1) { const c2 = MM.fusionCheck(s, c.main, c.sub, soulEl, spare); if (c2.ok || !chk.ok) { chk = c2; nSouls = spare; log.soulSwap += spare - 1; } }
+        if (!chk.ok && chk.reasons.some(r => /골드/.test(r))) {
+          for (let n = nSouls + 1; n <= Math.min(B.FUSION_SOUL_MAX || 1, have); n++) { const c2 = MM.fusionCheck(s, c.main, c.sub, soulEl, n); if (c2.ok) { chk = c2; log.soulSwap += n - nSouls; nSouls = n; break; } }
+        }
       }
       if (!chk.ok) {
         if (chk.reasons.some(r => /골드/.test(r))) log.goldBlocked++;
@@ -124,8 +134,7 @@ function simulatePlayer(seed) {
         return c; // 막힌 후보 → 파티로 키우기
       }
       const r = MM.attemptFusion(s, c.main.id, c.sub.id, soulEl, rng, { souls: nSouls });
-      if (r.success && r.monster.tier >= 3 && log.t3Day == null) log.t3Day = (now - t0) / 86400000;
-      if (r.success && r.monster.tier >= 4 && log.t4Day == null) log.t4Day = (now - t0) / 86400000;
+      if (r.success) for (let tr = 2; tr <= r.monster.tier; tr++) if (log.first[tr] == null) log.first[tr] = (now - t0) / 86400000;
       if (r.success) { log.fusions++; if (r.monster.tier === T && log.e5Day[r.monster.el] == null) log.e5Day[r.monster.el] = (now - t0) / 86400000; }
       else log.fails++;
     }
@@ -223,6 +232,7 @@ function simulatePlayer(seed) {
         stage = chooseStage(party);
         if (goalDone()) break;
       }
+      now0.t = dayStart + run / B.AUTO_REPEAT_DAILY * 86400000 * 0.999;
       const en = MM.stageEnemies(stage.el, stage.tier, rng);
       const bt = MM.simulateBattle(party, en, rng);
       log.actions += bt.log.length; log.battles++;
@@ -244,21 +254,18 @@ function simulatePlayer(seed) {
 
 const res = [];
 for (let p = 0; p < PLAYERS; p++) res.push(simulatePlayer(1000 + p * 77));
-const days = res.map(r => r.goalDay == null ? MAX_DAYS + 1 : r.goalDay).sort((a, b) => a - b);
-const med = days[Math.floor(days.length / 2)];
+const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
-console.log('5단계 5종 완성일:', days.map(d => d > MAX_DAYS ? '미완' : d).join(', '), '| 중앙값', med > MAX_DAYS ? '미완' : med + '일');
-const t3 = res.map(r => r.t3Day == null ? 99 : r.t3Day).sort((a, b) => a - b);
-console.log('첫 3단계 획득(일, 0.5 = 첫날 자동 반복 절반):', t3.map(x => x.toFixed(2)).join(', '));
-const t4 = res.map(r => r.t4Day == null ? 99 : r.t4Day).sort((a, b) => a - b);
-console.log('첫 4단계 획득(일):', t4.map(x => x.toFixed(2)).join(', '), '| 중앙값', t4[Math.floor(t4.length / 2)].toFixed(2));
-const f5 = res.map(r => { const v = Object.values(r.e5Day); return v.length ? Math.min(...v) : 99; }).sort((a, b) => a - b);
-console.log('첫 5단계 획득(일):', f5.map(x => x.toFixed(1)).join(', '), '| 중앙값', f5[Math.floor(f5.length / 2)].toFixed(1));
-console.log('5단계 속성별 첫 완성일(평균):', MM.RING.map(e => e + ' ' + avg(r => r.e5Day[e] == null ? MAX_DAYS : r.e5Day[e]).toFixed(1)).join(' / '));
+const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
+console.log('첫 n단계 (일, 중앙값 [최소~최대])  |  같은 종 소울 ' + B.SOULS_PER_SUMMON + '개 첫 누적 (소환 가능, 중앙값)  |  배수');
+for (let tr = 2; tr <= T; tr++) {
+  const f = res.map(r => r.first[tr] == null ? 99 : r.first[tr]), c = res.map(r => r.cum30[tr] == null ? 99 : r.cum30[tr]);
+  const fm = med(f), cm = med(c);
+  console.log(' ' + tr + '단계: ' + fmt(fm) + ' [' + fmt(Math.min(...f)) + '~' + fmt(Math.max(...f)) + ']  |  ' + (cm >= 90 ? '60일 안에 없음' : fmt(cm)) + '  |  ' + (fm < 90 && cm < 90 ? (cm / Math.max(fm, 0.01)).toFixed(1) + '배' : '-'));
+}
 console.log('판당 평균 행동 수:', avg(r => r.actions / Math.max(1, r.battles)).toFixed(1), '| 패배율', (avg(r => r.losses / Math.max(1, r.battles)) * 100).toFixed(1) + '%');
 console.log('합성 성공', avg(r => r.fusions).toFixed(1), '실패', avg(r => r.fails).toFixed(1), '| 소환', avg(r => r.summons).toFixed(1), '| 소울 분해', avg(r => r.decomposed).toFixed(1), '| 버려진 소울', avg(r => r.wasted).toFixed(1), '| 먹인 소울', avg(r => r.fed).toFixed(1), '| 입장권 사용', avg(r => r.tickets).toFixed(1), '| 보스', avg(r => r.bosses).toFixed(1), '| 골드 대신 쓴 소울', avg(r => r.soulSwap).toFixed(1));
 console.log('막힘(관리 시점 횟수): 골드', avg(r => r.goldBlocked).toFixed(1), '소울', avg(r => r.soulBlocked).toFixed(1), '레벨', avg(r => r.levelBlocked).toFixed(1));
 console.log('최대 보유 골드', avg(r => r.maxGold).toFixed(0), '| 마지막 골드', avg(r => r.gold).toFixed(0), '| 최고 던전', avg(r => r.dungeonTop).toFixed(1));
 console.log('끝날 때 최고 레벨(플레이어별):', res.map(r => r.maxLv).join(', '));
-console.log('끝날 때 5단계 몬스터 레벨 상위 3(앞 6명):', res.slice(0, 6).map(r => r.top5).join(' | '));
 console.log('예시 마지막 몬스터:', res[0].levels);

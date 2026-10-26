@@ -41,6 +41,8 @@
   };
   MM.speciesName = function (el, tier) { var n = MM.MON_NAMES[el] && MM.MON_NAMES[el][tier - 1]; return n || (MM.ELEMENTS[el].name + tier); };
   // [사용자 확정 17:34] 소울 이름: '1단계 불의 소울'
+  // [10-26 91번] 스테이지 이름은 몬스터 이름 대신 '3단계 · 물 스테이지'
+  MM.stageLabel = function (el, tier) { return tier + '단계 · ' + MM.ELEMENTS[el].name + ' 스테이지'; };
   MM.soulName = function (el, tier) { return tier + '단계 ' + MM.ELEMENTS[el].name + '의 소울'; };
   // [사용자 확정] 보스 이름
   MM.BOSS_NAMES = ['프리즘', '스펙트라', '오로라', '크로마', '레인보 엠퍼러'];

@@ -113,7 +113,8 @@
 
   // ================= 소울 먹이기 =================
   // 같은 속성 몬스터에게 소울을 먹여 경험치를 준다. 최대 레벨이 되면 거기서 멈추고 남은 소울은 안 씀.
-  MM.soulExp = function (tier) { return Math.round(B().SOUL_FEED_WINS * B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, tier - 1)); };
+  // [10-26] 소울 1개 = 그 소울 1개를 그 단계 스테이지에서 얻는 동안(쫄 2마리 기준) 버는 경험치 × SOUL_FEED_WINS → 귀한 소울일수록 많이
+  MM.soulExp = function (tier) { return Math.max(1, Math.round(B().SOUL_FEED_WINS * MM.winExp(tier) / (2 * MM.soulDropAvg(tier)))); };
   MM.canFeed = function (s, m, el, tier) {
     if (!m) return '몬스터가 없어요';
     if (m.el !== el) return '같은 속성 소울만 먹일 수 있어요';
@@ -239,7 +240,8 @@
   // ================= 소울 제단 =================
   function alt(s, el) { if (!s.altar) s.altar = {}; if (!s.altar[el]) s.altar[el] = { level: 0, pts: 0 }; return s.altar[el]; }
   MM.altarOf = function (s, el) { return alt(s, el); };
-  MM.altarSoulPoints = function (tier) { return Math.pow(B().ALTAR_SOUL_POINTS_GROWTH, tier - 1); };
+  // [10-26] n단계 소울 1개 점수 = 1단계 소울보다 귀한 정도(드랍률 비)
+  MM.altarSoulPoints = function (tier) { return Math.max(1, Math.round(MM.soulDropAvg(1) / MM.soulDropAvg(tier))); };
   MM.altarNeed = function (level) { return Math.round(B().ALTAR_A * Math.pow(B().ALTAR_R, level)); };
   MM.altarExpBonus = function (s, el) { return alt(s, el).level * B().ALTAR_EXP_PER_LV; };
   MM.altarStatBonus = function (s, el) { return alt(s, el).level * B().ALTAR_STAT_PER_LV; };
@@ -312,12 +314,26 @@
   MM.winExp = function (stageTier) { return Math.round(B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, stageTier - 1) * tv(B().EXP_EARLY_MULT || [1], stageTier)); };
 
   MM.maxLevel = function (tier) { return tier ? Math.min(B().MAX_LEVEL, Math.round(tv(B().TIER_MAX_LEVEL, tier))) : B().MAX_LEVEL; };
-  // 레벨 개편(만렙 30 → 100, 3.25배 척도) 전 세이브 변환
-  MM.LEVEL_SCALE_VERSION = 2;
+  // 세이브 변환. v2: 만렙 30 → 100 (3.25배). v3 [10-26 대정리]: 만렙 300 표로 (단계별 소환·조건·만렙을 기준점으로 구간 변환), 소울 ×3 (소환 10 → 30개)
+  MM.LEVEL_SCALE_VERSION = 3;
+  var V2 = { summon: [1, 17, 30, 43, 56], fuse: [14, 30, 43, 56, 78], max: [40, 55, 70, 85, 100] };
+  MM.convertLevelV2 = function (tier, lv) {
+    var t = Math.min(tier, 5) - 1;
+    var from = [1, V2.summon[t], V2.fuse[t], V2.max[t]], to = [1, MM.summonLevel(tier), tier < B().MAX_TIER ? MM.fuseLevelReq(tier) : Math.round((MM.summonLevel(tier) + MM.maxLevel(tier)) / 2), MM.maxLevel(tier)];
+    for (var i = 1; i < from.length; i++) {
+      if (lv <= from[i] || i === from.length - 1) {
+        var a = from[i - 1], b2 = from[i], k = b2 > a ? (Math.min(lv, b2) - a) / (b2 - a) : 1;
+        return Math.max(1, Math.min(MM.maxLevel(tier), Math.round(to[i - 1] + k * (to[i] - to[i - 1]))));
+      }
+    }
+    return lv;
+  };
   MM.migrateLevels = function (s) {
     if (s.levelScale === MM.LEVEL_SCALE_VERSION) return 0;
     var n = 0;
-    s.monsters.forEach(function (m) { m.level = Math.round(1 + (m.level - 1) * 3.25); m.exp = 0; n++; });
+    if (s.levelScale !== 2) s.monsters.forEach(function (m) { m.level = Math.round(1 + (m.level - 1) * 3.25); });
+    s.monsters.forEach(function (m) { m.level = MM.convertLevelV2(m.tier, m.level); m.exp = 0; n++; });
+    Object.keys(s.souls || {}).forEach(function (k) { s.souls[k] = Math.min(B().SOUL_CAP, s.souls[k] * 3); });
     s.levelScale = MM.LEVEL_SCALE_VERSION;
     return n;
   };
@@ -391,7 +407,7 @@
     var gold = tv(b.FUSION_GOLD, main.tier) * (1 + b.FUSION_GOLD_STACK_UP * main.stack);
     if (main.tier === 1) return { gold: Math.round(gold / 10) * 10, soulTier: null, soulOptions: [], souls: 0 };
     var n = (b.FUSION_SOUL_MAX_TIER && main.tier > b.FUSION_SOUL_MAX_TIER) ? 1 : Math.max(1, Math.min(b.FUSION_SOUL_MAX || 1, Math.round(souls || 1)));
-    gold *= 1 - (b.FUSION_SOUL_GOLD_CUT || 0) * (n - 1);
+    gold *= Math.max(0, 1 - (b.FUSION_SOUL_GOLD_CUT || 0) * n); // [사용자 확정 10-26] 소울 1개당 -1%, 100개면 공짜
     var opts = [main.el];
     if (sub && sub.el !== main.el) opts.push(sub.el);
     return { gold: Math.round(gold / 10) * 10, soulTier: main.tier - 1, soulOptions: opts, souls: n };
@@ -469,7 +485,7 @@
   MM.stageEnemies = function (el, tier, rng) {
     var b = B(), top = tier >= b.MAX_TIER;
     var bossTier = top ? tier : tier + 1;
-    var lv = Math.round(tv(b.STAGE_ENEMY_LEVEL, tier)), mult = tv(b.STAGE_ENEMY_MULT, tier);
+    var lv = MM.summonLevel(tier), mult = tv(b.STAGE_ENEMY_MULT, tier);
     var mins = pickOthers([el], 2, rng);
     return [
       { el: mins[0], tier: tier, level: lv, mult: mult },
@@ -482,11 +498,12 @@
   // 적마다 1단계 소울은 반드시 1번 떨어짐 (개수는 1~3개 분포)
   MM.dungeonEnemies = function (els, tier) {
     var b = B();
-    var lv = Math.round(tv(b.DUNGEON_ENEMY_LEVEL, tier)), mult = tv(b.DUNGEON_ENEMY_MULT, tier);
+    var lv = MM.dungeonLevel(tier), mult = tv(b.DUNGEON_ENEMY_MULT, tier);
     var list = els.length === 1 ? [els[0], els[0], els[0]] : els.slice(0, 3);
     return list.map(function (e, i) { return { el: e, tier: tier, level: lv, mult: mult, boss: i === 1, guaranteeT1: true }; });
   };
 
+  MM.dungeonLevel = function (tier) { return tier < B().MAX_TIER ? MM.fuseLevelReq(tier) : MM.maxLevel(tier); };
   MM.dungeonElementFor = function (ms) { return B().DUNGEON_DAY_ELEMENT[MM.weekday(ms)]; };
   MM.dungeonUnlocked = function (s, tier) { return tier === 1 || !!s.dungeon.cleared[tier - 1]; };
   // 하루 기준 초기화. 자동 반복은 하루 AUTO_REPEAT_DAILY판씩 쌓이고 못 쓴 판은 AUTO_REPEAT_MAX까지 이월 (확정)
@@ -619,7 +636,7 @@
     var drops = MM.applyDrops(s, MM.rollDrops(enemies, rng, mult));
     var gold = Math.round(tv(b.CLEAR_GOLD, tier) * b.DUNGEON_GOLD_MULT);
     s.gold += gold;
-    var exp = MM.winExp(tier);
+    var exp = MM.winExp(tier) * (b.DUNGEON_EXP_MULT || 1);
     var ups = partyExp(s, exp);
     if (!opts.ticket) s.dungeon.cleared[tier] = true; // 입장권 던전은 요일 던전 진행에 영향 없음
     var bossTicket = null;
@@ -923,7 +940,7 @@
   // ================= 보스 =================
   MM.bossSrc = function (tier) {
     var b = B();
-    return { el: 'rainbow', tier: tier, level: tv(b.BOSS_LEVEL, tier), boss: true, raid: true };
+    return { el: 'rainbow', tier: tier, level: MM.summonLevel(tier), boss: true, raid: true };
   };
   MM.createBossBattle = function (partyMonsters, tier, rng) {
     var b = B(), bt = MM.createBattle(partyMonsters, [MM.bossSrc(tier)], rng);
@@ -931,7 +948,7 @@
     u.maxHp = u.hp = Math.round(u.maxHp * tv(b.BOSS_HP_MULT, tier));
     u.atk = Math.round(u.atk * tv(b.BOSS_ATK_MULT, tier));
     u.spd = Math.round(u.spd * b.BOSS_SPD_MULT * 10) / 10;
-    u.skills = b.BOSS_SKILLS[tier] || [];
+    u.skills = b.BOSS_SKILLS[tier] || b.BOSS_SKILLS[5] || []; // 6단계 이상은 5단계 스킬 묶음 (나중에 단계별로)
     u.raid = true; u.name = MM.bossName(tier);
     bt.maxRounds = b.BOSS_MAX_ROUNDS; bt.raid = tier; bt.healsLeft = b.BOSS_HEALS; bt.revivesLeft = b.BOSS_REVIVES;
     MM.newRound(bt, rng); bt.round = 1; // 보스 속도 반영해서 첫 라운드 순서 다시
@@ -961,20 +978,15 @@
     var b = B(), st = Math.min(tier + 1, b.MAX_TIER);
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
     var raw = MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1));
-    // 맨 위 단계 보스(지금 5단계): 3단계 이상은 고정 확률로 (6단계 스테이지가 생기면 그걸로 바꿀 예정) [사용자 확정]
-    if (tier >= b.MAX_TIER && b.BOSS_TOP_DROPS) {
-      Object.keys(raw).forEach(function (k) { if (MM.parseKey(k).tier >= 3) delete raw[k]; });
-      Object.keys(b.BOSS_TOP_DROPS).forEach(function (st2) {
-        if (R(rng)() < b.BOSS_TOP_DROPS[st2]) { var k2 = MM.speciesKey(MM.RING[Math.floor(R(rng)() * MM.RING.length)], +st2); raw[k2] = (raw[k2] || 0) + MM.rollSoulCount(rng); }
-      });
-    }
     var drops = MM.applyDrops(s, raw);
+    var gold = Math.round(tv(b.CLEAR_GOLD, st) * (b.BOSS_GOLD_MULT || 0));
+    s.gold += gold;
     var exp = MM.winExp(st) * b.BOSS_EXP_MULT;
     var ups = partyExp(s, exp);
     s.stats.battlesWon++;
     s.stats.bossWins = (s.stats.bossWins || 0) + 1;
     MM.addRecord(s, { type: 'boss', el: 'rainbow', tier: tier });
-    return { drops: drops, gold: 0, exp: exp, levelUps: ups, feather: feather };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather };
   };
 
   MM.simulateBattle = function (partyMonsters, enemies, rng) {

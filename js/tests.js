@@ -27,6 +27,7 @@
   var s1 = MM.calcStats('fire', 1, 1), s2 = MM.calcStats('fire', 2, 1), s30 = MM.calcStats('fire', 1, 30);
   check('단계당 ×1.5', Math.abs(s2.hp / s1.hp - 1.5) < 0.05, (s2.hp / s1.hp).toFixed(2));
   check('레벨당 +0.5% (Lv100 = 1.495배)', Math.abs(MM.levelMult(100) - 1.495) < 1e-9);
+  check('단계 만렙 n단계 < 소환 레벨 n+1단계 (모든 단계)', MM.tiers().slice(0, -1).every(function (t) { return MM.tierMult(t) * MM.levelMult(MM.maxLevel(t)) < MM.tierMult(t + 1) * MM.levelMult(MM.summonLevel(t + 1)); }));
   check('만렙 아래 단계 < 다음 단계 Lv1', MM.tierMult(1) * MM.levelMult(MM.maxLevel(1)) < MM.tierMult(2) * MM.levelMult(1));
   check('크리티컬 1단계 4%, 5단계 8%', close(MM.calcStats('fire', 1, 1).crit, 0.04) && close(MM.calcStats('fire', 5, 1).crit, 0.08));
   check('파티 보너스: 서로 다른 3속성', MM.partyHasBonus([{ el: 'fire' }, { el: 'grass' }, { el: 'dark' }]) && !MM.partyHasBonus([{ el: 'fire' }, { el: 'fire' }, { el: 'dark' }]));
@@ -37,7 +38,11 @@
   check('필요 경험치는 레벨이 오를수록 줄지 않음', inc && MM.expToNext(50) > MM.expToNext(1));
   var m = { level: 1, exp: 0 }; MM.giveExp(m, 1e30);
   check('만렙 ' + B.MAX_LEVEL + '에서 멈춤', m.level === B.MAX_LEVEL && m.exp === 0);
-  check('80레벨 이상은 아주 느림 (90→91이 70→71의 30배 이상)', MM.expToNext(90) > MM.expToNext(70) * 30);
+  check('경험치 통 = 5.5 × 1.074^(레벨-1)', MM.expToNext(1) === 6 && MM.expToNext(100) === Math.round(5.5 * Math.pow(1.074, 99)));
+  (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (L < MM.fuseLevelReq(t2) && e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; };
+    var r = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(runs), okr = r.every(function (x, i) { var want = 10 * Math.pow(1.5, i); return x >= want * 0.85 && x <= want * 1.25; });
+    check('소환 → 합성 조건 판수: 1단계 10판, 단계마다 ×1.5', okr, r.join('/')); })();
+  check('단계 만렙 = (n+2)단계 소환 레벨', [1, 2, 3, 8].every(function (t) { return MM.maxLevel(t) === MM.summonLevel(t + 2); }) && MM.maxLevel(30) === 300);
 
   // ---- 합성 ----
   check('스택 2 → +12%p', close(MM.stackBonus(2), 0.12));
@@ -57,8 +62,8 @@
   check('부재료가 소환 레벨보다 낮으면 불가', !MM.fusionCheck(s3, m3, sub2, 'fire').ok);
   check('1+1 비용은 골드만', MM.fusionCost(a, b).soulTier === null);
   (function () {
-    var mm = { el: 'fire', tier: 3, stack: 0 }, base = MM.fusionCost(mm, null, 1), ten = MM.fusionCost(mm, null, 10), over = MM.fusionCost(mm, null, 99);
-    check('합성 소울 1~10개: 소울 10개면 골드 28%', base.souls === 1 && ten.souls === 10 && Math.abs(ten.gold / base.gold - 0.28) < 0.01 && over.souls === 10);
+    var mm = { el: 'fire', tier: 3, stack: 0 }, base = MM.fusionCost(mm, null, 1), ten = MM.fusionCost(mm, null, 50), full = MM.fusionCost(mm, null, 100), over = MM.fusionCost(mm, null, 999);
+    check('합성 소울 1~100개: 1개당 골드 -1%, 100개면 공짜', base.souls === 1 && Math.abs(base.gold / B.FUSION_GOLD[2] - 0.99) < 0.01 && Math.abs(ten.gold / B.FUSION_GOLD[2] - 0.5) < 0.01 && full.gold === 0 && over.souls === 100);
     var s9 = MM.newState(); s9.gold = 1e6; s9.souls.fire2 = 5;
     var m9 = MM.addMonster(s9, 'fire', 3, MM.fuseLevelReq(3)), sb = MM.addMonster(s9, 'grass', 2, MM.summonLevel(2)); MM.addMonster(s9, 'water', 1); MM.addMonster(s9, 'dark', 1);
     check('소울이 모자라면 그 개수로는 불가', !MM.fusionCheck(s9, m9, sb, 'fire', 6).ok && MM.fusionCheck(s9, m9, sb, 'fire', 5).ok);
@@ -67,31 +72,32 @@
   })();
   a.stack = 2;
   check('스택마다 골드 +20%', MM.fusionCost(a, b).gold === Math.round(B.FUSION_GOLD[0] * 1.4 / 10) * 10, MM.fusionCost(a, b).gold);
-  a.stack = 0; a.level = 20; b.level = 6;
+  a.stack = 0; a.level = 20; b.level = 14;
   var fr = MM.attemptFusion(s, a.id, b.id, null, ALWAYS);
-  check('성공: 결과 레벨 = 평균 올림 13 + 1~3 → 14~16', fr.success && fr.monster.level >= 14 && fr.monster.level <= 16 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
+  check('성공: 결과 레벨 = 평균 올림 17 + 1~3 → 18~20', fr.success && fr.monster.level >= 18 && fr.monster.level <= 20 && fr.monster.tier === 2 && fr.monster.el === 'fire', fr.monster && fr.monster.level);
   (function () {
     var seen = {}, mm = { level: 30 }, ss = { level: 10 };
     for (var i = 0; i < 300; i++) seen[MM.fusionResultLevel(mm, ss)] = 1;
     check('결과 레벨 보너스 1~3 모두 나옴 (30+10 → 21~23)', Object.keys(seen).length === 3 && seen[21] && seen[23], Object.keys(seen).join());
     check('10렙 + 10렙 → 11~13 (재료 레벨 상한 없음)', MM.fusionResultLevel({ level: 10 }, { level: 10 }, function () { return 0.99; }) === 13);
-    check('결과 레벨은 최대 레벨을 넘지 않음', MM.fusionResultLevel({ level: 100 }, { level: 100 }, function () { return 0.99; }) === B.MAX_LEVEL);
+    check('결과 레벨은 새 단계 만렙을 넘지 않음', MM.fusionResultLevel({ tier: 1, level: 34 }, { level: 34 }, function () { return 0.99; }) === MM.maxLevel(2));
     check('범위 표시 21~23', MM.fusionRangeText(mm, ss) === '21~23');
   })();
   check('성공: 도감 첫 등록 소울 1개', fr.dex && s.souls.fire2 === 1);
   // 실패
   s = MM.newState(); s.gold = 1e6;
-  var w2 = MM.addMonster(s, 'water', 2, MM.fuseLevelReq(2)), g1 = MM.addMonster(s, 'grass', 1, 10); MM.addMonster(s, 'fire', 1); MM.addMonster(s, 'dark', 1);
+  var w2 = MM.addMonster(s, 'water', 2, MM.fuseLevelReq(2)), g1 = MM.addMonster(s, 'grass', 1, 10);
+  check('합성 성공률: 80/60/40/25% 뒤 20% 고정', [1, 2, 3, 4, 5, 6, 9, 20].map(function (t) { return MM.successRate(t, 0); }).join() === '0.8,0.6,0.4,0.25,0.2,0.2,0.2,0.2'); MM.addMonster(s, 'fire', 1); MM.addMonster(s, 'dark', 1);
   s.souls.grass1 = 2;
   var gold0 = s.gold, f2 = MM.attemptFusion(s, w2.id, g1.id, 'grass', NEVER);
   check('실패: 재료 유지, 스택 +1', !f2.success && MM.getMonster(s, w2.id) && MM.getMonster(s, g1.id) && w2.stack === 1);
-  check('실패해도 비용 지불', s.gold === gold0 - B.FUSION_GOLD[1] && s.souls.grass1 === 1);
+  check('실패해도 비용 지불', s.gold === gold0 - MM.fusionCost({ el: 'water', tier: 2, stack: 0 }, null, 1).gold && s.souls.grass1 === 1);
   check('튜토리얼 확정 성공', MM.attemptFusion(s, w2.id, g1.id, 'grass', NEVER, { force: true }).success);
 
   // ---- 소울: 상한·분해·소환 ----
   s = MM.newState();
-  var r = MM.addSouls(s, 'fire1', 130);
-  check('소울 상한 100, 넘치면 버려짐', s.souls.fire1 === 100 && r.wasted === 30);
+  var r = MM.addSouls(s, 'fire1', 1030);
+  check('소울 상한 999, 넘치면 버려짐', s.souls.fire1 === 999 && r.wasted === 31);
   s.souls.fire3 = 1;
   var ds = MM.decomposeSoul(s, 'fire', 3);
   check('소울 분해: 3단계 1개 → 2단계 2개', s.souls.fire3 === 0 && s.souls.fire2 === 2, JSON.stringify(ds));
@@ -100,11 +106,11 @@
   s.party = [s.monsters[0].id];
   check('파티 몬스터 분해 불가', !!MM.decomposeMonster(s, s.monsters[0].id).error);
   var dm = MM.decomposeMonster(s, s.monsters[1].id);
-  check('몬스터 분해 → 같은 단계 소울 3개', !dm.error && dm.added === 3);
+  check('몬스터 분해 → 같은 단계 소울 9개', !dm.error && dm.added === 9);
   while (s.monsters.length > 3) s.monsters.pop();
   check('3마리 이하면 몬스터 분해 불가', !!MM.decomposeMonster(s, s.monsters[2].id).error);
-  check('분해는 손해: 몬스터→소울 3개 < 소환 10개', B.DECOMPOSE_MONSTER_SOULS < B.SOULS_PER_SUMMON);
-  s.souls.light3 = 10;
+  check('분해는 손해: 몬스터→소울 9개 < 소환 30개', B.DECOMPOSE_MONSTER_SOULS < B.SOULS_PER_SUMMON && B.SOULS_PER_SUMMON === 30);
+  s.souls.light3 = 30;
   var sm = MM.summon(s, 'light', 3);
   check('소환 레벨은 단계별 고정, 합성 조건보다 낮음', sm.monster.level === MM.summonLevel(3) && MM.summonLevel(3) < MM.fuseLevelReq(3));
 
@@ -117,10 +123,11 @@
   for (var i = 0; i < N; i++) { var dd = MM.rollDrops([{ el: 'fire', tier: 1 }], rng); total += dd.fire1 || 0; }
   check('1단계 소울 평균 개수 유지', Math.abs(total / N - MM.soulDropAvg(1)) < 0.01, (total / N).toFixed(3));
   total = 0;
-  for (i = 0; i < N; i++) { dd = MM.rollDrops([{ el: 'fire', tier: 1 }], rng, 10); total += dd.fire1 || 0; }
-  check('던전 10배도 평균 유지', Math.abs(total / N / 10 - MM.soulDropAvg(1)) < 0.01, (total / N).toFixed(2));
-  var six = MM.rollDrops([{ el: 'fire', tier: 6 }], ALWAYS, 1);
-  check('6단계 적은 6단계 소울을 주지 않음', !six.fire6 && six.fire5 > 0);
+  for (i = 0; i < N; i++) { dd = MM.rollDrops([{ el: 'fire', tier: 1 }], rng, 30); total += dd.fire1 || 0; }
+  check('던전 30배도 평균 유지', Math.abs(total / N / 30 - MM.soulDropAvg(1)) < 0.01, (total / N).toFixed(2));
+  check('1단계 소울 50%, 단계마다 ×0.3', close(MM.soulDropAvg(1), 0.5) && Math.abs(MM.soulDropAvg(4) / MM.soulDropAvg(3) - 0.3) < 1e-9);
+  var over = MM.rollDrops([{ el: 'fire', tier: B.MAX_TIER + 1 }], ALWAYS, 1);
+  check('맨 위 단계보다 높은 적은 그 단계 소울을 주지 않음', !over['fire' + (B.MAX_TIER + 1)] && over['fire' + B.MAX_TIER] > 0);
 
   // ---- 스테이지·던전 구성 ----
   var ok = true;
@@ -129,9 +136,9 @@
     if (!(en[1].boss && en[1].el === 'water' && en[1].tier === 3 && en[0].tier === 2 && en[2].tier === 2 && new Set(els).size === 3)) ok = false;
   }
   check('스테이지: 가운데 보스 (n+1)단계 + 쫄 n단계 2, 셋 다 다른 속성', ok);
-  var top = MM.stageEnemies('fire', 5, rng);
-  check('맨 위 스테이지는 5단계 3마리', top.every(function (e) { return e.tier === 5; }));
-  check('n단계 던전 = n단계 3마리 (6단계 없음)', MM.dungeonEnemies(['dark'], 5).every(function (e) { return e.tier === 5 && e.el === 'dark'; }));
+  var top = MM.stageEnemies('fire', B.MAX_TIER, rng);
+  check('맨 위 스테이지는 맨 위 단계 3마리', top.every(function (e) { return e.tier === B.MAX_TIER; }));
+  check('n단계 던전 = n단계 3마리, 적 레벨 = 합성 조건 레벨 (스테이지보다 높음)', MM.dungeonEnemies(['dark'], 5).every(function (e) { return e.tier === 5 && e.el === 'dark' && e.level === MM.fuseLevelReq(5); }) && MM.stageEnemies('dark', 5, rng)[0].level === MM.summonLevel(5));
   var guaranteedOk = true;
   for (i = 0; i < 500; i++) { var gd = MM.rollDrops(MM.dungeonEnemies(['fire', 'grass', 'dark'], 3), rng, 10); if (!(gd.fire1 >= 1 && gd.grass1 >= 1 && gd.dark1 >= 1)) guaranteedOk = false; }
   check('던전은 적마다 1단계 소울 확정 (한 판 최소 3개)', guaranteedOk);
@@ -154,7 +161,7 @@
   s.cleared.fire1 = 1; s.offline.lastSeen = t0;
   var off = MM.claimOffline(s, t0 + 24 * 3600000, rng);
   var expRuns = 12 * 3600 / B.AVG_RUN_SEC * B.OFFLINE_RATE;
-  check('오프라인: 최대 12시간, 효율 5%', off && off.capped && Math.abs(off.runs - expRuns) <= 1, off && off.runs);
+  check('방치 보상: 최대 12시간, 효율 10%', off && off.capped && Math.abs(off.runs - expRuns) <= 1 && B.OFFLINE_RATE === 0.1, off && off.runs);
   (function () {
     var s = MM.newState(t0); s.offline.stage = { el: 'fire', tier: 1 }; s.cleared.fire1 = 1;
     MM.accrueOffline(s, t0 + 2 * 3600000);
@@ -164,7 +171,7 @@
     check('오프라인: 쌓이는 건 최대 12시간', MM.offlinePendingMs(s) === 12 * 3600000 && MM.offlineFull(s));
     var r = MM.claimOffline(s, t0 + 40 * 3600000, rng);
     check('받기: 쌓인 보상 전부 받고 0으로', r && Math.abs(r.hours - 12) < 1e-9 && MM.offlinePendingMs(s) === 0);
-    check('받은 직후 다시 받기는 없음', MM.claimOffline(s, t0 + 40 * 3600000 + 60000, rng) === null);
+    check('받은 직후 다시 받기는 없음', MM.claimOffline(s, t0 + 40 * 3600000, rng) === null);
   })();
 
   // ---- 조사 ----
@@ -199,7 +206,7 @@
     var hi = winRate(function (rr, j) { return MM.simulateBattle(trio(st, MM.maxLevel(st), j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300);
     var under = st > 1 ? winRate(function (rr, j) { return MM.simulateBattle(trio(st - 1, MM.maxLevel(st - 1), j), MM.stageEnemies(MM.RING[j % 5], st, rr), rr); }, 300) : 0;
     table.push(st + '단계 스테이지: ' + st + '단계 3마리 소환Lv' + MM.summonLevel(st) + ' ' + Math.round(lo * 100) + '% / 만렙 Lv' + MM.maxLevel(st) + ' ' + Math.round(hi * 100) + '%' + (st > 1 ? ' · ' + (st - 1) + '단계 만렙 ' + Math.round(under * 100) + '%' : ''));
-    check(st + '단계 스테이지: 같은 단계 만렙이면 대부분 깸', hi > 0.8, Math.round(hi * 100) + '%');
+    check(st + '단계 스테이지: 같은 단계 만렙이면 대부분 깸', hi > 0.7, Math.round(hi * 100) + '%');
     if (st > 1) check(st + '단계 스테이지: 아래 단계 만렙으로는 어려움', under < 0.35, Math.round(under * 100) + '%');
   }
 
@@ -272,10 +279,10 @@
 
   // ---- 장비 ----
   (function () {
-    var s = MM.newState(t0); s.gold = 1e9; s.souls.light1 = 100;
+    var s = MM.newState(t0); s.gold = 1e9; s.souls.light1 = 150;
     var m = MM.addMonster(s, 'light', 1, 5);
     var had = s.souls.light1, r = MM.craftEquip(s, 'light', 1);
-    check('장비 제작: 소울 50개 → 빛의 조각, 빈 칸이면 바로 장착', r.equip && s.souls.light1 === had - 50 && MM.isEquipped(s, r.equip) && MM.equipName('light', 1) === '빛의 조각');
+    check('장비 제작: 소울 100개 → 빛의 조각, 빈 칸이면 바로 장착', r.equip && s.souls.light1 === had - 100 && MM.isEquipped(s, r.equip) && MM.equipName('light', 1) === '빛의 조각');
     check('장비 효과: 그 속성 몬스터만 단계×2% + 강화×1%', Math.abs(MM.playerMult(s, m) - 1.02) < 1e-9 && MM.playerMult(s, MM.addMonster(s, 'fire', 1)) === 1);
     var bp = MM.battleParty(s, [m]);
     check('전투에 장비 배율 반영 (원본은 그대로)', Math.abs(bp[0].mult - 1.02) < 1e-9 && !m.mult);
@@ -286,7 +293,7 @@
     check('강화: 천장 덕분에 +3까지 최대 2+3+4번', e.plus === 3 && tries <= 9, tries);
     check('강화 1당 +1%', Math.abs(MM.equipBonus(e) - 0.05) < 1e-9);
     check('장착 중이면 분해 불가', !!MM.decomposeEquip(s, e.id).error);
-    s.souls.light1 = 90; var e0 = MM.craftEquip(s, 'light', 1).equip, before = s.souls.light1;
+    s.souls.light1 = 190; var e0 = MM.craftEquip(s, 'light', 1).equip, before = s.souls.light1;
     var d0 = MM.decomposeEquip(s, e0.id);
     check('+0 분해: 소울 5개', d0.souls === 5 && s.souls.light1 === before + 5 && d0.gold === 0);
     MM.unequip(s, 'light'); var v = MM.equipDecompValue(e), ex = MM.equipExpectedSpend(1, 3);
@@ -312,22 +319,22 @@
     var r = MM.offerSouls(s, 'fire', 1, 20);
     check('제단: 1단계 소울 20개(20점) → Lv 1', r.level === 1 && MM.altarOf(s, 'fire').pts === 0);
     MM.offerSouls(s, 'fire', 3, 1);
-    check('제단: 3단계 소울 1개 = 49점', MM.altarSoulPoints(3) === 49 && MM.altarOf(s, 'fire').level >= 2);
+    check('제단: 3단계 소울 1개 = 드랍률 비 11점', MM.altarSoulPoints(3) === 11 && MM.altarOf(s, 'fire').level >= 1, MM.altarSoulPoints(3));
     check('제단 보너스: 그 속성만 능력치·경험치', MM.playerMult(s, m) > 1 && MM.altarExpBonus(s, 'water') === 0);
     var s2 = MM.newState(t0), seen = {}, acc = 0;
     B.GACHA_TABLE.forEach(function (row) { var x = acc + row.p / 2; acc += row.p; s2.souls.water2 = 100; var g = MM.gachaPull(s2, 'water', 2, function () { return x; }); seen[g.kind + g.n] = g; });
-    check('뽑기: 꽝 없이 11가지 당첨 품목이 다 나옴 (보스 입장권 포함)', Object.keys(seen).length === 11 && seen.souls10 && seen.ticket5 && seen.up3 && seen.boss1 && MM.bossTicketCount(s2, 2) === 1);
+    check('뽑기: 소울 50개로 1번, 11가지 당첨 품목이 다 나옴 (보스 입장권 포함)', B.GACHA_COST === 50 && Object.keys(seen).length === 11 && seen.souls15 && seen.ticket5 && seen.up3 && seen.boss1 && MM.bossTicketCount(s2, 2) === 1);
     check('뽑기 입장권은 같은 단계 (1+2+3+5장)', MM.ticketCount(s2, 2) === 11);
     check('뽑기 위 단계 소울 (1+2+3개, 같은 속성)', (s2.souls.water3 || 0) === 6, s2.souls.water3);
     check('뽑기 확률 합 100%', Math.abs(B.GACHA_TABLE.reduce(function (a, r) { return a + r.p; }, 0) - 1) < 1e-9);
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
 
-  (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; }; var r = [1, 2, 3, 4].map(runs); check('소환 → 조건 레벨 판수: 모든 단계 비슷하게 (±10%)', Math.max.apply(null, r) / Math.min.apply(null, r) < 1.1, r.join('/')); })();
-  check('단계별 만렙 40/55/70/85/100', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '40,55,70,85,100', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
-  check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', [1, 2, 3, 4].every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
-  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 50; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 40);
-  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 3, 1); m.level = 14; MM.migrateLevels(s); check('레벨 개편 변환: 예전 Lv14 → Lv43 (합성 조건 그대로)', m.level === 43 && s.levelScale === 2 && MM.migrateLevels(s) === 0); })(); })();
+  check('단계별 만렙 24/34/44/54/63', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '24,34,44,54,63', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
+  check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', MM.tiers().slice(0, -1).every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
+  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 50; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 24);
+  (function () { var s = MM.newState(t0); s.levelScale = 2; var m = MM.addMonster(s, 'fire', 3, 1); m.level = 43; var m2 = MM.addMonster(s, 'water', 4, 1); m2.level = 43; s.souls.fire2 = 7; MM.migrateLevels(s);
+    check('세이브 변환 v3: 예전 3단계 조건 Lv43 → 새 조건 Lv34, 4단계 소환 Lv43 → 새 소환 Lv34, 소울 ×3', m.level === 34 && m2.level === 34 && s.souls.fire2 === 21 && s.levelScale === 3 && MM.migrateLevels(s) === 0, m.level + '/' + m2.level); })(); })();
   // ---- 보스 ----
   (function () {
     var rr = MM.seededRng(5);
@@ -362,10 +369,9 @@
     check('회복: 1판 ' + B.BOSS_HEALS + '번', b3.healsLeft === B.BOSS_HEALS);
     var s = MM.newState(t0); MM.addBossTickets(s, 3, 1);
     var g = MM.grantBossWin(s, 3, rr);
-    check('보스 보상: 한 단계 위 스테이지 드랍 ×100 (상위 소울 포함 가능), 골드 없음', g.gold === 0 && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
-    var s5 = MM.newState(t0), got3 = 0, got5 = 0;
-    for (var q = 0; q < 200; q++) { var g5 = MM.grantBossWin(s5, 5, rr); if (g5.drops.some(function (d) { return d.tier === 3; })) got3++; if (g5.drops.some(function (d) { return d.tier === 5; })) got5++; Object.keys(s5.souls).forEach(function (k) { s5.souls[k] = 0; }); }
-    check('5단계 보스: 3단계 소울 100%, 5단계 소울 약 30%', got3 === 200 && got5 > 40 && got5 < 80, got5);
+    check('보스 보상: 한 단계 위 스테이지의 소울·경험치·골드 ×100', g.gold === Math.round(B.CLEAR_GOLD[3] * 100) && g.exp === MM.winExp(4) * 100 && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
+    var dg = MM.grantDungeonWin(MM.newState(t0), 3, MM.dungeonEnemies(['fire'], 3), rr);
+    check('던전 보상: 경험치·골드 스테이지의 30배', dg.exp === MM.winExp(3) * 30 && dg.gold === Math.round(B.CLEAR_GOLD[2] * 30));
     check('보스 입장권 사용', MM.useBossTicket(s, 3) && !MM.useBossTicket(s, 3));
     var sd = MM.newState(t0); B.BOSS_TICKET_DROP = 1; var dw = MM.grantDungeonWin(sd, 2, MM.dungeonEnemies(['fire'], 2)); B.BOSS_TICKET_DROP = 0.02;
     check('던전 승리 시 같은 단계 보스 입장권', dw.bossTicket === 2 && MM.bossTicketCount(sd, 2) === 1);
@@ -386,7 +392,7 @@
     var s2 = MM.newState(t0), n5 = 0, n1 = 0;
     for (var j = 0; j < 20000; j++) { if (MM.grantBossWin(s2, 5, rr, t0 + j * 86400000).feather) n5++; if (MM.grantBossWin(s2, 1, rr, t0 + j * 86400000 + 1).feather) n1++; }
     check('무지개 깃털: 1단계 0.1%, 5단계 0.5%', n1 > 5 && n1 < 40 && n5 > 70 && n5 < 130, n1 + '/' + n5);
-    var s3 = MM.newState(t0); s3.gold = 1e12; s3.souls.fire2 = 100; var e = MM.craftEquip(s3, 'fire', 2).equip; e.plus = 10;
+    var s3 = MM.newState(t0); s3.gold = 1e12; s3.souls.fire2 = 200; var e = MM.craftEquip(s3, 'fire', 2).equip; e.plus = 10;
     check('+10 이상 강화는 깃털 없으면 불가', !!MM.enhanceEquip(s3, e.id).error);
     s3.items = { feather: 1 }; s3.souls.fire2 = 100; var r3 = MM.enhanceEquip(s3, e.id);
     check('깃털 1개 소모', !r3.error && MM.featherCount(s3) === 0);

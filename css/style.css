@@ -290,3 +290,12 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .soul-n .btn { min-width: 44px; font-size: 18px; }
 .mon img { display: block; image-rendering: auto; -webkit-user-drag: none; }
 .mon img.sil { filter: brightness(0) invert(.22) sepia(.4) hue-rotate(210deg); opacity: .8; }
+
+/* [10-26] 자동 반복 알림 줄: 칩이 줄바꿈되고 버튼은 밀려나지 않게 (93번) */
+.ready-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.ready-row .chip { flex: 1; min-width: 0; white-space: normal; line-height: 1.35; }
+.ready-row .btn { flex-shrink: 0; white-space: nowrap; }
+/* 방치 보상 단계 고르기: 가로 스크롤 */
+.tier-scroll { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 6px; -webkit-overflow-scrolling: touch; }
+.tier-scroll .btn { flex-shrink: 0; }
+.soul-n { flex-wrap: wrap; }
