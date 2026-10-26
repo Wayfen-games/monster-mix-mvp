@@ -110,7 +110,7 @@
     return defs + back + body + (front ? front : '') + face;
   }
   // 그림 파일이 있는 종은 그림으로 (art/불1 = art/fire1.png), 없으면 코드 그림
-  var ART = { fire1: 1, water1: 1, grass1: 1, light1: 1, dark1: 1, rainbow1: 1, rainbow2: 1, rainbow3: 1 };
+  var ART = { fire1: 1, water1: 1, grass1: 1, light1: 1, dark1: 1, rainbow1: 1, rainbow2: 1, rainbow3: 1, fire2: 1, water2: 1, grass2: 1, light2: 1, dark2: 1 };
   MM.ART = ART;
   function artOf(el, tier) { var k = el + tier; return ART[k] ? 'art/' + k + '.png' : null; }
   function monSvg(el, tier, size, sil) {
