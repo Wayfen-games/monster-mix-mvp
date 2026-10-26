@@ -406,10 +406,10 @@
     var leftB = MM.bossLeftToday(S, Date.now());
     var html = '<div class="card"><div class="row between"><b>🌈 무지개 보스</b><span class="chip gold">입장권 ' + MM.bossTicketTotal(S) + '장</span></div>' +
       '<div class="row between small" style="margin-top:6px"><span>오늘 보상 <b>' + leftB + '/' + BAL().BOSS_DAILY_REWARDS + '</b>번 남음</span><span>🪶 무지개 깃털 <b>' + MM.featherCount(S) + '</b>개</span></div>' +
-      '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×0.1% 확률로 🪶 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
+      '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×0.1% 확률로 🪶 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 입장권은 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
     MM.tiers().forEach(function (t) {
       var n = MM.bossTicketCount(S, t), sk = BAL().BOSS_SKILLS[t] || [];
-      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 무지개 보스</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장</span></div>' +
+      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 무지개 보스</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
         '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + MM.summonLevel(t) + ' 이상 3마리</div></div>' +
         '<button class="btn primary sm block" data-act="startBoss" data-tier="' + t + '"' + (n && S.party.length && leftB ? '' : ' disabled') + '>' + (n ? (leftB ? '도전 (이기면 입장권 1장 사용)' : '오늘 보상을 다 받았어요') : t + '단계 던전에서 입장권을 모아 보세요') + '</button></div>';
     });
@@ -418,14 +418,14 @@
   function ticketHtml() {
     var els = view.ticketEls, ready = els.length === 3;
     var html = '<div class="card"><div class="row between"><b>🎟 입장권 던전</b><span class="chip gold">입장권 ' + MM.ticketTotal(S) + '장</span></div>' +
-      '<div class="muted small lh" style="margin-top:6px">입장권으로만 들어가는 던전이에요. 요일 던전 하루 ' + BAL().DUNGEON_DAILY + '번과 별개 · 요일 상관없이 속성 3개 선택 · 보상은 요일 던전과 같아요<br>입장권은 스테이지(자동 반복 포함)와 방치 보상에서 가끔 나와요 · 유효기간 없음 · 이겨서 보상을 받을 때만 1장 써요</div></div>' +
+      '<div class="muted small lh" style="margin-top:6px">입장권으로만 들어가는 던전이에요. 요일 던전 하루 ' + BAL().DUNGEON_DAILY + '번과 별개 · 요일 상관없이 속성 3개 선택 · 보상은 요일 던전과 같아요<br>입장권은 스테이지(자동 반복 포함)와 방치 보상에서 가끔 나와요 · 유효기간 없음 · 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 이겨서 보상을 받을 때만 1장 써요</div></div>' +
       '<div class="card"><b>서로 다른 속성 3개 고르기 (' + els.length + '/3)</b><div class="el-pick" style="margin:10px 0 0">' + MM.RING.map(function (el) {
         return '<button class="' + (els.indexOf(el) >= 0 ? 'on' : '') + '" data-act="tEl" data-el="' + el + '">' + monSvg(el, 2, 28) + '<div>' + MM.ELEMENTS[el].name + '</div></button>';
       }).join('') + '</div></div>';
     MM.tiers().forEach(function (t) {
       var n = MM.ticketCount(S, t);
       var icons = ready ? els.map(function (e) { return monSvg(e, t, 34); }).join('') : unknownSvg(34) + unknownSvg(34) + unknownSvg(34);
-      html += '<div class="card" style="' + (n ? '' : 'opacity:.55') + '"><div class="row between"><div><b>' + t + '단계 입장권 던전</b> <span class="muted small">' + t + '단계 3마리 · 1단계 소울 확정</span></div><span class="chip' + (n ? ' gold' : '') + '">🎟 ' + n + '장</span></div>' +
+      html += '<div class="card" style="' + (n ? '' : 'opacity:.55') + '"><div class="row between"><div><b>' + t + '단계 입장권 던전</b> <span class="muted small">' + t + '단계 3마리 · 1단계 소울 확정</span></div><span class="chip' + (n ? ' gold' : '') + '">🎟 ' + n + '장' + (MM.ticketBound(S, t) ? ' · 교환 불가 ' + MM.ticketBound(S, t) : '') + '</span></div>' +
         '<div class="row" style="margin:10px 0;justify-content:center;gap:12px">' + icons + '</div>' +
         '<button class="btn primary sm block" data-act="startTicket" data-tier="' + t + '"' + (n && ready && S.party.length ? '' : ' disabled') + '>' + (n ? '도전 (이기면 입장권 1장 사용)' : t + '단계 스테이지에서 입장권을 모아 보세요') + '</button></div>';
     });
@@ -1508,6 +1508,7 @@
   load();
   if (MM.migrateLevels(S) && S.tutorial.done) view.rescaled = true;
   if (MM.clampLevels(S)) view.clamped = true;
+  MM.migrateBoundTickets(S);
   if (S.tutorial.done) { var oldSets = MM.checkAllDexSets(S); if (oldSets.length) setTimeout(function () { showNotice('🎉 도감 세트 보상', oldSets.map(function (x) { return x.tier + '단계'; }).join(', ') + ' 5종 완성 보상: 입장권·보스 입장권을 받았어요'); }, 900); }
   if (S.tutorial.done) MM.accrueOffline(S, Date.now());
   // 테스트용: 주소 뒤 ?dev=refund-dungeon → 오늘 던전 횟수 1회 돌려주기 (시제품 전용)

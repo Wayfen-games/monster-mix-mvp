@@ -17,7 +17,7 @@
       offline: { stage: null, lastSeen: now, pendingMs: 0, carry: 0, bag: { souls: {}, gold: 0, exp: 0, runs: 0 }, team: [] },
       tutorial: { step: 0, done: false },
       records: [],
-      equips: [], equipped: {}, altar: {},
+      equips: [], equipped: {}, altar: {}, boundV: 1,
       settings: { autoBattle: true, recordOn: true, fastTest: false },
       stats: { fusionTries: 0, fusionSuccess: 0, battlesWon: 0, battlesLost: 0, startedAt: now }
     };
@@ -59,7 +59,7 @@
     if (s.dexSets[tier] || !MM.RING.every(function (el) { return s.dex[MM.speciesKey(el, tier)]; })) return null;
     s.dexSets[tier] = true;
     var b = B();
-    if (s.dungeon) { MM.addTickets(s, tier, b.DEX_SET_TICKETS); MM.addBossTickets(s, tier, b.DEX_SET_BOSS_TICKETS); }
+    if (s.dungeon) { MM.addTickets(s, tier, b.DEX_SET_TICKETS, true); MM.addBossTickets(s, tier, b.DEX_SET_BOSS_TICKETS, true); } // 도감 보상은 교환 불가 [사용자 확정 10-26]
     MM.addRecord(s, { type: 'dexset', el: 'rainbow', tier: tier });
     return { tier: tier, tickets: b.DEX_SET_TICKETS, boss: b.DEX_SET_BOSS_TICKETS };
   };
@@ -648,12 +648,20 @@
   // 입장권 던전
   MM.ticketCount = function (s, tier) { return ((s.dungeon.tickets || {})[tier]) || 0; };
   MM.ticketTotal = function (s) { var tk = s.dungeon.tickets || {}; return Object.keys(tk).reduce(function (a, k) { return a + (tk[k] || 0); }, 0); };
+  // [사용자 확정 10-26] 입장권은 교환 가능 / 교환 불가로 나뉨. tickets = 전체 개수, boundTickets = 그중 교환 불가 (도감 세트 보상)
+  // 쓸 때는 교환 불가부터 씀 (교환 가능한 건 나중에 경매장에 팔 수 있게 남김)
+  MM.ticketBound = function (s, tier) { return Math.min(MM.ticketCount(s, tier), ((s.dungeon.boundTickets || {})[tier]) || 0); };
+  MM.ticketBoundTotal = function (s) { return MM.tiers().reduce(function (a, t) { return a + MM.ticketBound(s, t); }, 0); };
   MM.useTicket = function (s, tier) {
     if (MM.ticketCount(s, tier) <= 0) return false;
+    if (MM.ticketBound(s, tier) > 0) s.dungeon.boundTickets[tier]--;
     s.dungeon.tickets[tier]--;
     return true;
   };
-  MM.addTickets = function (s, tier, n) { s.dungeon.tickets = s.dungeon.tickets || {}; s.dungeon.tickets[tier] = (s.dungeon.tickets[tier] || 0) + n; };
+  MM.addTickets = function (s, tier, n, bound) {
+    s.dungeon.tickets = s.dungeon.tickets || {}; s.dungeon.tickets[tier] = (s.dungeon.tickets[tier] || 0) + n;
+    if (bound) { s.dungeon.boundTickets = s.dungeon.boundTickets || {}; s.dungeon.boundTickets[tier] = (s.dungeon.boundTickets[tier] || 0) + n; }
+  };
   // 요일 던전 횟수 사용 (전투 시작 또는 소탕 시)
   MM.useDungeonEntry = function (s, now) {
     if (MM.dungeonLeft(s, now) <= 0) return false;
@@ -970,8 +978,27 @@
   };
   MM.bossTicketCount = function (s, tier) { return ((s.dungeon.bossTickets || {})[tier]) || 0; };
   MM.bossTicketTotal = function (s) { var tk = s.dungeon.bossTickets || {}; return Object.keys(tk).reduce(function (a, k) { return a + (tk[k] || 0); }, 0); };
-  MM.addBossTickets = function (s, tier, n) { s.dungeon.bossTickets = s.dungeon.bossTickets || {}; s.dungeon.bossTickets[tier] = (s.dungeon.bossTickets[tier] || 0) + n; };
-  MM.useBossTicket = function (s, tier) { if (MM.bossTicketCount(s, tier) <= 0) return false; s.dungeon.bossTickets[tier]--; return true; };
+  // 예전 세이브: 이미 받은 도감 세트 입장권은 (남아 있는 만큼) 교환 불가로 표시
+  MM.migrateBoundTickets = function (s) {
+    if (s.boundV || !s.dungeon) return false;
+    s.boundV = 1;
+    Object.keys(s.dexSets || {}).forEach(function (t) {
+      t = +t; s.dungeon.boundTickets = s.dungeon.boundTickets || {}; s.dungeon.boundBossTickets = s.dungeon.boundBossTickets || {};
+      s.dungeon.boundTickets[t] = Math.min(MM.ticketCount(s, t), B().DEX_SET_TICKETS);
+      s.dungeon.boundBossTickets[t] = Math.min(MM.bossTicketCount(s, t), B().DEX_SET_BOSS_TICKETS);
+    });
+    return true;
+  };
+  MM.addBossTickets = function (s, tier, n, bound) {
+    s.dungeon.bossTickets = s.dungeon.bossTickets || {}; s.dungeon.bossTickets[tier] = (s.dungeon.bossTickets[tier] || 0) + n;
+    if (bound) { s.dungeon.boundBossTickets = s.dungeon.boundBossTickets || {}; s.dungeon.boundBossTickets[tier] = (s.dungeon.boundBossTickets[tier] || 0) + n; }
+  };
+  MM.bossTicketBound = function (s, tier) { return Math.min(MM.bossTicketCount(s, tier), ((s.dungeon.boundBossTickets || {})[tier]) || 0); };
+  MM.useBossTicket = function (s, tier) {
+    if (MM.bossTicketCount(s, tier) <= 0) return false;
+    if (MM.bossTicketBound(s, tier) > 0) s.dungeon.boundBossTickets[tier]--;
+    s.dungeon.bossTickets[tier]--; return true;
+  };
   MM.bossLeftToday = function (s, now) {
     var d = MM.dayKey(now || Date.now());
     if (!s.bossDaily || s.bossDaily.day !== d) s.bossDaily = { day: d, used: 0 };

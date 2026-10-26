@@ -433,6 +433,17 @@
     check('화면(ui.js)이 쓰는 밸런스 값이 모두 있음', missing.length === 0, missing.join(','));
   }
 
+  // ---- 입장권 교환 가능/불가 [사용자 확정 10-26] ----
+  (function () {
+    var s = MM.newState(t0);
+    MM.addTickets(s, 2, 2); ['fire', 'grass', 'water', 'light', 'dark'].forEach(function (el) { MM.addMonster(s, el, 2, 13); });
+    check('도감 세트 입장권·보스 입장권은 교환 불가', MM.ticketCount(s, 2) === 5 && MM.ticketBound(s, 2) === 3 && MM.bossTicketCount(s, 2) === 1 && MM.bossTicketBound(s, 2) === 1);
+    MM.useTicket(s, 2); MM.useBossTicket(s, 2);
+    check('쓸 때는 교환 불가부터', MM.ticketCount(s, 2) === 4 && MM.ticketBound(s, 2) === 2 && MM.bossTicketBound(s, 2) === 0);
+    MM.useTicket(s, 2); MM.useTicket(s, 2); MM.useTicket(s, 2);
+    check('교환 불가를 다 쓰면 교환 가능을 씀', MM.ticketCount(s, 2) === 1 && MM.ticketBound(s, 2) === 0);
+  })();
+
   // ---- 출력 ----
   var pass = results.filter(function (x) { return x.ok; }).length;
   var summary = '통과 ' + pass + ' / ' + results.length;
