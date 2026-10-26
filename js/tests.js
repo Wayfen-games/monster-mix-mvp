@@ -425,6 +425,14 @@
     check('가진 것보다 많이 요청하면 가진 만큼만', r4.used === have1 && s.souls.fire1 === 0, JSON.stringify(r4));
   })();
 
+  // ---- 화면 코드가 없는 밸런스 값을 쓰지 않는지 (Node에서만) [10-26 스테이지 안 들어가지던 버그] ----
+  if (typeof require !== 'undefined') {
+    var uiSrc = require('fs').readFileSync(require('path').join(__dirname, 'ui.js'), 'utf8'), keys = {}, mk;
+    var re = /BAL\(\)\.([A-Z][A-Z0-9_]*)/g; while ((mk = re.exec(uiSrc))) keys[mk[1]] = 1;
+    var missing = Object.keys(keys).filter(function (k) { return B[k] === undefined; });
+    check('화면(ui.js)이 쓰는 밸런스 값이 모두 있음', missing.length === 0, missing.join(','));
+  }
+
   // ---- 출력 ----
   var pass = results.filter(function (x) { return x.ok; }).length;
   var summary = '통과 ' + pass + ' / ' + results.length;

@@ -182,7 +182,7 @@
   // ================= 마을 =================
   SCREENS.altar = function () {
     var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🔥 소울 제단</h2>' +
-      '<div class="muted small lh" style="margin-bottom:10px">속성마다 제단이 있어요. 그 속성 소울을 바치면 제단 레벨이 오르고, 그 속성 몬스터 전체가 영구히 강해져요.<br>레벨당 경험치 +' + Math.round(BAL().ALTAR_EXP_PER_LV * 100) + '% · 체력·공격·방어 +' + (BAL().ALTAR_STAT_PER_LV * 100) + '% · 높은 단계 소울일수록 많이 차요 (n단계 = ' + BAL().ALTAR_SOUL_POINTS_GROWTH + '^(n-1)점)</div>';
+      '<div class="muted small lh" style="margin-bottom:10px">속성마다 제단이 있어요. 그 속성 소울을 바치면 제단 레벨이 오르고, 그 속성 몬스터 전체가 영구히 강해져요.<br>레벨당 경험치 +' + Math.round(BAL().ALTAR_EXP_PER_LV * 100) + '% · 체력·공격·방어 +' + (BAL().ALTAR_STAT_PER_LV * 100) + '% · 귀한(높은 단계) 소울일수록 많이 차요 (1단계 1점 · 2단계 ' + MM.altarSoulPoints(2) + '점 · 3단계 ' + MM.altarSoulPoints(3) + '점 …)</div>';
     MM.RING.forEach(function (el) {
       var a = MM.altarOf(S, el), need = MM.altarNeed(a.level);
       html += '<div class="card"><div class="row between"><div class="row" style="gap:8px">' + monSvg(el, 3, 32) + '<b>' + MM.ELEMENTS[el].name + ' 제단 Lv ' + a.level + '</b></div><button class="btn sm primary" data-act="offerSheet" data-el="' + el + '">바치기</button></div>' +
@@ -344,7 +344,7 @@
     var pm = partyMons();
     var html = '<button class="btn sm" data-act="tab" data-tab="stages">← 스테이지 목록</button>' +
       '<h2 style="margin-top:12px">' + elName(st.el) + ' ' + st.tier + '단계 스테이지</h2>' +
-      '<div class="card"><div class="muted small">등장하는 적 (보스 Lv ' + Math.round(MM.tierVal(BAL().STAGE_ENEMY_LEVEL, st.tier)) + ')</div><div class="enemy-row">' +
+      '<div class="card"><div class="muted small">등장하는 적 (보스 Lv ' + MM.stageEnemies(st.el, st.tier)[1].level + ')</div><div class="enemy-row">' +
       '<div>' + unknownSvg(46) + '<div>' + st.tier + '단계 쫄</div><div class="muted small">랜덤</div></div>' +
       '<div class="boss">' + monSvg(st.el, bossT, 66) + '<div>보스 ' + MM.speciesName(st.el, bossT) + '</div>' + weakText(st.el) + '</div>' +
       '<div>' + unknownSvg(46) + '<div>' + st.tier + '단계 쫄</div><div class="muted small">랜덤</div></div>' +
