@@ -17,7 +17,7 @@
       offline: { stage: null, lastSeen: now, pendingMs: 0, carry: 0, bag: { souls: {}, gold: 0, exp: 0, runs: 0 }, team: [] },
       tutorial: { step: 0, done: false },
       records: [],
-      equips: [], equipped: {}, altar: {}, boundV: 1,
+      equips: [], equipped: {}, altar: {},
       settings: { autoBattle: true, recordOn: true, fastTest: false },
       stats: { fusionTries: 0, fusionSuccess: 0, battlesWon: 0, battlesLost: 0, startedAt: now }
     };
