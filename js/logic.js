@@ -314,12 +314,14 @@
   MM.winExp = function (stageTier) { return Math.round(B().EXP_WIN * Math.pow(B().EXP_WIN_GROWTH, stageTier - 1) * tv(B().EXP_EARLY_MULT || [1], stageTier)); };
 
   MM.maxLevel = function (tier) { return tier ? Math.min(B().MAX_LEVEL, Math.round(tv(B().TIER_MAX_LEVEL, tier))) : B().MAX_LEVEL; };
-  // 세이브 변환. v2: 만렙 30 → 100 (3.25배). v3 [10-26 대정리]: 만렙 300 표로 (단계별 소환·조건·만렙을 기준점으로 구간 변환), 소울 ×3 (소환 10 → 30개)
-  MM.LEVEL_SCALE_VERSION = 3;
+  // 세이브 변환. v2: 만렙 30 → 100 (3.25배). v3 [10-26 대정리]: 만렙 300 표 (단계별 소환·조건·만렙 기준점으로 구간 변환), 소울 ×3.
+  // v4 [10-26 22:28]: 판수 ×1.5 → ×1.7 표로 (같은 방식으로 구간 변환)
+  MM.LEVEL_SCALE_VERSION = 4;
   var V2 = { summon: [1, 17, 30, 43, 56], fuse: [14, 30, 43, 56, 78], max: [40, 55, 70, 85, 100] };
-  MM.convertLevelV2 = function (tier, lv) {
-    var t = Math.min(tier, 5) - 1;
-    var from = [1, V2.summon[t], V2.fuse[t], V2.max[t]], to = [1, MM.summonLevel(tier), tier < B().MAX_TIER ? MM.fuseLevelReq(tier) : Math.round((MM.summonLevel(tier) + MM.maxLevel(tier)) / 2), MM.maxLevel(tier)];
+  var V3 = { summon: [1, 13, 24, 34, 44, 54, 63, 72, 82, 91], fuse: [13, 24, 34, 44, 54, 63, 72, 82, 91, 100], max: [24, 34, 44, 54, 63, 72, 82, 91, 100, 110] };
+  function convertBy(old, tier, lv) {
+    var t = Math.min(tier, old.summon.length) - 1;
+    var from = [1, old.summon[t], old.fuse[t], old.max[t]], to = [1, MM.summonLevel(tier), tier < B().MAX_TIER ? MM.fuseLevelReq(tier) : Math.round((MM.summonLevel(tier) + MM.maxLevel(tier)) / 2), MM.maxLevel(tier)];
     for (var i = 1; i < from.length; i++) {
       if (lv <= from[i] || i === from.length - 1) {
         var a = from[i - 1], b2 = from[i], k = b2 > a ? (Math.min(lv, b2) - a) / (b2 - a) : 1;
@@ -327,13 +329,19 @@
       }
     }
     return lv;
-  };
+  }
+  MM.convertLevelV2 = function (tier, lv) { return convertBy(V2, tier, lv); };
+  MM.convertLevelV3 = function (tier, lv) { return convertBy(V3, tier, lv); };
   MM.migrateLevels = function (s) {
     if (s.levelScale === MM.LEVEL_SCALE_VERSION) return 0;
     var n = 0;
-    if (s.levelScale !== 2) s.monsters.forEach(function (m) { m.level = Math.round(1 + (m.level - 1) * 3.25); });
-    s.monsters.forEach(function (m) { m.level = MM.convertLevelV2(m.tier, m.level); m.exp = 0; n++; });
-    Object.keys(s.souls || {}).forEach(function (k) { s.souls[k] = Math.min(B().SOUL_CAP, s.souls[k] * 3); });
+    if (s.levelScale !== 2 && s.levelScale !== 3) s.monsters.forEach(function (m) { m.level = Math.round(1 + (m.level - 1) * 3.25); });
+    if (s.levelScale !== 3) {
+      s.monsters.forEach(function (m) { m.level = MM.convertLevelV2(m.tier, m.level); });
+      Object.keys(s.souls || {}).forEach(function (k) { s.souls[k] = Math.min(B().SOUL_CAP, s.souls[k] * 3); });
+    } else s.monsters.forEach(function (m) { m.level = MM.convertLevelV3(m.tier, m.level); });
+    s.monsters.forEach(function (m) { m.exp = 0; n++; });
+    s.levelScaleFrom = s.levelScale || 1;
     s.levelScale = MM.LEVEL_SCALE_VERSION;
     return n;
   };

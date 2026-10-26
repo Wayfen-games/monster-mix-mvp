@@ -36,13 +36,13 @@
   var inc = true;
   for (var L = 1; L < B.MAX_LEVEL - 1; L++) if (MM.expToNext(L + 1) < MM.expToNext(L)) inc = false;
   check('필요 경험치는 레벨이 오를수록 줄지 않음', inc && MM.expToNext(50) > MM.expToNext(1));
-  var m = { level: 1, exp: 0 }; MM.giveExp(m, 1e30);
-  check('만렙 ' + B.MAX_LEVEL + '에서 멈춤', m.level === B.MAX_LEVEL && m.exp === 0);
+  var m = { level: 1, exp: 0, tier: 3 }; MM.giveExp(m, 1e30);
+  check('단계 만렙에서 멈춤 (전체 만렙 개념 없음)', m.level === MM.maxLevel(3) && m.exp === 0 && MM.maxLevel(30) > 300);
   check('경험치 통 = 5.5 × 1.074^(레벨-1)', MM.expToNext(1) === 6 && MM.expToNext(100) === Math.round(5.5 * Math.pow(1.074, 99)));
   (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (L < MM.fuseLevelReq(t2) && e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; };
-    var r = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(runs), okr = r.every(function (x, i) { var want = 10 * Math.pow(1.5, i); return x >= want * 0.85 && x <= want * 1.25; });
-    check('소환 → 합성 조건 판수: 1단계 10판, 단계마다 ×1.5', okr, r.join('/')); })();
-  check('단계 만렙 = (n+2)단계 소환 레벨', [1, 2, 3, 8].every(function (t) { return MM.maxLevel(t) === MM.summonLevel(t + 2); }) && MM.maxLevel(30) === 300);
+    var r = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(runs), okr = r.every(function (x, i) { var want = 10 * Math.pow(1.7, i); return x >= want * 0.85 && x <= want * 1.25; });
+    check('소환 → 합성 조건 판수: 1단계 10판, 단계마다 ×1.7', okr, r.join('/')); })();
+  check('단계 만렙 = (n+2)단계 소환 레벨', [1, 2, 3, 8].every(function (t) { return MM.maxLevel(t) === MM.summonLevel(t + 2); }) && MM.maxLevel(30) === 347);
 
   // ---- 합성 ----
   check('스택 2 → +12%p', close(MM.stackBonus(2), 0.12));
@@ -330,11 +330,13 @@
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
 
-  check('단계별 만렙 24/34/44/54/63', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '24,34,44,54,63', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
+  check('단계별 만렙 25/36/48/59/70', [1, 2, 3, 4, 5].map(MM.maxLevel).join() === '25,36,48,59,70', [1, 2, 3, 4, 5].map(MM.maxLevel).join());
   check('합성 주재료 조건 레벨 ≤ 그 단계 만렙', MM.tiers().slice(0, -1).every(function (t2) { return MM.fuseLevelReq(t2) <= MM.maxLevel(t2); }));
-  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 50; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 24);
+  (function () { var s = MM.newState(t0); var m = MM.addMonster(s, 'fire', 1, 1); m.level = 50; check('예전 세이브: 만렙 넘으면 맞춤', MM.clampLevels(s) === 1 && m.level === 25);
   (function () { var s = MM.newState(t0); s.levelScale = 2; var m = MM.addMonster(s, 'fire', 3, 1); m.level = 43; var m2 = MM.addMonster(s, 'water', 4, 1); m2.level = 43; s.souls.fire2 = 7; MM.migrateLevels(s);
-    check('세이브 변환 v3: 예전 3단계 조건 Lv43 → 새 조건 Lv34, 4단계 소환 Lv43 → 새 소환 Lv34, 소울 ×3', m.level === 34 && m2.level === 34 && s.souls.fire2 === 21 && s.levelScale === 3 && MM.migrateLevels(s) === 0, m.level + '/' + m2.level); })(); })();
+    check('세이브 변환 v2→: 예전 3단계 조건 Lv43 → 새 조건, 4단계 소환 Lv43 → 새 소환, 소울 ×3', m.level === MM.fuseLevelReq(3) && m2.level === MM.summonLevel(4) && s.souls.fire2 === 21 && s.levelScale === MM.LEVEL_SCALE_VERSION && MM.migrateLevels(s) === 0, m.level + '/' + m2.level);
+    var s3 = MM.newState(t0); s3.levelScale = 3; var a3 = MM.addMonster(s3, 'fire', 3, 1); a3.level = 34; var b3 = MM.addMonster(s3, 'fire', 5, 1); b3.level = 63; s3.souls.fire2 = 7; MM.migrateLevels(s3);
+    check('세이브 변환 v3→v4: 3단계 조건 Lv34 → 새 조건, 5단계 만렙 → 새 만렙, 소울 그대로', a3.level === MM.fuseLevelReq(3) && b3.level === MM.maxLevel(5) && s3.souls.fire2 === 7, a3.level + '/' + b3.level); })(); })();
   // ---- 보스 ----
   (function () {
     var rr = MM.seededRng(5);
@@ -378,9 +380,9 @@
     check('회복: 1판 ' + B.BOSS_HEALS + '번', b3.healsLeft === B.BOSS_HEALS);
     var s = MM.newState(t0); MM.addBossTickets(s, 3, 1);
     var g = MM.grantBossWin(s, 3, rr);
-    check('보스 보상: 한 단계 위 스테이지의 소울·경험치·골드 ×100', g.gold === Math.round(B.CLEAR_GOLD[3] * 100) && g.exp === MM.winExp(4) * 100 && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
+    check('보스 보상: 한 단계 위 스테이지의 소울·골드 ×100, 경험치는 1판분', g.gold === Math.round(B.CLEAR_GOLD[3] * 100) && g.exp === MM.winExp(4) && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
     var dg = MM.grantDungeonWin(MM.newState(t0), 3, MM.dungeonEnemies(['fire'], 3), rr);
-    check('던전 보상: 경험치·골드 스테이지의 30배', dg.exp === MM.winExp(3) * 30 && dg.gold === Math.round(B.CLEAR_GOLD[2] * 30));
+    check('던전 보상: 골드 스테이지의 30배, 경험치는 스테이지와 같음', dg.exp === MM.winExp(3) && dg.gold === Math.round(B.CLEAR_GOLD[2] * 30));
     check('보스 입장권 사용', MM.useBossTicket(s, 3) && !MM.useBossTicket(s, 3));
     var sd = MM.newState(t0); B.BOSS_TICKET_DROP = 1; var dw = MM.grantDungeonWin(sd, 2, MM.dungeonEnemies(['fire'], 2)); B.BOSS_TICKET_DROP = 0.02;
     check('던전 승리 시 같은 단계 보스 입장권', dw.bossTicket === 2 && MM.bossTicketCount(sd, 2) === 1);

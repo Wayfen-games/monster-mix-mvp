@@ -1527,7 +1527,7 @@
   render();
   if (!S.tutorial.done) showTutorial();
   else save();
-  if (view.rescaled) setTimeout(function () { showNotice('밸런스 대정리', '최고 레벨 300 · 10단계까지 열림 · 소환은 소울 30개로 바뀌었어요. 몬스터 레벨은 새 기준으로, 가진 소울은 3배로 바꿨어요.'); }, 300);
+  if (view.rescaled) setTimeout(function () { (S.levelScaleFrom === 3 ? showNotice('레벨 표 변경', '위 단계로 갈수록 키우는 판수가 더 늘어났어요(단계마다 ×1.7). 몬스터 레벨을 새 기준으로 바꿨어요.') : showNotice('밸런스 대정리', '10단계까지 열림 · 소환은 소울 30개로 바뀌었어요. 몬스터 레벨은 새 기준으로, 가진 소울은 3배로 바꿨어요.')); }, 300);
   else if (view.clamped) setTimeout(function () { toast('단계별 최고 레벨이 생겨서 넘는 몬스터는 최고 레벨로 맞췄어요'); }, 400);
   if (view.migrated) toast('새 버전이라 처음부터 시작해요. 이전 기록은 따로 보관했어요');
   setInterval(function () { if (!S.tutorial.done) return; MM.accrueOffline(S, Date.now()); if (view.tab === 'home' && $('sheet').hidden && $('overlay').hidden && document.visibilityState !== 'hidden') render(); }, 30000);
