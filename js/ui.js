@@ -182,7 +182,7 @@
   // ================= 마을 =================
   SCREENS.altar = function () {
     var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🔥 소울 제단</h2>' +
-      '<div class="muted small lh" style="margin-bottom:10px">속성마다 제단이 있어요. 그 속성 소울을 바치면 제단 레벨이 오르고, 그 속성 몬스터 전체가 영구히 강해져요.<br>레벨당 경험치 +' + Math.round(BAL().ALTAR_EXP_PER_LV * 100) + '% · 체력·공격·방어 +' + (BAL().ALTAR_STAT_PER_LV * 100) + '% · 귀한(높은 단계) 소울일수록 많이 차요 (1단계 1점 · 2단계 ' + MM.altarSoulPoints(2) + '점 · 3단계 ' + MM.altarSoulPoints(3) + '점 …)</div>';
+      '<div class="muted small lh" style="margin-bottom:10px">속성마다 제단이 있어요. 그 속성 소울을 바치면 제단 레벨이 오르고, 그 속성 샤들링 전체가 영구히 강해져요.<br>레벨당 경험치 +' + Math.round(BAL().ALTAR_EXP_PER_LV * 100) + '% · 체력·공격·방어 +' + (BAL().ALTAR_STAT_PER_LV * 100) + '% · 귀한(높은 단계) 소울일수록 많이 차요 (1단계 1점 · 2단계 ' + MM.altarSoulPoints(2) + '점 · 3단계 ' + MM.altarSoulPoints(3) + '점 …)</div>';
     MM.RING.forEach(function (el) {
       var a = MM.altarOf(S, el), need = MM.altarNeed(a.level);
       html += '<div class="card"><div class="row between"><div class="row" style="gap:8px">' + monSvg(el, 3, 32) + '<b>' + MM.ELEMENTS[el].name + ' 제단 Lv ' + a.level + '</b></div><button class="btn sm primary" data-act="offerSheet" data-el="' + el + '">바치기</button></div>' +
@@ -262,7 +262,7 @@
     var r = readyPairs(1);
     if (r.length) return '지금 합성할 수 있어요: ' + name(r[0].main) + ' + ' + name(r[0].sub);
     var ready = MM.allSpecies().filter(function (sp) { return MM.canSummon(S, sp.key); });
-    if (ready.length) return '소환할 수 있는 소울이 있어요 (몬스터 → 소울)';
+    if (ready.length) return '소환할 수 있는 소울이 있어요 (샤들링 → 소울)';
     var mt = maxPartyTier();
     return mt + '단계 스테이지에서 소울과 경험치를 모으세요. 합성하려면 주재료가 Lv ' + MM.fuseLevelReq(Math.min(mt, T() - 1)) + ' 이상이어야 해요.';
   }
@@ -290,7 +290,7 @@
       '<div class="grid2" style="margin-bottom:12px"><button class="card tap-card" data-act="tab" data-tab="altar"><b>🔥 소울 제단</b><div class="muted small">남는 소울로 속성 영구 강화</div></button><button class="card tap-card" data-act="tab" data-tab="gacha"><b>🎁 소울 뽑기</b><div class="muted small">소울 ' + BAL().GACHA_COST + '개로 한 번</div></button></div>' +
       '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
       '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="tab" data-tab="stages">⚔ 전투</button><button class="btn primary" data-act="tab" data-tab="fusion">✦ 합성</button></div>' +
-      '<h3>기록</h3><div class="card muted small lh">합성 ' + S.stats.fusionTries + '회 시도 · ' + S.stats.fusionSuccess + '회 성공<br>전투 ' + S.stats.battlesWon + '승 ' + S.stats.battlesLost + '패 · 몬스터 ' + S.monsters.length + '마리' +
+      '<h3>기록</h3><div class="card muted small lh">합성 ' + S.stats.fusionTries + '회 시도 · ' + S.stats.fusionSuccess + '회 성공<br>전투 ' + S.stats.battlesWon + '승 ' + S.stats.battlesLost + '패 · 샤들링 ' + S.monsters.length + '마리' +
       (S.records.length ? '<br><button class="btn sm" style="margin-top:8px" data-act="records">희귀 획득 기록 ' + S.records.length + '개 보기</button>' : '') + '</div>' +
       '<button class="btn block" data-act="tab" data-tab="settings">⚙ 설정</button>';
   };
@@ -437,7 +437,7 @@
 
   function startBattle(kind, opts) {
     var party = partyMons();
-    if (!party.length) { toast('파티에 몬스터를 넣어 주세요'); return; }
+    if (!party.length) { toast('파티에 샤들링을 넣어 주세요'); return; }
     var enemies;
     if (kind === 'stage') enemies = MM.stageEnemies(opts.el, opts.tier);
     else if (kind === 'dungeon' || kind === 'ticket') enemies = MM.dungeonEnemies(opts.els, opts.tier);
@@ -487,7 +487,7 @@
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
       '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u) + '</div>';
   }
-  // 아군 카드 아래 경험치 바와 퍼센트 (전투 중에도 실제 몬스터 경험치를 보여줌)
+  // 아군 카드 아래 경험치 바와 퍼센트 (전투 중에도 실제 샤들링 경험치를 보여줌)
   function expHtml(u) {
     if (u.side !== 'p' || !u.monsterId) return '';
     var m = MM.getMonster(S, u.monsterId); if (!m) return '';
@@ -696,7 +696,7 @@
           '<div class="card"><div class="cost-line"><span>골드</span><span>+' + fmt(R.r.gold) + ' G</span></div><div class="cost-line"><span>경험치 (파티 전원)</span><span>+' + fmt(R.r.exp) + '</span></div>' +
           R.r.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>';
       } else {
-        html += '<div class="card muted">잃은 것은 없어요. 레벨을 올리거나 상성이 유리한 몬스터로 파티를 바꿔 보세요.</div>';
+        html += '<div class="card muted">잃은 것은 없어요. 레벨을 올리거나 상성이 유리한 샤들링으로 파티를 바꿔 보세요.</div>';
       }
       if (R.kind === 'boss') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="boss">' + (R.win ? '보스 목록으로' : '보스 목록으로 (입장권 그대로, 다시 도전 가능)') + '</button>';
       else if (R.kind === 'ticket') again = '<button class="btn primary block" data-act="tab" data-tab="stages" data-seg="ticket">' + (R.win ? '입장권 던전으로' : '입장권 던전으로 (입장권 그대로)') + '</button>';
@@ -748,9 +748,9 @@
     setTimeout(function () { bannerQueue.shift(); el.hidden = true; setTimeout(nextBanner, 150); }, d.notice ? 2200 : 1800 + d.tier * 250);
   }
 
-  // ================= 몬스터 / 소울 =================
+  // ================= 샤들링 / 소울 =================
   SCREENS.monsters = function () {
-    var html = '<div class="seg"><button class="' + (view.monSeg === 'list' ? 'on' : '') + '" data-act="monSeg" data-v="list">몬스터 ' + S.monsters.length + '</button>' +
+    var html = '<div class="seg"><button class="' + (view.monSeg === 'list' ? 'on' : '') + '" data-act="monSeg" data-v="list">샤들링 ' + S.monsters.length + '</button>' +
       '<button class="' + (view.monSeg === 'souls' ? 'on' : '') + '" data-act="monSeg" data-v="souls">소울</button>' +
       '<button class="' + (view.monSeg === 'equip' ? 'on' : '') + '" data-act="monSeg" data-v="equip">장비 ' + (S.equips || []).length + '</button></div>';
     if (view.monSeg === 'equip') return html + equipHtml();
@@ -772,7 +772,7 @@
           (inParty || MM.inOfflineTeam(S, m.id) ? '' : '<button class="btn sm danger" data-act="decompMon" data-id="' + m.id + '">분해</button>') + '</div></div>';
       }).join('');
     } else {
-      html += '<div class="muted small" style="margin-bottom:10px">같은 종 소울 ' + BAL().SOULS_PER_SUMMON + '개 = 몬스터 1마리 · 종별 최대 ' + BAL().SOUL_CAP + '개 (' + BAL().SOUL_WARN + '개부터 주의) · 칸을 누르면 소환·분해</div>';
+      html += '<div class="muted small" style="margin-bottom:10px">같은 종 소울 ' + BAL().SOULS_PER_SUMMON + '개 = 샤들링 1마리 · 종별 최대 ' + BAL().SOUL_CAP + '개 (' + BAL().SOUL_WARN + '개부터 주의) · 칸을 누르면 소환·분해</div>';
       html += '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
       MM.RING.forEach(function (el) {
         html += '<div class="el">' + elName(el) + '</div>';
@@ -799,7 +799,7 @@
   function eqName(e) { return MM.equipName(e.el, e.tier) + (e.plus ? ' +' + e.plus : ''); }
   function pctBonus(x) { return '+' + Math.round(x * 100) + '%'; }
   function equipHtml() {
-    var html = '<div class="card"><b>장착 중</b> <span class="muted small">속성마다 1개 · 그 속성 몬스터 체력·공격·방어 상승</span><div class="pick-list" style="margin-top:10px">';
+    var html = '<div class="card"><b>장착 중</b> <span class="muted small">속성마다 1개 · 그 속성 샤들링 체력·공격·방어 상승</span><div class="pick-list" style="margin-top:10px">';
     MM.RING.forEach(function (el) {
       var e = MM.equippedOf(S, el);
       html += '<button class="pick" data-act="equipSlot" data-el="' + el + '">' + (e ? equipSvg(el, e.tier, 30) : '<span class="mon" style="width:30px;height:30px;opacity:.3">' + monSvg(el, 1, 30) + '</span>') +
@@ -822,7 +822,7 @@
     html += list.map(function (e) {
       var on = MM.isEquipped(S, e);
       return '<div class="mon-row">' + equipSvg(e.el, e.tier, 40) + '<div class="info"><div class="row wrap" style="gap:6px"><span class="nm">' + eqName(e) + '</span>' + (on ? '<span class="chip party">장착</span>' : '') + (e.stack ? '<span class="chip stack">스택 ' + e.stack + '</span>' : '') + '</div>' +
-        '<div class="muted small">' + MM.ELEMENTS[e.el].name + ' 몬스터 ' + pctBonus(MM.equipBonus(e)) + '</div></div>' +
+        '<div class="muted small">' + MM.ELEMENTS[e.el].name + ' 샤들링 ' + pctBonus(MM.equipBonus(e)) + '</div></div>' +
         '<div class="acts"><button class="btn sm" data-act="' + (on ? 'unequip' : 'equipIt') + '" data-id="' + e.id + '" data-el="' + e.el + '">' + (on ? '해제' : '장착') + '</button>' +
         (e.plus < BAL().EQUIP_MAX_PLUS ? '<button class="btn sm" data-act="equipEnhSheet" data-id="' + e.id + '">강화</button>' : '') +
         (on ? '' : '<button class="btn sm danger" data-act="decompEquip" data-id="' + e.id + '">분해</button>') + '</div></div>';
@@ -883,7 +883,7 @@
     openSheet(html);
   }
 
-  // [10-26 91번] 단계를 먼저 고르고(가로 스크롤) 속성을 고름. 몬스터 이름 대신 '3단계 · 물 스테이지'
+  // [10-26 91번] 단계를 먼저 고르고(가로 스크롤) 속성을 고름. 샤들링 이름 대신 '3단계 · 물 스테이지'
   function offlineSheet(pickTier) {
     var off = MM.offlineStageValid(S) ? S.offline.stage : null;
     var tiers = MM.tiers().filter(function (t) { return MM.RING.some(function (e) { return S.cleared[MM.speciesKey(e, t)]; }); });
@@ -912,7 +912,7 @@
     } else {
       html += '<div class="muted small">1단계 소울은 분해할 수 없어요</div>';
     }
-    html += '</div><div class="muted small" style="margin-top:10px">분해는 손해를 보는 교환이에요. 합성 비용 소울이 급할 때 쓰세요.<br>남는 소울은 몬스터 목록의 "먹이기"로 같은 속성 몬스터에게 경험치로 줄 수 있어요 (1개 EXP ' + fmt(MM.soulExp(tier)) + ').</div>';
+    html += '</div><div class="muted small" style="margin-top:10px">분해는 손해를 보는 교환이에요. 합성 비용 소울이 급할 때 쓰세요.<br>남는 소울은 샤들링 목록의 "먹이기"로 같은 속성 샤들링에게 경험치로 줄 수 있어요 (1개 EXP ' + fmt(MM.soulExp(tier)) + ').</div>';
     openSheet(html);
   }
 
@@ -956,7 +956,7 @@
       html += '<div class="card"><b>조건</b>' +
         '<div class="cost-line" style="margin-top:6px"><span>' + name(main) + ' (주재료) Lv ' + req + ' 이상</span><span class="' + (main.level >= req ? 'okc' : 'lack') + '">' + (main.level >= req ? '✓' : 'Lv ' + main.level) + '</span></div>' +
         '<div class="cost-line"><span>' + name(sub) + ' (부재료) Lv ' + chk.subReq + ' 이상</span><span class="' + (sub.level >= chk.subReq ? 'okc' : 'lack') + '">' + (sub.level >= chk.subReq ? '✓' : 'Lv ' + sub.level) + '</span></div>' +
-        '<div class="cost-line"><span>몬스터 4마리 이상</span><span class="' + (S.monsters.length >= BAL().MIN_MONSTERS_TO_FUSE ? 'okc' : 'lack') + '">' + S.monsters.length + '마리</span></div></div>';
+        '<div class="cost-line"><span>샤들링 4마리 이상</span><span class="' + (S.monsters.length >= BAL().MIN_MONSTERS_TO_FUSE ? 'okc' : 'lack') + '">' + S.monsters.length + '마리</span></div></div>';
       html += '<div class="card"><b>비용</b><div class="cost-line" style="margin-top:6px"><span>골드' + (main.stack ? ' (스택 +' + Math.round(BAL().FUSION_GOLD_STACK_UP * main.stack * 100) + '%)' : '') + '</span><span class="' + (S.gold >= cost.gold ? '' : 'lack') + '">' + fmt(cost.gold) + ' G</span></div>';
       if (cost.soulTier) {
         var have = S.souls[MM.speciesKey(f.soulEl, cost.soulTier)] || 0;
@@ -993,7 +993,7 @@
       var subs = S.monsters.filter(function (x) { return MM.isPair(m, x); }).length, req = MM.fuseLevelReq(m.tier);
       return '<button class="pick' + (view.fusion.mainId === m.id ? ' sel' : '') + (subs ? '' : ' dim') + '" data-act="pickMain" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 34) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '/' + req + '</span>' + (m.stack ? ' <span class="chip stack">스택 ' + m.stack + '</span>' : '') +
         '<div class="muted small">부재료 후보 ' + subs + '마리 · 성공률 ' + pct(MM.successRate(m.tier, m.stack)) + '</div></div></button>';
-    }).join('') : '<div class="muted">합성할 몬스터가 없어요</div>') + '</div>');
+    }).join('') : '<div class="muted">합성할 샤들링이 없어요</div>') + '</div>');
   }
   function subSheet() {
     var main = MM.getMonster(S, view.fusion.mainId);
@@ -1002,7 +1002,7 @@
     var p = MM.partnersOf(main.el).map(function (e) { return MM.ELEMENTS[e].name; }).join('·');
     openSheet('<b>부재료 고르기</b><div class="muted small" style="margin:4px 0 10px">' + MM.subTierFor(main.tier) + '단계 ' + p + ' · Lv ' + req + ' 이상</div><div class="pick-list">' + (subs.length ? subs.map(function (m) {
       return '<button class="pick' + (view.fusion.subId === m.id ? ' sel' : '') + '" data-act="pickSub" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 34) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="small ' + (m.level >= req ? 'okc' : 'lack') + '">Lv ' + m.level + '/' + req + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? ' <span class="chip">방치</span>' : '') + '</div></button>';
-    }).join('') : '<div class="muted">맞는 부재료가 없어요. ' + MM.subTierFor(main.tier) + '단계 ' + p + ' 몬스터가 필요해요.</div>') + '</div>');
+    }).join('') : '<div class="muted">맞는 부재료가 없어요. ' + MM.subTierFor(main.tier) + '단계 ' + p + ' 샤들링이 필요해요.</div>') + '</div>');
   }
 
   function showOverlay(html) { var o = $('overlay'); o.innerHTML = html; o.hidden = false; }
@@ -1034,7 +1034,7 @@
     var c = chk.cost, rate = MM.successRate(sel.main.tier, sel.main.stack);
     var costText = fmt(c.gold) + ' G' + (c.soulTier ? ' + ' + MM.soulName(view.fusion.soulEl || c.soulOptions[0], c.soulTier) + ' ' + c.souls + '개' : '');
     askConfirm('정말 합성할까요?', '<div class="row" style="gap:8px;justify-content:center;margin-bottom:8px">' + monSvg(sel.main.el, sel.main.tier, 40) + '<b>+</b>' + monSvg(sel.sub.el, sel.sub.tier, 34) + '<b>→</b>' + monSvg(sel.main.el, sel.main.tier + 1, 40, !S.dex[MM.speciesKey(sel.main.el, sel.main.tier + 1)]) + '</div>' +
-      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>' + ([sel.main, sel.sub].some(function (m) { return m.plus; }) ? '<br><span class="small" style="color:var(--bad)">강화한 몬스터가 있어요. 성공하면 강화(' + [sel.main, sel.sub].filter(function (m) { return m.plus; }).map(function (m) { return name(m) + ' +' + m.plus; }).join(', ') + ')는 사라져요</span>' : ''), '합성', doFuse);
+      name(sel.main) + ' Lv ' + sel.main.level + ' + ' + name(sel.sub) + ' Lv ' + sel.sub.level + ' → <b>' + MM.speciesName(sel.main.el, sel.main.tier + 1) + ' Lv ' + MM.fusionRangeText(sel.main, sel.sub) + '</b> <span class="small">(평균 올림 +1~3)</span><br>성공률 <b style="color:var(--accent)">' + pct(rate) + '</b> · 비용 ' + costText + '<br><span class="small">실패해도 재료는 남아요</span>' + ([sel.main, sel.sub].some(function (m) { return m.plus; }) ? '<br><span class="small" style="color:var(--bad)">강화한 샤들링이 있어요. 성공하면 강화(' + [sel.main, sel.sub].filter(function (m) { return m.plus; }).map(function (m) { return name(m) + ' +' + m.plus; }).join(', ') + ')는 사라져요</span>' : ''), '합성', doFuse);
   }
 
   function doFuse() {
@@ -1047,7 +1047,7 @@
       var m = res.monster;
       view.fusion = { mainId: null, subId: null, soulEl: null };
       successOverlay(m, { title: '합성 성공!', sub: name(m) + ' 탄생 · Lv ' + m.level + ' · 성공률 ' + pct(res.rate) + (res.spentStack ? ' · 실패 ' + res.spentStack + '번 끝에' : '') }, res.dex,
-        '<button class="btn primary block" data-act="closeOverlay" data-tab="fusion">계속 합성</button><button class="btn block" data-act="closeOverlay" data-tab="monsters">몬스터 보기</button>', mainSnap, subSnap);
+        '<button class="btn primary block" data-act="closeOverlay" data-tab="fusion">계속 합성</button><button class="btn block" data-act="closeOverlay" data-tab="monsters">샤들링 보기</button>', mainSnap, subSnap);
     } else {
       var main = MM.getMonster(S, view.fusion.mainId), sub = MM.getMonster(S, view.fusion.subId);
       var chk = MM.fusionCheck(S, main, sub, view.fusion.soulEl, view.fusion.soulN);
@@ -1075,7 +1075,7 @@
         html += '<div class="dex-cell' + (t === T() ? ' goal' : '') + (t === T() && got ? ' have' : '') + '">' + monSvg(el, t, 34, !got) + '</div>';
       });
     });
-    return html + '</div></div><div class="muted small" style="margin-top:12px">처음 등록하면 그 몬스터 소울 ' + BAL().FIRST_DEX_SOUL + '개를 받아요. 한 번이라도 가졌던 종은 도감에 남아요.</div>';
+    return html + '</div></div><div class="muted small" style="margin-top:12px">처음 등록하면 그 샤들링 소울 ' + BAL().FIRST_DEX_SOUL + '개를 받아요. 한 번이라도 가졌던 종은 도감에 남아요.</div>';
   };
 
   function recLine(r) {
@@ -1123,7 +1123,7 @@
       '<text x="540" y="1010" text-anchor="middle" font-size="84" font-weight="900" fill="#ffcf4a" font-family="sans-serif">' + esc(l.title) + '</text>' +
       '<text x="540" y="1090" text-anchor="middle" font-size="44" fill="#e9e4ff" font-family="sans-serif">' + esc(l.sub) + '</text>' +
       '<text x="540" y="1160" text-anchor="middle" font-size="34" fill="#a9a2cc" font-family="sans-serif">' + esc(new Date(r.t).toLocaleString('ko-KR')) + '</text>' +
-      '<text x="540" y="1280" text-anchor="middle" font-size="34" font-weight="800" fill="#6f679e" font-family="sans-serif">몬스터 믹스</text></svg>';
+      '<text x="540" y="1280" text-anchor="middle" font-size="34" font-weight="800" fill="#6f679e" font-family="sans-serif">샤들링</text></svg>';
     var img = new Image();
     img.onload = function () {
       var c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -1153,7 +1153,7 @@
       sw('fastTest', '빠른 테스트', '소울이 ' + BAL().FAST_TEST_DROP_MULT + '배 잘 나와요. 실제 템포를 보려면 꺼 두세요.') +
       '<div class="card"><b>방치 보상</b><div class="muted small lh" style="margin-top:6px">' + (off && MM.offlineStageValid(S) ? '지정: ' + MM.stageLabel(off.el, off.tier) + '' : '지정한 스테이지가 없어요. 마을의 방치 보상 카드에서 지정하세요.') + '<br>게임을 하든 안 하든 최대 ' + BAL().OFFLINE_MAX_HOURS + '시간, 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%</div></div>' +
       '<div class="card"><b>데이터</b><div class="muted small" style="margin:6px 0 10px">진행 상황은 이 브라우저에 자동 저장돼요.</div><button class="btn block danger" data-act="reset">데이터 초기화</button></div>' +
-      '<div class="muted small" style="text-align:center">몬스터 믹스 시제품 v2</div>';
+      '<div class="muted small" style="text-align:center">샤들링 시제품 v2</div>';
   };
 
   // ================= 오프라인 보상 =================
@@ -1180,7 +1180,7 @@
   function offlineTeamSheet() {
     if (!view.teamSel) view.teamSel = MM.offlineTeam(S).slice();
     var sel = view.teamSel;
-    var html = '<b>방치 보상 경험치 몬스터</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 몬스터도 돼요 · 부재료 키우기용으로 좋아요<br>스테이지보다 낮은 단계 몬스터는 자기 단계 스테이지만큼 경험치를 받아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 몬스터가 받아요 · 여기 넣은 몬스터는 빼야 합성·분해할 수 있어요</div><div class="pick-list">' +
+    var html = '<b>방치 보상 경험치 샤들링</b><div class="muted small" style="margin:4px 0 10px">최대 3마리 · 파티에 있는 샤들링도 돼요 · 부재료 키우기용으로 좋아요<br>스테이지보다 낮은 단계 샤들링은 자기 단계 스테이지만큼 경험치를 받아요<br>바꾸면 지금까지 쌓인 보상은 바꾸기 전 샤들링이 받아요 · 여기 넣은 샤들링은 빼야 합성·분해할 수 있어요</div><div class="pick-list">' +
       sortMons(S.monsters).map(function (m) {
         var i = sel.indexOf(m.id);
         return '<button class="pick' + (i >= 0 ? ' sel' : '') + '" data-act="teamPick" data-id="' + m.id + '">' + monSvg(m.el, m.tier, 30) + '<div style="flex:1"><b>' + name(m) + '</b> <span class="muted small">Lv ' + m.level + (m.level >= MM.maxLevel(m.tier) ? ' (최대)' : '') + '</span>' + (S.party.indexOf(m.id) >= 0 ? ' <span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? ' <span class="chip">방치</span>' : '') + '</div>' + (i >= 0 ? '<span class="chip adv">' + (i + 1) + '</span>' : '') + '</button>';
@@ -1198,8 +1198,8 @@
     var r = MM.setOfflineTeam(S, ids);
     view.teamSel = null;
     save(); closeSheet();
-    if (r.changed) toast('방치 보상 몬스터를 바꿨어요');
-    if (r.paid) showPaid(r.paid, '몬스터를 바꿔서 지금까지 쌓인 보상을 받았어요');
+    if (r.changed) toast('방치 보상 샤들링을 바꿨어요');
+    if (r.paid) showPaid(r.paid, '샤들링을 바꿔서 지금까지 쌓인 보상을 받았어요');
     render();
   }
   function changeOfflineStage(el, tier) {
@@ -1226,9 +1226,9 @@
     document.body.classList.add('in-tutorial');
     if (st === 0) {
       var picks = view.tut.picks;
-      showOverlay('<div class="tut"><h2>몬스터 믹스에 온 걸 환영해요</h2>' +
-        '<p>소울을 모아 몬스터를 소환하고,<br>두 몬스터를 <b style="color:var(--accent)">합성</b>해 더 높은 단계로 키우는 게임이에요.</p>' +
-        '<p>먼저 함께할 <b>1단계 몬스터 3마리</b>를 골라 주세요.<br><span class="small">서로 다른 속성으로 3개</span></p>' +
+      showOverlay('<div class="tut"><h2>샤들링에 온 걸 환영해요</h2><div class="muted small lh" style="margin-bottom:10px">다섯 원소를 지키던 수호자들이 미지의 힘에 산산조각 났어요. 그 조각들이 작은 슬라임, <b>샤들링</b>이 되었어요. 샤들링들은 알 수 없는 이끌림으로 서로 합쳐져요…</div>' +
+        '<p>소울을 모아 샤들링을 소환하고,<br>두 샤들링을 <b style="color:var(--accent)">합성</b>해 더 높은 단계로 키우는 게임이에요.</p>' +
+        '<p>먼저 함께할 <b>1단계 샤들링 3마리</b>를 골라 주세요.<br><span class="small">서로 다른 속성으로 3개</span></p>' +
         '<div class="el-pick">' + MM.RING.map(function (el) {
           var on = picks.indexOf(el) >= 0;
           return '<button class="' + (on ? 'on' : '') + '" data-act="tutPick" data-el="' + el + '"' + (!on && picks.length >= 3 ? ' disabled' : '') + '>' + monSvg(el, 1, 40) + '<div>' + MM.ELEMENTS[el].name + '</div></button>';
@@ -1239,12 +1239,12 @@
         '<p>이기면 <b>소울</b>, 골드, 경험치를 얻어요.</p><div class="acts"><button class="btn primary block" data-act="tutBattle">전투 시작</button></div></div>');
     } else if (st === 2) {
       showOverlay('<div class="tut"><h2>잘했어요!</h2><p>파티가 <b>Lv ' + BAL().TUTORIAL_LEVEL + '</b>가 됐어요.</p>' +
-        '<p><b>소울</b>: 같은 몬스터 소울 ' + BAL().SOULS_PER_SUMMON + '개를 모으면 그 몬스터를 소환해요. 도감에 처음 등록할 때도 소울 1개를 받아요.</p>' +
-        '<p><b>합성</b>: 주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상이면 돼요. 결과 몬스터는 두 재료의 평균 레벨로 태어나요.</p>' +
+        '<p><b>소울</b>: 같은 샤들링 소울 ' + BAL().SOULS_PER_SUMMON + '개를 모으면 그 샤들링을 소환해요. 도감에 처음 등록할 때도 소울 1개를 받아요.</p>' +
+        '<p><b>합성</b>: 주재료는 합성 조건 레벨, 부재료는 소환 레벨 이상이면 돼요. 결과 샤들링은 두 재료의 평균 레벨로 태어나요.</p>' +
         '<div class="acts"><button class="btn primary block" data-act="tutNext">다음</button></div></div>');
     } else if (st === 3) {
       var opts = MM.tutorialFourthOptions(S);
-      showOverlay('<div class="tut"><h2>선물: 한 마리 더</h2><p>합성은 몬스터가 <b>4마리 이상</b>일 때 할 수 있어요 (합성하면 2마리가 1마리가 되니까요).<br>남은 속성 중 한 마리를 골라 주세요.</p>' +
+      showOverlay('<div class="tut"><h2>선물: 한 마리 더</h2><p>합성은 샤들링이 <b>4마리 이상</b>일 때 할 수 있어요 (합성하면 2마리가 1마리가 되니까요).<br>남은 속성 중 한 마리를 골라 주세요.</p>' +
         '<div class="row" style="justify-content:center;gap:12px;margin:16px 0">' + opts.map(function (el) {
           return '<button class="btn" style="flex-direction:column;padding:14px 22px" data-act="tutFourth" data-el="' + el + '">' + monSvg(el, 1, 54) + '<div>' + MM.ELEMENTS[el].name + '1 · Lv ' + BAL().TUTORIAL_LEVEL + '</div></button>';
         }).join('') + '</div></div>');
@@ -1253,7 +1253,7 @@
       S.monsters.forEach(function (a) { S.monsters.forEach(function (b) { if (!pair && MM.fusionCheck(S, a, b).ok) pair = { main: a, sub: b }; }); });
       if (!pair) { MM.finishTutorial(S); save(); hideOverlay(); document.body.classList.remove('in-tutorial'); render(); return; }
       view.tut.pair = pair;
-      showOverlay('<div class="tut"><h2>첫 합성</h2><p><b>주재료</b> + <b>부재료</b> = 한 단계 위 몬스터. 결과 속성은 주재료를 따라요.<br>부재료는 원형에서 <b>이웃한 속성</b>만 쓸 수 있어요.</p>' +
+      showOverlay('<div class="tut"><h2>첫 합성</h2><p><b>주재료</b> + <b>부재료</b> = 한 단계 위 샤들링. 결과 속성은 주재료를 따라요.<br>부재료는 원형에서 <b>이웃한 속성</b>만 쓸 수 있어요.</p>' +
         '<div class="fuse-box" style="margin:14px 0"><div class="fuse-slot">' + monSvg(pair.main.el, 1, 46) + '<div>' + name(pair.main) + '</div></div><div class="fuse-op">+</div><div class="fuse-slot">' + monSvg(pair.sub.el, 1, 46) + '<div>' + name(pair.sub) + '</div></div><div class="fuse-op">=</div><div class="fuse-slot">' + monSvg(pair.main.el, 2, 46, true) + '<div>' + MM.speciesName(pair.main.el, 2) + '</div></div></div>' +
         '<p class="small">원형: 불 - 풀 - 물 - 빛 - 어둠 - (다시 불)<br>보통은 실패할 수도 있지만, 실패해도 재료는 남고 다음 성공률이 올라요.<br>이번 첫 합성은 반드시 성공해요!</p>' +
         '<div class="acts"><button class="btn primary block" data-act="tutFuse">합성!</button></div></div>');
@@ -1374,7 +1374,7 @@
       var r = MM.offerSouls(S, d.el, +d.tier, +d.n);
       if (r.error) { toast(r.error); return; }
       save(); render();
-      if (r.ups) showNotice('🔥 ' + MM.ELEMENTS[d.el].name + ' 제단 Lv ' + r.level + '!', MM.ELEMENTS[d.el].name + ' 몬스터 경험치 +' + Math.round(MM.altarExpBonus(S, d.el) * 100) + '% · 능력치 +' + (Math.round(MM.altarStatBonus(S, d.el) * 1000) / 10) + '%');
+      if (r.ups) showNotice('🔥 ' + MM.ELEMENTS[d.el].name + ' 제단 Lv ' + r.level + '!', MM.ELEMENTS[d.el].name + ' 샤들링 경험치 +' + Math.round(MM.altarExpBonus(S, d.el) * 100) + '% · 능력치 +' + (Math.round(MM.altarStatBonus(S, d.el) * 1000) / 10) + '%');
       else toast('+' + fmt(r.points) + '점');
       offerSheet(d.el);
     },
@@ -1385,7 +1385,7 @@
     unequip: function (d) { MM.unequip(S, d.el); save(); closeSheet(); render(); },
     craftEquip: function (d) {
       var t2 = +d.tier;
-      askConfirm('장비를 만들까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(d.el, t2, 48) + '</div>' + MM.soulName(d.el, t2) + ' <b>' + BAL().EQUIP_CRAFT_SOULS + '개</b> → <b>' + MM.equipName(d.el, t2) + '</b><br><span class="small">' + MM.ELEMENTS[d.el].name + ' 몬스터 체력·공격·방어 ' + pctBonus(BAL().EQUIP_BASE_PER_TIER * t2) + '</span>', '만들기', function () {
+      askConfirm('장비를 만들까요?', '<div style="text-align:center;margin-bottom:8px">' + equipSvg(d.el, t2, 48) + '</div>' + MM.soulName(d.el, t2) + ' <b>' + BAL().EQUIP_CRAFT_SOULS + '개</b> → <b>' + MM.equipName(d.el, t2) + '</b><br><span class="small">' + MM.ELEMENTS[d.el].name + ' 샤들링 체력·공격·방어 ' + pctBonus(BAL().EQUIP_BASE_PER_TIER * t2) + '</span>', '만들기', function () {
         var r = MM.craftEquip(S, d.el, t2);
         if (r.error) { toast(r.error); return; }
         save(); toast(MM.josa(MM.equipName(d.el, t2), '을', '를') + ' 만들었어요' + (MM.isEquipped(S, r.equip) ? ' · 장착했어요' : '')); render();
@@ -1413,7 +1413,7 @@
       var r = MM.enhanceMonster(S, +d.id);
       if (r.error) { toast(r.error); return; }
       save();
-      if (r.success) showNotice('✦ 몬스터 강화 성공!', name(r.monster) + ' +' + r.monster.plus);
+      if (r.success) showNotice('✦ 샤들링 강화 성공!', name(r.monster) + ' +' + r.monster.plus);
       else toast('실패… 다음 성공률 ' + pct(r.nextRate));
       render(); monEnhSheet(+d.id);
     },
@@ -1527,8 +1527,8 @@
   render();
   if (!S.tutorial.done) showTutorial();
   else save();
-  if (view.rescaled) setTimeout(function () { (S.levelScaleFrom === 3 ? showNotice('레벨 표 변경', '위 단계로 갈수록 키우는 판수가 더 늘어났어요(단계마다 ×1.7). 몬스터 레벨을 새 기준으로 바꿨어요.') : showNotice('밸런스 대정리', '10단계까지 열림 · 소환은 소울 30개로 바뀌었어요. 몬스터 레벨은 새 기준으로, 가진 소울은 3배로 바꿨어요.')); }, 300);
-  else if (view.clamped) setTimeout(function () { toast('단계별 최고 레벨이 생겨서 넘는 몬스터는 최고 레벨로 맞췄어요'); }, 400);
+  if (view.rescaled) setTimeout(function () { (S.levelScaleFrom === 3 ? showNotice('레벨 표 변경', '위 단계로 갈수록 키우는 판수가 더 늘어났어요(단계마다 ×1.7). 샤들링 레벨을 새 기준으로 바꿨어요.') : showNotice('밸런스 대정리', '10단계까지 열림 · 소환은 소울 30개로 바뀌었어요. 샤들링 레벨은 새 기준으로, 가진 소울은 3배로 바꿨어요.')); }, 300);
+  else if (view.clamped) setTimeout(function () { toast('단계별 최고 레벨이 생겨서 넘는 샤들링은 최고 레벨로 맞췄어요'); }, 400);
   if (view.migrated) toast('새 버전이라 처음부터 시작해요. 이전 기록은 따로 보관했어요');
   setInterval(function () { if (!S.tutorial.done) return; MM.accrueOffline(S, Date.now()); if (view.tab === 'home' && $('sheet').hidden && $('overlay').hidden && document.visibilityState !== 'hidden') render(); }, 30000);
   MM._state = function () { return S; };

@@ -44,7 +44,7 @@
     return { added: added, wasted: n - added, first: first };
   };
 
-  // 도감 등록. 처음이면 그 몬스터 소울 1개 보상.
+  // 도감 등록. 처음이면 그 샤들링 소울 1개 보상.
   MM.registerDex = function (s, el, tier) {
     if (tier > B().MAX_TIER) return null;
     var key = MM.speciesKey(el, tier);
@@ -86,10 +86,10 @@
 
   // ================= 분해 =================
   MM.canDecomposeMonster = function (s, m) {
-    if (!m) return '몬스터가 없어요';
-    if (s.party.indexOf(m.id) >= 0) return '파티에 있는 몬스터는 분해할 수 없어요';
-    if (MM.inOfflineTeam(s, m.id)) return '방치 보상에 있는 몬스터는 분해할 수 없어요';
-    if (s.monsters.length <= 3) return '몬스터가 3마리 이하일 때는 분해할 수 없어요';
+    if (!m) return '샤들링이 없어요';
+    if (s.party.indexOf(m.id) >= 0) return '파티에 있는 샤들링은 분해할 수 없어요';
+    if (MM.inOfflineTeam(s, m.id)) return '방치 보상에 있는 샤들링은 분해할 수 없어요';
+    if (s.monsters.length <= 3) return '샤들링이 3마리 이하일 때는 분해할 수 없어요';
     return null;
   };
   MM.decomposeMonster = function (s, id) {
@@ -112,11 +112,11 @@
   };
 
   // ================= 소울 먹이기 =================
-  // 같은 속성 몬스터에게 소울을 먹여 경험치를 준다. 최대 레벨이 되면 거기서 멈추고 남은 소울은 안 씀.
+  // 같은 속성 샤들링에게 소울을 먹여 경험치를 준다. 최대 레벨이 되면 거기서 멈추고 남은 소울은 안 씀.
   // [10-26] 소울 1개 = 그 소울 1개를 그 단계 스테이지에서 얻는 동안(쫄 2마리 기준) 버는 경험치 × SOUL_FEED_WINS → 귀한 소울일수록 많이
   MM.soulExp = function (tier) { return Math.max(1, Math.round(B().SOUL_FEED_WINS * MM.winExp(tier) / (2 * MM.soulDropAvg(tier)))); };
   MM.canFeed = function (s, m, el, tier) {
-    if (!m) return '몬스터가 없어요';
+    if (!m) return '샤들링이 없어요';
     if (m.el !== el) return '같은 속성 소울만 먹일 수 있어요';
     if (m.level >= MM.maxLevel(m.tier)) return '이미 최대 레벨이에요';
     if ((s.souls[MM.speciesKey(el, tier)] || 0) < 1) return '소울이 부족해요';
@@ -219,13 +219,13 @@
     return { souls: r.added, wasted: r.wasted, gold: v.gold, key: v.key };
   };
 
-  // ================= 몬스터 강화 =================
+  // ================= 샤들링 강화 =================
   MM.monEnhRate = function (m) { var b = B(), p = m.plus || 0; return Math.min(1, b.MON_ENH_BASE[p] + b.MON_ENH_STACK_UP * (m.enhStack || 0)); };
   MM.monEnhCost = function (m) { var b = B(), p = m.plus || 0; return { souls: b.MON_ENH_SOULS, key: MM.speciesKey(m.el, m.tier), gold: Math.round(tv(b.MON_ENH_GOLD, m.tier) * (p + 1)) }; };
   MM.monEnhBonus = function (m) { var p = m.plus || 0; return p ? B().MON_ENH_BONUS[p - 1] : 0; };
   MM.enhanceMonster = function (s, id, rng) {
     var m = MM.getMonster(s, id);
-    if (!m) return { error: '몬스터가 없어요' };
+    if (!m) return { error: '샤들링이 없어요' };
     if ((m.plus || 0) >= B().MON_ENH_BONUS.length) return { error: '이미 최대 강화예요' };
     var c = MM.monEnhCost(m);
     if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.soulName(m.el, m.tier) + '', '이', '가') + ' 필요해요' };
@@ -282,7 +282,7 @@
     return out;
   };
 
-  // 전투에 들어갈 내 몬스터: 장비(그 속성)·몬스터 강화 배율을 붙인 복사본
+  // 전투에 들어갈 내 샤들링: 장비(그 속성)·샤들링 강화 배율을 붙인 복사본
   MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.monEnhBonus(m)) * (1 + MM.altarStatBonus(s, m.el)); };
   MM.battleParty = function (s, mons) {
     return mons.map(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c.mult = (m.mult || 1) * MM.playerMult(s, m); return c; });
@@ -345,7 +345,7 @@
     s.levelScale = MM.LEVEL_SCALE_VERSION;
     return n;
   };
-  // 예전 세이브: 단계 만렙을 넘는 몬스터는 만렙으로 맞춤
+  // 예전 세이브: 단계 만렙을 넘는 샤들링은 만렙으로 맞춤
   MM.clampLevels = function (s) { var n = 0; s.monsters.forEach(function (m) { var mx = MM.maxLevel(m.tier); if (m.level > mx) { m.level = mx; m.exp = 0; n++; } else if (m.level === mx) m.exp = 0; }); return n; };
   MM.giveExp = function (m, amount) {
     var ups = 0, max = m.tier ? MM.maxLevel(m.tier) : B().MAX_LEVEL;
@@ -424,9 +424,9 @@
   // 합성 가능 여부와 막힌 이유들
   MM.fusionCheck = function (s, main, sub, soulEl, souls) {
     var reasons = [];
-    if (!MM.isPair(main, sub)) return { ok: false, reasons: ['이 두 몬스터는 합성할 수 없어요'] };
-    if (s.monsters.length < B().MIN_MONSTERS_TO_FUSE) reasons.push('몬스터가 4마리 이상일 때 합성할 수 있어요');
-    // 방치 보상 몬스터로 직접 지정한 몬스터는 빼야 합성 재료로 쓸 수 있음 [사용자 확정]
+    if (!MM.isPair(main, sub)) return { ok: false, reasons: ['이 두 샤들링은 합성할 수 없어요'] };
+    if (s.monsters.length < B().MIN_MONSTERS_TO_FUSE) reasons.push('샤들링이 4마리 이상일 때 합성할 수 있어요');
+    // 방치 보상 샤들링으로 직접 지정한 샤들링은 빼야 합성 재료로 쓸 수 있음 [사용자 확정]
     [main, sub].forEach(function (m) { if (MM.inOfflineTeam(s, m.id)) reasons.push(MM.josa(MM.speciesName(m.el, m.tier), '은', '는') + ' 방치 보상에 있어요 (빼야 합성 가능)'); });
     // 주재료 = 합성 조건 레벨, 부재료 = 그 단계 소환 레벨 (확정)
     var req = MM.fuseLevelReq(main.tier), subReq = MM.subLevelReq(sub.tier);
@@ -684,8 +684,8 @@
   };
   // 방치 보상(코드 이름 offline): 접속 중이든 아니든 흐른 시간만큼 지정 스테이지를 효율 OFFLINE_RATE로 돌린 보상을
   // 그때그때 굴려서 bag에 쌓아 둔다 (최대 12시간분). 받기를 누르면 bag을 한 번에 지급.
-  // 경험치는 방치 보상 몬스터(최대 3마리, 파티와 별개로 지정, 비면 파티)에게.
-  // 스테이지·몬스터를 바꾸면 그 전에 쌓인 bag을 먼저 지급 (악용 방지).
+  // 경험치는 방치 보상 샤들링(최대 3마리, 파티와 별개로 지정, 비면 파티)에게.
+  // 스테이지·샤들링을 바꾸면 그 전에 쌓인 bag을 먼저 지급 (악용 방지).
   function emptyBag() { return { souls: {}, gold: 0, exp: 0, runs: 0 }; }
   function offl(s) {
     var o = s.offline;
@@ -718,10 +718,10 @@
       if (b.TICKET_DROP > 0 && R(rng)() < b.TICKET_DROP) o.bag.tickets = (o.bag.tickets || 0) + 1;
     }
     o.bag.runs += runs;
-    o.bag.exp = MM.winExp(st.tier) * o.bag.runs; // 표시용 최대치 (스테이지 단계 이하 몬스터는 자기 단계 기준)
+    o.bag.exp = MM.winExp(st.tier) * o.bag.runs; // 표시용 최대치 (스테이지 단계 이하 샤들링은 자기 단계 기준)
     return o.pendingMs;
   };
-  // 방치 보상 1판 경험치: 몬스터 단계가 스테이지보다 낮으면 자기 단계 스테이지 경험치까지만 [사용자 확정]
+  // 방치 보상 1판 경험치: 샤들링 단계가 스테이지보다 낮으면 자기 단계 스테이지 경험치까지만 [사용자 확정]
   MM.offlineExpFor = function (m, stageTier) { return MM.winExp(stageTier); }; // [10-25 변경] 단계 상관없이 스테이지 경험치 그대로 (대신 단계별 만렙)
   MM.offlinePendingMs = function (s) { return offl(s).pendingMs; };
   MM.offlineBag = function (s) { return offl(s).bag; };

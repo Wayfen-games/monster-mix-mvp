@@ -104,12 +104,12 @@
   check('1단계 소울은 분해 불가', !!MM.decomposeSoul(s, 'fire', 1).error);
   [1, 2, 3, 4].forEach(function () { MM.addMonster(s, 'water', 2); });
   s.party = [s.monsters[0].id];
-  check('파티 몬스터 분해 불가', !!MM.decomposeMonster(s, s.monsters[0].id).error);
+  check('파티 샤들링 분해 불가', !!MM.decomposeMonster(s, s.monsters[0].id).error);
   var dm = MM.decomposeMonster(s, s.monsters[1].id);
-  check('몬스터 분해 → 같은 단계 소울 9개', !dm.error && dm.added === 9);
+  check('샤들링 분해 → 같은 단계 소울 9개', !dm.error && dm.added === 9);
   while (s.monsters.length > 3) s.monsters.pop();
-  check('3마리 이하면 몬스터 분해 불가', !!MM.decomposeMonster(s, s.monsters[2].id).error);
-  check('분해는 손해: 몬스터→소울 9개 < 소환 30개', B.DECOMPOSE_MONSTER_SOULS < B.SOULS_PER_SUMMON && B.SOULS_PER_SUMMON === 30);
+  check('3마리 이하면 샤들링 분해 불가', !!MM.decomposeMonster(s, s.monsters[2].id).error);
+  check('분해는 손해: 샤들링→소울 9개 < 소환 30개', B.DECOMPOSE_MONSTER_SOULS < B.SOULS_PER_SUMMON && B.SOULS_PER_SUMMON === 30);
   s.souls.light3 = 30;
   var sm = MM.summon(s, 'light', 3);
   check('소환 레벨은 단계별 고정, 합성 조건보다 낮음', sm.monster.level === MM.summonLevel(3) && MM.summonLevel(3) < MM.fuseLevelReq(3));
@@ -237,7 +237,7 @@
     check('접속 중에도 시간이 쌓임 (1분)', MM.offlinePendingMs(s) === 60000);
   })();
 
-  // ---- 방치 보상: 쌓인 보상 미리보기 + 몬스터 지정 ----
+  // ---- 방치 보상: 쌓인 보상 미리보기 + 샤들링 지정 ----
   (function () {
     var s = MM.newState(t0); s.cleared.fire1 = 1; s.offline.stage = { el: 'fire', tier: 1 };
     var a = MM.addMonster(s, 'fire', 1, 1), b2 = MM.addMonster(s, 'water', 1, 1), c = MM.addMonster(s, 'grass', 1, 1), d = MM.addMonster(s, 'dark', 1, 1);
@@ -245,20 +245,20 @@
     MM.accrueOffline(s, t0 + 6 * 3600000, rng);
     var bag = MM.offlineBag(s);
     check('쌓이는 동안 판수·골드·경험치가 미리 보임', bag.runs > 0 && bag.gold === bag.runs * B.CLEAR_GOLD[0] && bag.exp === bag.runs * MM.winExp(1));
-    check('방치 보상 몬스터를 안 정하면 파티', MM.offlineTeam(s).join() === s.party.join());
+    check('방치 보상 샤들링을 안 정하면 파티', MM.offlineTeam(s).join() === s.party.join());
     var g0 = s.gold, r = MM.setOfflineTeam(s, [d.id, a.id]);
-    check('몬스터 바꾸면 쌓인 보상 즉시 지급 (경험치는 바꾸기 전 = 파티에게)', r.paid && s.gold > g0 && b2.level > 1 && d.level === 1 && MM.offlineBag(s).runs === 0);
+    check('샤들링 바꾸면 쌓인 보상 즉시 지급 (경험치는 바꾸기 전 = 파티에게)', r.paid && s.gold > g0 && b2.level > 1 && d.level === 1 && MM.offlineBag(s).runs === 0);
     MM.accrueOffline(s, t0 + 12 * 3600000, rng);
     var r2 = MM.claimOffline(s, t0 + 12 * 3600000, rng);
-    check('받기: 지정 몬스터(파티 밖 포함)만 경험치', r2 && d.level > 1 && r2.team.join() === [d.id, a.id].join());
+    check('받기: 지정 샤들링(파티 밖 포함)만 경험치', r2 && d.level > 1 && r2.team.join() === [d.id, a.id].join());
     check('즉시 받기: 몇 분만 쌓여도 받을 수 있음', (MM.accrueOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng), MM.claimOffline(s, t0 + 12 * 3600000 + 10 * 60000, rng) !== null));
     s.gold = 1e6; s.souls.fire1 = 50;
     var e = MM.addMonster(s, 'fire', 1, MM.fuseLevelReq(1)); MM.setOfflineTeam(s, [e.id, b2.id]);
-    check('방치 보상에 지정한 몬스터는 합성 재료로 못 씀', !MM.fusionCheck(s, e, d).ok && MM.fusionCheck(s, e, d).reasons.some(function (r) { return /방치 보상/.test(r); }));
-    check('방치 보상에 지정한 몬스터는 분해 못 함', !!MM.canDecomposeMonster(s, e));
+    check('방치 보상에 지정한 샤들링은 합성 재료로 못 씀', !MM.fusionCheck(s, e, d).ok && MM.fusionCheck(s, e, d).reasons.some(function (r) { return /방치 보상/.test(r); }));
+    check('방치 보상에 지정한 샤들링은 분해 못 함', !!MM.canDecomposeMonster(s, e));
     MM.setOfflineTeam(s, [b2.id]);
     check('빼면 합성 가능', MM.fusionCheck(s, e, d).ok);
-    check('지정 안 했을 때(파티가 받음)는 파티 몬스터도 합성 가능', (function () { s.offline.team = []; return MM.fusionCheck(s, e, d).ok; })());
+    check('지정 안 했을 때(파티가 받음)는 파티 샤들링도 합성 가능', (function () { s.offline.team = []; return MM.fusionCheck(s, e, d).ok; })());
     // 입장권
     var s2 = MM.newState(t0), before = MM.ticketCount(s2, 2);
     B.TICKET_DROP = 1; var tw = MM.grantStageWin(s2, 'fire', 2, MM.stageEnemies('fire', 2)); B.TICKET_DROP = 0.01;
@@ -283,7 +283,7 @@
     var m = MM.addMonster(s, 'light', 1, 5);
     var had = s.souls.light1, r = MM.craftEquip(s, 'light', 1);
     check('장비 제작: 소울 100개 → 빛의 조각, 빈 칸이면 바로 장착', r.equip && s.souls.light1 === had - 100 && MM.isEquipped(s, r.equip) && MM.equipName('light', 1) === '빛의 조각');
-    check('장비 효과: 그 속성 몬스터만 단계×2% + 강화×1%', Math.abs(MM.playerMult(s, m) - 1.02) < 1e-9 && MM.playerMult(s, MM.addMonster(s, 'fire', 1)) === 1);
+    check('장비 효과: 그 속성 샤들링만 단계×2% + 강화×1%', Math.abs(MM.playerMult(s, m) - 1.02) < 1e-9 && MM.playerMult(s, MM.addMonster(s, 'fire', 1)) === 1);
     var bp = MM.battleParty(s, [m]);
     check('전투에 장비 배율 반영 (원본은 그대로)', Math.abs(bp[0].mult - 1.02) < 1e-9 && !m.mult);
     check('강화 비용: 0→1은 골드만, n→n+1은 소울 n개', MM.equipEnhCost({ el: 'light', tier: 1, plus: 0 }).souls === 0 && MM.equipEnhCost({ el: 'light', tier: 1, plus: 7 }).souls === 7);
@@ -299,13 +299,13 @@
     MM.unequip(s, 'light'); var v = MM.equipDecompValue(e), ex = MM.equipExpectedSpend(1, 3);
     check('+3 분해: 소울 5 + 기댓값 70%', v.souls === 5 + Math.floor(ex.souls * 0.7) && v.gold === Math.floor(ex.gold * 0.7 / 10) * 10);
   })();
-  // ---- 몬스터 강화 ----
+  // ---- 샤들링 강화 ----
   (function () {
     var s = MM.newState(t0); s.gold = 1e9; s.souls.fire1 = 50;
     var m = MM.addMonster(s, 'fire', 1, MM.fuseLevelReq(1)), n = 0;
     while ((m.plus || 0) < 3 && n < 50) { MM.enhanceMonster(s, m.id); n++; }
-    check('몬스터 강화 +3까지 (천장: 실패마다 +15%p)', m.plus === 3 && !!MM.enhanceMonster(s, m.id).error, n);
-    check('몬스터 강화 +3 = 15%', Math.abs(MM.playerMult(s, m) - 1.15) < 1e-9);
+    check('샤들링 강화 +3까지 (천장: 실패마다 +15%p)', m.plus === 3 && !!MM.enhanceMonster(s, m.id).error, n);
+    check('샤들링 강화 +3 = 15%', Math.abs(MM.playerMult(s, m) - 1.15) < 1e-9);
     MM.addMonster(s, 'grass', 1, 1); MM.addMonster(s, 'water', 1); MM.addMonster(s, 'dark', 1);
     var g = s.monsters.filter(function (x) { return x.el === 'grass'; })[0];
     var fr = MM.attemptFusion(s, m.id, g.id, null, function () { return 0; });
