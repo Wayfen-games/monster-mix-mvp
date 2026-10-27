@@ -428,7 +428,7 @@
     MM.raidTiers().forEach(function (k) {
       var n = MM.raidTicketCount(S, k), ph = MM.raidPhase(S, k), rt = MM.raidRefTier(k);
       html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + k + '단계 레이드</b><span class="chip' + (n ? ' gold' : '') + '">⚔ ' + n + '장</span></div>' +
-        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', rt, 64) + '<div class="muted small lh">추천: ' + rt + '단계 샤들링 5마리<br>진행: ' + [0, 1, 2].map(function (i) { return i < ph ? '✅' : i === ph ? '▶' : '⬜'; }).join(' ') + ' (' + (ph + 1) + '페이즈 차례)<br>깃털 ' + Math.round(MM.tierVal(BAL().RAID_FEATHER, k) * 100) + '% · 무지개 장비 1~' + rt + '단계 (' + rt + '단계 ' + Math.round(BAL().RAID_EQUIP_TOP_PCT * 100) + '% … 1단계 ' + Math.round(BAL().RAID_EQUIP_TOP_PCT * rt * 100) + '%)</div></div>' +
+        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', rt, 64) + '<div class="muted small lh">추천: ' + rt + '단계 샤들링 5마리 + ' + rt + '단계 장비 +10<br>진행: ' + [0, 1, 2].map(function (i) { return i < ph ? '✅' : i === ph ? '▶' : '⬜'; }).join(' ') + ' (' + (ph + 1) + '페이즈 차례)<br>깃털 ' + Math.round(MM.tierVal(BAL().RAID_FEATHER, k) * 100) + '% · 무지개 장비 1~' + rt + '단계 (' + rt + '단계 ' + Math.round(BAL().RAID_EQUIP_TOP_PCT * 100) + '% … 1단계 ' + Math.round(BAL().RAID_EQUIP_TOP_PCT * rt * 100) + '%)</div></div>' +
         '<button class="btn primary sm block" data-act="startRaid" data-tier="' + k + '"' + (n && party ? '' : ' disabled') + '>' + (n ? (ph ? (ph + 1) + '페이즈 이어 하기' : '도전 (3페이즈까지 깨면 입장권 1장 사용)') : '레인보우 샤들링을 이겨서 입장권을 모아 보세요') + '</button></div>';
     });
     return html;
