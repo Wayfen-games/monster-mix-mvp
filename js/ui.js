@@ -225,6 +225,7 @@
   function gachaRank(r) { return r.kind === 'boss' ? 1000 : r.kind === 'up' ? 100 + r.n : r.kind === 'ticket' ? 10 + r.n : r.n / 10; }
   function gachaLabel(r) { return r.kind === 'boss' ? '보스 입장권!!!' : r.kind === 'up' ? '위 단계 소울 ' + r.n + '개' + (r.big ? '!!!' : r.n >= 10 ? '!!' : '!') : r.kind === 'ticket' ? '입장권 ' + r.n + '장' + (r.n >= 5 ? '!!' : r.n >= 2 ? '!' : '') : '소울 ' + r.n + '개'; }
   function doGacha(el, tier, times) {
+    setRare('gacha', tier);
     var res = [];
     for (var i = 0; i < times; i++) { var r = MM.gachaPull(S, el, tier); if (r.error) { if (!res.length) { toast(r.error); return; } break; } res.push(r); }
     save(); closeSheet(); render();
@@ -455,6 +456,7 @@
   function newSession() { return { runs: 0, wins: 0, losses: 0, gold: 0, exp: 0, drops: {}, firsts: {}, wasted: 0, levelUps: {} }; }
 
   function startBattle(kind, opts) {
+    setRare(kind, opts && opts.tier);
     var party = kind === 'raid' ? MM.raidParty(S) : partyMons();
     if (!party || !party.length) { toast(kind === 'raid' ? '다섯 속성 샤들링이 모두 있어야 레이드에 들어갈 수 있어요' : '파티에 샤들링을 넣어 주세요'); return; }
     var enemies;
@@ -541,7 +543,7 @@
   function sessionTally(ss) {
     var keys = Object.keys(ss.drops).sort(function (a, b) { return MM.parseKey(b).tier - MM.parseKey(a).tier; });
     var tk = ss.tickets ? '<span class="chip gold">🎟 ' + (ss.ticketTier || '') + '단계 입장권 ×' + ss.tickets + '</span>' : '';
-    return '<div class="tally">' + tk + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (p.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.soulName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : (tk ? '' : '<span class="muted small">아직 얻은 소울이 없어요</span>')) + '</div>';
+    return '<div class="tally">' + tk + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (isRare(p.tier) ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.soulName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : (tk ? '' : '<span class="muted small">아직 얻은 소울이 없어요</span>')) + '</div>';
   }
 
   SCREENS.battle = function () {
@@ -622,7 +624,12 @@
     Bt.timer = setTimeout(battleTick, Bt.auto ? Math.round(BAL().AUTO_ACTION_MS * 0.6) : 380);
   }
 
-  function rareOf(drops) { return drops.filter(function (d) { return d.tier >= BAL().RECORD_MIN_SOUL_TIER && d.added > 0; }); }
+  // [10-27 140번] 소울 연출은 지금 콘텐츠 단계 이상만 (4단계 스테이지면 3단계 이하 소울은 연출 없음)
+  var rareT = 0;
+  function contentTier(kind, tier) { return kind === 'raid' ? MM.raidRefTier(tier) : tier; }
+  function setRare(kind, tier) { rareT = contentTier(kind, tier) || 0; }
+  function isRare(tier, t) { return tier >= Math.max(BAL().RECORD_MIN_SOUL_TIER, t == null ? rareT : t); }
+  function rareOf(drops) { return drops.filter(function (d) { return isRare(d.tier) && d.added > 0; }); }
 
   function finishBattle() {
     var Bt = view.battle; if (!Bt) return;
@@ -703,13 +710,14 @@
   function dropsHtml(list) {
     if (!list.length) return '<span class="muted">이번에는 소울이 나오지 않았어요</span>';
     return list.map(function (d) {
-      return '<div class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 24) + MM.soulName(d.el, d.tier) + ' ×' + d.count +
+      return '<div class="soul-item' + (isRare(d.tier) ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 24) + MM.soulName(d.el, d.tier) + ' ×' + d.count +
         (d.first ? ' <span class="first">첫 획득!</span>' : '') + (d.wasted ? ' <span class="lack small">가득 차서 ' + d.wasted + '개 버려짐</span>' : '') + '</div>';
     }).join('');
   }
 
   SCREENS.reward = function () {
     var R = view.reward; if (!R) return SCREENS.stages();
+    setRare(R.kind, R.tier);
     var html = '', again = '';
     if (R.repeat) {
       var ss = R.session;
@@ -1226,7 +1234,7 @@
       '<button class="btn sm' + (ready ? ' primary' : '') + '" data-act="claimOffline"' + (ready ? '' : ' disabled') + '>즉시 받기</button>';
     var team = MM.offlineTeam(S).map(function (id) { return MM.getMonster(S, id); }).filter(Boolean);
     var items = valid ? '<div class="off-items">' + bagList(bag).map(function (d) {
-        return '<span class="soul-item' + (d.tier >= BAL().RECORD_MIN_SOUL_TIER ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 18) + MM.soulName(d.el, d.tier) + ' ×' + d.count + '</span>';
+        return '<span class="soul-item' + (isRare(d.tier, st.tier) ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 18) + MM.soulName(d.el, d.tier) + ' ×' + d.count + '</span>';
       }).join('') + (bag.tickets ? '<span class="soul-item rare">🎟 ' + st.tier + '단계 입장권 ×' + bag.tickets + '</span>' : '') + '<span class="soul-item">' + fmt(bag.gold) + ' G</span><span class="soul-item">EXP ' + fmt(bag.exp) + '</span></div>' : '';
     var teamLine = '<button class="linkish small off-team" data-act="offlineTeamSheet">경험치: ' + (team.length ? team.map(function (m) { return monSvg(m.el, m.tier, 18) + name(m); }).join(' ') : '없음') + (S.offline.team && S.offline.team.length ? '' : ' <span class="muted">(파티)</span>') + ' · 바꾸기 ›</button>';
     return '<div class="card offline-card' + (full ? ' full' : '') + '"><div class="row between"><div><b>방치 보상</b> <span class="small ' + (full ? 'lack' : 'muted') + '">' + hoursText(h) + ' / ' + BAL().OFFLINE_MAX_HOURS + '시간' + (full ? ' · 가득 참' : '') + '</span>' +
@@ -1267,6 +1275,7 @@
     render();
   }
   function showPaid(res, note) {
+    if (res.stage) setRare('stage', res.stage.tier);
     showOverlay('<div class="result"><div class="big ok">방치 보상</div>' + (note ? '<div class="muted small" style="margin-top:4px">' + note + '</div>' : '') + '<div class="sub">' + MM.stageLabel(res.stage.el, res.stage.tier) + ' · ' + hoursText(res.hours) + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + ' · ' + fmt(res.runs) + '판 분량</div>' +
       '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + (res.drops.length ? dropsHtml(res.drops) : '<span class="muted small">이번에는 소울이 없어요</span>') + '</div></div>' +
       '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' + (res.tickets ? '<div class="cost-line"><span>🎟 입장권</span><span>' + res.stage.tier + '단계 +' + res.tickets + '장</span></div>' : '') +
@@ -1323,7 +1332,7 @@
     bagSeg: function (d) { view.bagSeg = d.v; render(); },
     startRaid: function (d) { var k = +d.tier; if (MM.raidTicketCount(S, k) <= 0) { toast('레이드 입장권이 없어요'); return; } startBattle('raid', { tier: k }); },
     sweepTicket: function (d) {
-      var t = +d.tier, n = +d.n, els = view.ticketEls; if (els.length !== 3) { toast('속성 3개를 먼저 고르세요'); return; }
+      var t = +d.tier, n = +d.n, els = view.ticketEls; setRare('ticket', t); if (els.length !== 3) { toast('속성 3개를 먼저 고르세요'); return; }
       var all = [], gold = 0, exp = 0, bt = 0, ups = {};
       for (var i = 0; i < n; i++) { var r = MM.sweepTicket(S, t, els); if (r.error) { if (!i) { toast(r.error); return; } break; } all = all.concat(r.drops); gold += r.gold; exp += r.exp; if (r.bossTicket) bt++; r.levelUps.forEach(function (u) { ups[u.id] = u; }); }
       var merged = {}; all.forEach(function (d) { var m = merged[d.key] || (merged[d.key] = { key: d.key, el: d.el, tier: d.tier, count: 0, added: 0, wasted: 0, first: false }); m.count += d.count; m.added += d.added; m.wasted += d.wasted; m.first = m.first || d.first; });
@@ -1389,6 +1398,7 @@
       var now = Date.now(), dEl = MM.dungeonElementFor(now), els = dEl ? [dEl] : view.dungeonEls.slice(), tier = +d.tier;
       if (!dEl && els.length !== 3) { toast('주말에는 속성 3개를 골라 주세요'); return; }
       if (!S.dungeon.cleared[tier]) return;
+      setRare('dungeon', tier);
       if (!MM.useDungeonEntry(S, now)) { toast('오늘 던전 횟수를 다 썼어요'); return; }
       var en = MM.dungeonEnemies(els, tier), r = MM.grantDungeonWin(S, tier, en);
       save();
