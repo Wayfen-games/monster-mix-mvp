@@ -453,6 +453,22 @@
     check('레이드 입장권 확률표', [1, 3, 5, 9].map(function (n) { return Math.round(MM.raidTicketChance(n, 1) * 100); }).join() === '2,6,10,10' && [5, 6, 7, 10].map(function (n) { return Math.round(MM.raidTicketChance(n, 2) * 100); }).join() === '0,2,4,10');
     var sr = MM.newState(t0); MM.RING.forEach(function (el) { MM.addMonster(sr, el, 5, 59); }); MM.addRaidTickets(sr, 1, 1);
     check('레이드 파티: 속성마다 1마리, 5마리', MM.raidParty(sr).length === 5 && !MM.raidParty(MM.newState(t0)));
+    (function () { // [10-27 19:14] 레이드 보스 속성 변화
+      var pm = MM.battleParty(sr, MM.raidParty(sr)), turnsTo = function (bt, n) { var boss = bt.units.filter(function (u) { return u.raid; })[0], seen = [boss.el], g = 0; bt.policy = 'smart'; bt.maxRounds = 999;
+        bt.units.forEach(function (u) { u.hp = u.maxHp = 1e9; });
+        while (!bt.result && (boss.turns || 0) < n && g++ < 2000) { MM.act(bt, null, rr); if (seen[seen.length - 1] !== boss.el) seen.push(boss.el); } return { boss: boss, seen: seen }; };
+      var a1 = turnsTo(MM.createRaidBattle(pm, 1, 0, rr), 8);
+      check('레이드 1페이즈는 무지개 고정', a1.seen.join() === 'rainbow');
+      var b2 = MM.createRaidBattle(pm, 1, 1, rr), boss2 = b2.units.filter(function (u) { return u.raid; })[0]; boss2.hp = boss2.maxHp = 1e9;
+      var a2 = turnsTo(b2, 12), i0 = MM.RING.indexOf(a2.seen[1]);
+      check('2페이즈: 무지개로 시작, 보스 차례 4번마다 바뀜, 첫 속성 다음은 불→풀→물→빛→어둠 순서', a2.seen[0] === 'rainbow' && a2.seen.length === 4 && i0 >= 0 && a2.seen[2] === MM.RING[(i0 + 1) % 5] && a2.seen[3] === MM.RING[(i0 + 2) % 5], a2.seen.join());
+      var b3 = MM.createRaidBattle(pm, 1, 2, rr, 'water'), boss3 = b3.units.filter(function (u) { return u.raid; })[0]; boss3.hp = boss3.maxHp = 1e9;
+      var a3 = turnsTo(b3, 6);
+      check('3페이즈: 2페이즈 끝 속성에서 이어서 3번마다 (물 → 빛 → 어둠)', a3.seen.join() === 'water,light,dark', a3.seen.join());
+      check('바뀌기 전 예고 (이 행동 뒤에 바뀜)', (function () { var b = MM.createRaidBattle(pm, 1, 2, rr, 'fire'), x = b.units.filter(function (u) { return u.raid; })[0]; x.turns = 2; return MM.shiftAfterThisTurn(x) && x.nextEl === 'grass'; })());
+      var sx = MM.newState(t0); MM.addRaidTickets(sx, 1, 1); MM.winRaidPhase(sx, 1, rr); MM.winRaidPhase(sx, 1, rr, 'dark');
+      check('2페이즈 끝 속성 저장 → 3페이즈 시작 속성', MM.raidStartEl(sx, 1) === 'dark');
+    })();
     var p1 = MM.winRaidPhase(sr, 1, rr), p2 = MM.winRaidPhase(sr, 1, rr);
     check('레이드 페이즈 저장: 1·2페이즈 깨면 진행만 저장, 입장권은 그대로', !p1.done && !p2.done && MM.raidPhase(sr, 1) === 2 && MM.raidTicketCount(sr, 1) === 1);
     var p3 = MM.winRaidPhase(sr, 1, rr);

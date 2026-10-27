@@ -897,6 +897,9 @@
     boss.plan = plan;
     return plan;
   };
+  MM.nextShiftEl = function (el) { var i = MM.RING.indexOf(el); return MM.RING[(i + 1) % MM.RING.length]; };
+  // 이번 보스 차례가 끝나면 속성이 바뀌는지
+  MM.shiftAfterThisTurn = function (boss) { return !!boss.shiftEvery && ((boss.turns || 0) + 1) % boss.shiftEvery === 0; };
   function bossTurn(bt, boss, rng) {
     if (!boss.plan) MM.planBoss(bt, boss, rng);
     var plan = boss.plan, sk = plan.sk, ev = { actor: boss.uid, skill: plan.type, hits: [] };
@@ -924,6 +927,7 @@
     } else if (plan.type === 'heal') {
       var amt = Math.round(boss.maxHp * sk.pct); boss.hp = Math.min(boss.maxHp, boss.hp + amt); ev.heal = amt;
     }
+    if (boss.shiftEvery && boss.turns % boss.shiftEvery === 0 && boss.nextEl) { ev.shift = { from: boss.el, to: boss.nextEl }; boss.el = boss.nextEl; boss.nextEl = MM.nextShiftEl(boss.el); }
     bt.log.push(ev); bt.queue.shift(); endCheck(bt);
     if (!bt.result) MM.planBoss(bt, boss, rng);
     return ev;
@@ -935,12 +939,17 @@
     if (policy !== 'smart') return 'attack';
     var boss = MM.alive(bt, 'e')[0]; if (!boss) return 'attack';
     var p = boss.plan || {};
-    var hit = boss.atk * boss.atk / (boss.atk + actor.def) * 1.05; // 예상 피해(넉넉히)
+    var hit = boss.atk * boss.atk / (boss.atk + actor.def) * 1.05 * MM.elementMult(boss.el, actor.el); // 예상 피해(넉넉히, 상성 포함)
     var inc = (p.type === 'sweep' || p.type === 'blast') ? hit * p.sk.mult : ((p.type === 'smash' || p.type === 'drain') && p.target === actor.uid) ? hit * p.sk.mult : (p.type === 'attack' && p.target === actor.uid) ? hit : 0;
     if (inc >= actor.hp * 0.8) return 'defend';      // 맞으면 쓰러지거나 위험하면 방어
     if (bt.revivesLeft > 0 && bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; })) return 'revive';
     if (bt.healsLeft > 0 && MM.alive(bt, 'p').some(function (u) { return u.hp < u.maxHp * 0.35; })) return 'heal';
     if (boss.shield > 1) return actor.focus ? 'attack' : 'focus'; // 보호막 동안은 힘 모으기
+    // 속성 변화: 곧 내가 유리한 속성으로 바뀌면 미리 힘 모으기, 지금 불리하면(내 공격 약함) 힘 모아 두기
+    if (boss.shiftEvery && !actor.focus) {
+      if (MM.shiftAfterThisTurn(boss) && MM.elementMult(actor.el, boss.nextEl) > 1 && MM.elementMult(actor.el, boss.el) <= 1) return 'focus';
+      if (MM.elementMult(actor.el, boss.el) < 1 && !(MM.shiftAfterThisTurn(boss) && MM.elementMult(actor.el, boss.nextEl) < 1)) return 'focus';
+    }
     return 'attack';
   };
 
@@ -1082,7 +1091,8 @@
     }
     return out;
   };
-  MM.createRaidBattle = function (partyMonsters, k, phase, rng) {
+  // startEl: 3페이즈 시작 속성 (2페이즈가 끝났을 때 속성). 없으면 무작위
+  MM.createRaidBattle = function (partyMonsters, k, phase, rng, startEl) {
     var b = B(), t = MM.raidRefTier(k), bt = MM.createBattle(partyMonsters, [{ el: 'rainbow', tier: t, level: MM.summonLevel(t), boss: true, raid: true }], rng);
     var u = bt.units.filter(function (x) { return x.side === 'e'; })[0];
     u.maxHp = u.hp = Math.round(u.maxHp * b.RAID_HP_MULT[k - 1][phase]);
@@ -1090,6 +1100,12 @@
     u.spd = Math.round(u.spd * b.BOSS_SPD_MULT * 10) / 10;
     u.skills = b.RAID_SKILLS[phase] || [];
     u.raid = true; u.name = k + '단계 레이드 · ' + (phase + 1) + '페이즈';
+    u.shiftEvery = (b.RAID_SHIFT_EVERY || [])[phase] || 0;
+    if (u.shiftEvery) {
+      var ring = MM.RING;
+      if (phase >= 2) { u.el = ring.indexOf(startEl) >= 0 ? startEl : ring[Math.floor(R(rng)() * ring.length)]; u.nextEl = MM.nextShiftEl(u.el); }
+      else u.nextEl = ring[Math.floor(R(rng)() * ring.length)]; // 2페이즈: 무지개로 시작, 첫 속성만 무작위
+    }
     bt.maxRounds = b.RAID_MAX_ROUNDS[phase]; bt.raid = t; bt.raidTier = k; bt.phase = phase;
     bt.healsLeft = b.RAID_HEALS; bt.revivesLeft = b.RAID_REVIVES;
     MM.newRound(bt, rng); bt.round = 1;
@@ -1103,8 +1119,11 @@
     return bt;
   };
   // 페이즈 승리: 다음 페이즈로 저장. 마지막 페이즈면 보상 + 입장권 1장 사용
-  MM.winRaidPhase = function (s, k, rng) {
+  // endEl: 이긴 페이즈가 끝났을 때 보스 속성 (2페이즈면 3페이즈가 여기서 이어짐)
+  MM.raidStartEl = function (s, k) { var r = raidState(s); return r.lastEl && r.lastEl[k] || null; };
+  MM.winRaidPhase = function (s, k, rng, endEl) {
     var r = raidState(s), ph = MM.raidPhase(s, k);
+    if (ph === 1 && endEl) { r.lastEl = r.lastEl || {}; r.lastEl[k] = endEl; }
     if (ph < 2) { r.progress[k] = ph + 1; return { phase: ph, next: ph + 1, done: false }; }
     r.progress[k] = 0; r.tickets[k] = Math.max(0, (r.tickets[k] || 0) - 1);
     return { phase: ph, done: true, reward: MM.grantRaidWin(s, k, rng) };

@@ -1,6 +1,7 @@
 // 레이드 난이도 맞추기 [10-27]: k단계 레이드 = (5k)단계 샤들링 5마리(속성별 1마리, 합성 조건 레벨, 맨 위 단계는 소환~만렙 중간) + (5k)단계 장비 +10 [사용자 10-27 12:25]
 // 페이즈마다: 예고에 대응하면 약 85% (3페이즈 다 합쳐 약 60%, 지면 그 페이즈부터 다시), 이긴 판 중앙 라운드 약 10 / 15 / 25 (합계 약 10분)
-// 사용: node tools/tune-raid.js [판수=200]
+// 사용: node tools/tune-raid.js [판수=200]  (PH=2,3 으로 일부 페이즈만)
+// [10-27 19:14] 2·3페이즈는 보스 속성이 바뀜(RAID_SHIFT_EVERY) → 대응 판단에 '곧 유리해지면 힘 모으기, 불리하면 힘 모아 두기' 포함
 const MM = require('./load');
 const B = MM.BALANCE, N = +process.argv[2] || 200, TARGET = [10, 15, 25], WIN = 0.85, NAIVE = 0.3;
 function party(k) { const t = MM.raidRefTier(k), lv = MM.fuseLevelReq(t); const eq = 1 + B.EQUIP_BASE_PER_TIER * t + B.EQUIP_PER_PLUS * 10; return MM.RING.map((el, i) => ({ id: i + 1, el, tier: t, level: lv, mult: eq })); }
@@ -12,6 +13,7 @@ function measure(k, ph) {
   return out;
 }
 for (const k of MM.raidTiers()) for (let ph = 0; ph < 3; ph++) {
+  if (process.env.PH && !process.env.PH.split(',').includes(String(ph + 1))) continue; // PH=2,3 이면 그 페이즈만
   let best = null;
   const score = m => Math.max(0, m.naive.win - NAIVE) * 10 + Math.abs(m.smart.win - WIN) * 10 + Math.abs(m.smart.rounds - TARGET[ph]) / (TARGET[ph] / 10);
   const search = (hs, as) => { for (const h of hs) for (const a of as) { B.RAID_HP_MULT[k - 1][ph] = h; B.RAID_ATK_MULT[k - 1][ph] = a; const m = measure(k, ph), sc = score(m); if (!best || sc < best.sc) best = { h, a, m, sc }; } };

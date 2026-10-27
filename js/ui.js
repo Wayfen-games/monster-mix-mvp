@@ -471,7 +471,7 @@
     }
     view.battle = {
       kind: kind, el: opts.el, tier: opts.tier, els: opts.els, enemies: enemies,
-      bt: kind === 'boss' ? MM.createBossBattle(MM.battleParty(S, party), opts.tier) : kind === 'raid' ? MM.createRaidBattle(MM.battleParty(S, party), opts.tier, MM.raidPhase(S, opts.tier)) : MM.createBattle(MM.battleParty(S, party), enemies),
+      bt: kind === 'boss' ? MM.createBossBattle(MM.battleParty(S, party), opts.tier) : kind === 'raid' ? MM.createRaidBattle(MM.battleParty(S, party), opts.tier, MM.raidPhase(S, opts.tier), null, MM.raidStartEl(S, opts.tier)) : MM.createBattle(MM.battleParty(S, party), enemies),
       auto: kind === 'boss' || kind === 'raid' ? false : repeat || (kind !== 'tutorial' && !!S.settings.autoBattle),
       repeat: repeat, stopAfter: prev && prev.repeat ? prev.stopAfter : false,
       session: repeat && prev && prev.repeat ? prev.session : (repeat ? (function () { var ns = newSession(); var r0 = readyNow(); ns.readySig = r0.summon.join() + '|' + (r0.pair ? r0.pair.main.id + '-' + r0.pair.sub.id : ''); return ns; })() : null),
@@ -489,7 +489,8 @@
     var txt = p.type === 'attack' ? '공격 → ' + (tg ? tg.name : '?') : p.type === 'smash' ? '<b style="color:var(--bad)">강타 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') :
       p.type === 'sweep' ? '<b style="color:var(--bad)">휩쓸기</b> (아군 전체)' : p.type === 'seal' ? '<b style="color:var(--bad)">봉인</b> (무작위 1마리)' : p.type === 'shield' ? '보호막 (' + p.sk.turns + '턴 피해 ' + Math.round((1 - p.sk.cut) * 100) + '%만)' : p.type === 'heal' ? '회복 (체력 ' + Math.round(p.sk.pct * 100) + '%)' :
       p.type === 'charge' ? '<b style="color:var(--warn)">힘 모으기</b> (다음 차례 대폭발!)' : p.type === 'blast' ? '<b style="color:var(--bad)">대폭발 ×' + p.sk.mult + '</b> (아군 전체) — 방어하세요!' : p.type === 'drain' ? '<b style="color:var(--bad)">흡수 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') : p.type;
-    return '<div class="boss-plan">⚠ 보스 다음 행동: ' + txt + '</div>';
+    var shift = MM.shiftAfterThisTurn(boss) && boss.nextEl ? '<div class="boss-plan" style="border-color:' + MM.ELEMENTS[boss.nextEl].color + '">🔄 이 행동 뒤 <b style="color:' + MM.ELEMENTS[boss.nextEl].color + '">' + MM.ELEMENTS[boss.nextEl].name + ' 속성</b>으로 변해요!</div>' : '';
+    return '<div class="boss-plan">⚠ 보스 다음 행동: ' + txt + '</div>' + shift;
   }
   function unitHtml(u, bt, actor, pickable) {
     var r = u.hp / u.maxHp;
@@ -501,9 +502,9 @@
       var up = MM.beats(actor.el, u.el), down = MM.beats(u.el, actor.el);
       if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
     }
-    return '<div class="' + cls + '" id="u' + u.uid + '"' + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
-      monSvg(u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
-      (u.raid ? '<div class="weak">상성 없음</div>' : u.side === 'e' ? weakText(u.el) : '') +
+    return '<div class="' + cls + '" id="u' + u.uid + '"' + (u.raid && u.el !== 'rainbow' ? ' style="border-color:' + MM.ELEMENTS[u.el].color + ';box-shadow:0 0 18px ' + MM.ELEMENTS[u.el].color + '"' : '') + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
+      monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
+      (u.raid ? (u.el === 'rainbow' ? '<div class="weak">상성 없음</div>' : '<div class="weak" style="color:' + MM.ELEMENTS[u.el].color + ';font-weight:700">' + MM.ELEMENTS[u.el].name + ' 속성</div>' + weakText(u.el)) : u.side === 'e' ? weakText(u.el) : '') +
       (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
       '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u) + '</div>';
@@ -563,6 +564,7 @@
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
       sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '') + (Bt.last.enrage ? ' · 보스가 분노했어요!' : '') + (Bt.last.shielded ? ' · 보호막' : '') + (Bt.last.focused ? ' · 집중 ×' + BAL().BOSS_FOCUS_MULT + '!' : '') + (Bt.last.guarded ? ' · 방어' : '');
     }
+    if (Bt.last && Bt.last.shift && !bt.result) sub = (sub ? sub + ' · ' : '') + '🔄 보스가 ' + MM.ELEMENTS[Bt.last.shift.to].name + ' 속성으로 변했어요!';
     var title = Bt.kind === 'raid' ? Bt.tier + '단계 레이드 · ' + (bt.phase + 1) + '/3 페이즈' : Bt.kind === 'boss' ? Bt.tier + '단계 보스 ' + MM.bossName(Bt.tier) : Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : Bt.kind === 'ticket' ? Bt.tier + '단계 입장권 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
     var en = bt.units.filter(function (u) { return u.side === 'e'; });
     var html = '<div class="battle">' +
@@ -645,7 +647,7 @@
       if (Bt.kind === 'dungeon') { MM.useDungeonEntry(S, Date.now()); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies); }
       else if (Bt.kind === 'ticket') { MM.useTicket(S, Bt.tier); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies, null, { ticket: true }); }
       else if (Bt.kind === 'raid') {
-        var rp = MM.winRaidPhase(S, Bt.tier); Bt.raidRes = rp; r = rp.done ? rp.reward : null;
+        var rp = MM.winRaidPhase(S, Bt.tier, null, (Bt.bt.units.filter(function (u) { return u.raid; })[0] || {}).el); Bt.raidRes = rp; r = rp.done ? rp.reward : null;
         if (r && r.equip) showNotice('🌈 무지개 장비!!!', MM.equipName('rainbow', r.equip.tier) + ' — 모든 샤들링이 강해져요');
         if (r && r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 레이드에서 무지개 깃털이 나왔어요');
       }
