@@ -402,7 +402,7 @@
     check('보스 보상 하루 10번', MM.bossLeftToday(s, t0) === 0 && MM.bossLeftToday(s, t0 + 86400000) === 10);
     var s2 = MM.newState(t0), n5 = 0, n1 = 0;
     for (var j = 0; j < 20000; j++) { if (MM.grantBossWin(s2, 5, rr, t0 + j * 86400000).feather) n5++; if (MM.grantBossWin(s2, 1, rr, t0 + j * 86400000 + 1).feather) n1++; }
-    check('무지개 깃털: 1단계 0.1%, 5단계 0.5%', n1 > 5 && n1 < 40 && n5 > 70 && n5 < 130, n1 + '/' + n5);
+    check('무지개 깃털: 1단계 1%, 5단계 5%', n1 > 150 && n1 < 260 && n5 > 880 && n5 < 1120, n1 + '/' + n5);
     var s3 = MM.newState(t0); s3.gold = 1e12; s3.souls.fire2 = 200; var e = MM.craftEquip(s3, 'fire', 2).equip; e.plus = 10;
     check('+10 이상 강화는 깃털 없으면 불가', !!MM.enhanceEquip(s3, e.id).error);
     s3.items = { feather: 1 }; s3.souls.fire2 = 100; var r3 = MM.enhanceEquip(s3, e.id);
@@ -425,6 +425,38 @@
     check('최대 레벨이면 먹일 수 없음', !!MM.feedSouls(s, mx.id, 5, 1).error);
     var have1 = s.souls.fire1, r4 = MM.feedSouls(s, m.id, 1, 99);
     check('가진 것보다 많이 요청하면 가진 만큼만', r4.used === have1 && s.souls.fire1 === 0, JSON.stringify(r4));
+  })();
+
+  // ---- 무지개 장비·레이드·입장권 소탕 [10-27] ----
+  (function () {
+    var s = MM.newState(t0); s.gold = 1e9;
+    var e = { id: s.nextId++, el: 'rainbow', tier: 5, plus: 0, stack: 0 }; s.equips.push(e); MM.equip(s, e.id);
+    var m = MM.addMonster(s, 'fire', 1, 1), m2 = MM.addMonster(s, 'dark', 1, 1);
+    check('무지개 장비: 모든 속성 샤들링에 단계×2%', Math.abs(MM.playerMult(s, m) - 1.10) < 1e-9 && Math.abs(MM.playerMult(s, m2) - 1.10) < 1e-9);
+    check('무지개 장비 강화 소울: 0→1 0개, 1~5강 1개, 6~10강 2개, 11강 3개', [0, 1, 5, 6, 10, 11].map(function (n) { return MM.equipEnhCost({ el: 'rainbow', tier: 5, plus: n }).souls; }).join() === '0,1,1,2,2,3' && MM.equipEnhCost({ el: 'rainbow', tier: 5, plus: 1 }).rainbow);
+    var r0 = MM.enhanceEquip(s, e.id, function () { return 0; });
+    check('무지개 장비 +0 → +1은 레인보우 소울 없이', r0.success && e.plus === 1);
+    check('레인보우 소울이 없으면 +1 → +2 불가', !!MM.enhanceEquip(s, e.id).error);
+    MM.addItem(s, 'rainbowSoul', 2); MM.enhanceEquip(s, e.id, function () { return 0; });
+    check('강화하면 레인보우 소울 소모', e.plus === 2 && MM.rainbowSoulCount(s) === 1);
+    var rr = MM.seededRng(3), sb = MM.newState(t0), rt = 0, rs = 0;
+    for (var i = 0; i < 2000; i++) { var g = MM.grantBossWin(sb, 7, rr, t0 + i * 86400000); if (g.raidTicket) { rt++; if (g.raidTicket !== 2) rt = -1e9; } if (g.rainbowSoul) rs++; Object.keys(sb.souls).forEach(function (k) { sb.souls[k] = 0; }); }
+    check('보스 승리: 레이드 입장권 약 10% (7단계 보스 → 2단계 레이드), 레인보우 소울 약 5%', rt > 150 && rt < 250 && rs > 60 && rs < 140, rt + '/' + rs);
+    var sr = MM.newState(t0); MM.RING.forEach(function (el) { MM.addMonster(sr, el, 5, 59); }); MM.addRaidTickets(sr, 1, 1);
+    check('레이드 파티: 속성마다 1마리, 5마리', MM.raidParty(sr).length === 5 && !MM.raidParty(MM.newState(t0)));
+    var p1 = MM.winRaidPhase(sr, 1, rr), p2 = MM.winRaidPhase(sr, 1, rr);
+    check('레이드 페이즈 저장: 1·2페이즈 깨면 진행만 저장, 입장권은 그대로', !p1.done && !p2.done && MM.raidPhase(sr, 1) === 2 && MM.raidTicketCount(sr, 1) === 1);
+    var p3 = MM.winRaidPhase(sr, 1, rr);
+    check('3페이즈 깨면 입장권 1장 사용 + 보상(레인보우 소울)', p3.done && MM.raidTicketCount(sr, 1) === 0 && MM.raidPhase(sr, 1) === 0 && MM.rainbowSoulCount(sr) >= 1 && p3.reward.drops.length > 0);
+    var t1 = MM.raidEquipTable(1).map(function (x) { return x.tier + ':' + Math.round(x.p * 100); }).join(), t2 = MM.raidEquipTable(2);
+    check('무지개 장비: 1단계 레이드 5단계 1% … 1단계 5%, 2단계 레이드 10단계 1% … 1단계 10%', t1 === '5:1,4:2,3:3,2:4,1:5' && t2.length === 10 && Math.round(t2[9].p * 100) === 10 && MM.raidEquipRoll(1, 0.005) === 5 && MM.raidEquipRoll(1, 0.149) === 1 && MM.raidEquipRoll(1, 0.151) === 0, t1);
+    var bt = MM.simulateRaidPhase(MM.raidParty(sr), 1, 0, rr, 'smart');
+    check('레이드 전투: 아군 5마리 vs 보스 1마리', bt.units.filter(function (u) { return u.side === 'p'; }).length === 5 && bt.units.filter(function (u) { return u.side === 'e'; }).length === 1);
+    var st = MM.newState(t0); MM.addTickets(st, 2, 3);
+    check('입장권 던전 소탕: 한 번도 안 깼으면 불가', !!MM.sweepTicket(st, 2, ['fire', 'water', 'grass']).error && MM.ticketCount(st, 2) === 3);
+    MM.useTicket(st, 2); MM.grantDungeonWin(st, 2, MM.dungeonEnemies(['fire', 'water', 'grass'], 2), rr, { ticket: true });
+    var sw = MM.sweepTicket(st, 2, ['fire', 'water', 'grass'], rr);
+    check('한 번 이긴 단계는 입장권 1장으로 소탕', !sw.error && sw.drops.length > 0 && MM.ticketCount(st, 2) === 1);
   })();
 
   // ---- 화면 코드가 없는 밸런스 값을 쓰지 않는지 (Node에서만) [10-26 스테이지 안 들어가지던 버그] ----

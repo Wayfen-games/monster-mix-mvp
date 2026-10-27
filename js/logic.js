@@ -167,9 +167,16 @@
     return Math.min(1, p0 + (1 - p0) / (c - 1) * stack);
   };
   MM.equipEnhCost = function (e) {
-    var b = B(), n = e.plus;
-    return { souls: n, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: MM.speciesKey(e.el, e.tier), feather: n >= (b.FEATHER_FROM_PLUS || 999) ? 1 : 0 };
+    var b = B(), n = e.plus, rb = e.el === 'rainbow';
+    // 무지개 장비는 소울 대신 레인보우 소울: 0→1은 0개, 1~5강 1개, 6~10강 2개 … [사용자 확정 10-27]
+    var souls = rb ? (n ? Math.ceil(n / (b.RAINBOW_ENH_STEP || 5)) : 0) : n;
+    return { souls: souls, rainbow: rb, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: rb ? 'rainbowSoul' : MM.speciesKey(e.el, e.tier), feather: n >= (b.FEATHER_FROM_PLUS || 999) ? 1 : 0 };
   };
+  MM.rainbowSoulCount = function (s) { return (s.items && s.items.rainbowSoul) || 0; };
+  MM.addItem = function (s, k, n) { s.items = s.items || {}; s.items[k] = (s.items[k] || 0) + n; };
+  // 강화·분해에 쓰는 소울 개수 (무지개 장비는 레인보우 소울)
+  function enhHave(s, c) { return c.rainbow ? MM.rainbowSoulCount(s) : (s.souls[c.key] || 0); }
+  MM.enhHave = enhHave;
   // n → n+1 시도 횟수 기댓값 (천장 포함)
   MM.equipExpectedTries = function (n) {
     var surv = 1, ex = 0, c = MM.equipCeil(n);
@@ -180,7 +187,7 @@
   MM.equipExpectedSpend = function (tier, plus) {
     var souls = 0, gold = 0;
     for (var n = 0; n < plus; n++) {
-      var c = MM.equipEnhCost({ el: 'fire', tier: tier, plus: n }), ex = MM.equipExpectedTries(n);
+      var c = MM.equipEnhCost({ el: arguments[2] || 'fire', tier: tier, plus: n }), ex = MM.equipExpectedTries(n);
       souls += c.souls * ex; gold += c.gold * ex;
     }
     return { souls: souls, gold: gold };
@@ -190,10 +197,11 @@
     if (!e) return { error: '장비가 없어요' };
     if (e.plus >= B().EQUIP_MAX_PLUS) return { error: '최대 강화예요' };
     var c = MM.equipEnhCost(e);
-    if ((s.souls[c.key] || 0) < c.souls) return { error: MM.josa(MM.soulName(e.el, e.tier) + '', '이', '가') + ' ' + c.souls + '개 필요해요' };
+    if (enhHave(s, c) < c.souls) return { error: (c.rainbow ? '레인보우 소울이' : MM.josa(MM.soulName(e.el, e.tier) + '', '이', '가')) + ' ' + c.souls + '개 필요해요' };
     if (s.gold < c.gold) return { error: MM.josa('골드', '이', '가') + ' 부족해요' };
     if (c.feather && MM.featherCount(s) < c.feather) return { error: '+' + B().FEATHER_FROM_PLUS + ' 이상 강화에는 무지개 깃털이 필요해요' };
-    s.souls[c.key] -= c.souls; s.gold -= c.gold;
+    if (c.rainbow) MM.addItem(s, 'rainbowSoul', -c.souls); else s.souls[c.key] -= c.souls;
+    s.gold -= c.gold;
     if (c.feather) s.items.feather -= c.feather;
     var rate = MM.equipRate(e.plus, e.stack);
     if (R(rng)() < rate) {
@@ -205,8 +213,8 @@
     return { success: false, rate: rate, equip: e, cost: c, nextRate: MM.equipRate(e.plus, e.stack) };
   };
   MM.equipDecompValue = function (e) {
-    var b = B(), ex = MM.equipExpectedSpend(e.tier, e.plus);
-    return { souls: b.EQUIP_DECOMP_SOULS + Math.floor(ex.souls * b.EQUIP_DECOMP_RATE), gold: Math.floor(ex.gold * b.EQUIP_DECOMP_RATE / 10) * 10, key: MM.speciesKey(e.el, e.tier) };
+    var b = B(), rb = e.el === 'rainbow', ex = MM.equipExpectedSpend(e.tier, e.plus, e.el);
+    return { souls: (rb ? 1 : b.EQUIP_DECOMP_SOULS) + Math.floor(ex.souls * b.EQUIP_DECOMP_RATE), gold: Math.floor(ex.gold * b.EQUIP_DECOMP_RATE / 10) * 10, key: rb ? 'rainbowSoul' : MM.speciesKey(e.el, e.tier), rainbow: rb };
   };
   MM.decomposeEquip = function (s, id) {
     var e = MM.getEquip(s, id);
@@ -214,9 +222,9 @@
     if (MM.isEquipped(s, e)) return { error: '장착 중인 장비는 분해할 수 없어요 (먼저 해제)' };
     var v = MM.equipDecompValue(e);
     s.equips = s.equips.filter(function (x) { return x.id !== id; });
-    var r = MM.addSouls(s, v.key, v.souls);
+    var r = v.rainbow ? (MM.addItem(s, 'rainbowSoul', v.souls), { added: v.souls, wasted: 0 }) : MM.addSouls(s, v.key, v.souls);
     s.gold += v.gold;
-    return { souls: r.added, wasted: r.wasted, gold: v.gold, key: v.key };
+    return { souls: r.added, wasted: r.wasted, gold: v.gold, key: v.key, rainbow: v.rainbow };
   };
 
   // ================= 샤들링 강화 =================
@@ -283,7 +291,7 @@
   };
 
   // 전투에 들어갈 내 샤들링: 장비(그 속성)·샤들링 강화 배율을 붙인 복사본
-  MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.monEnhBonus(m)) * (1 + MM.altarStatBonus(s, m.el)); };
+  MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.equipBonus(MM.equippedOf(s, 'rainbow'))) * (1 + MM.monEnhBonus(m)) * (1 + MM.altarStatBonus(s, m.el)); };
   MM.battleParty = function (s, mons) {
     return mons.map(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c.mult = (m.mult || 1) * MM.playerMult(s, m); return c; });
   };
@@ -647,6 +655,7 @@
     var exp = MM.winExp(tier) * (b.DUNGEON_EXP_MULT || 1);
     var ups = partyExp(s, exp);
     if (!opts.ticket) s.dungeon.cleared[tier] = true; // 입장권 던전은 요일 던전 진행에 영향 없음
+    else { s.dungeon.ticketCleared = s.dungeon.ticketCleared || {}; s.dungeon.ticketCleared[tier] = true; }
     var bossTicket = null;
     if (b.BOSS_TICKET_DROP > 0 && !opts.noBossTicket && R(rng)() < b.BOSS_TICKET_DROP) { MM.addBossTickets(s, tier, 1); bossTicket = tier; }
     s.stats.battlesWon++;
@@ -665,6 +674,13 @@
     if (MM.ticketBound(s, tier) > 0) s.dungeon.boundTickets[tier]--;
     s.dungeon.tickets[tier]--;
     return true;
+  };
+  // 입장권 던전 소탕 [10-27]: 그 단계 입장권 던전을 한 번이라도 이겼으면 입장권 1장으로 바로 보상
+  MM.ticketCleared = function (s, tier) { return !!((s.dungeon.ticketCleared || {})[tier]); };
+  MM.sweepTicket = function (s, tier, els, rng) {
+    if (!MM.ticketCleared(s, tier)) return { error: '한 번 이겨야 소탕할 수 있어요' };
+    if (!MM.useTicket(s, tier)) return { error: '입장권이 없어요' };
+    return MM.grantDungeonWin(s, tier, MM.dungeonEnemies(els, tier), rng, { ticket: true });
   };
   MM.addTickets = function (s, tier, n, bound) {
     s.dungeon.tickets = s.dungeon.tickets || {}; s.dungeon.tickets[tier] = (s.dungeon.tickets[tier] || 0) + n;
@@ -1021,6 +1037,9 @@
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
     var raw = MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1));
     var drops = MM.applyDrops(s, raw);
+    var rainbowSoul = 0, raidTicket = null;
+    if (R(rng)() < (b.BOSS_RAINBOW_SOUL || 0)) { MM.addItem(s, 'rainbowSoul', 1); rainbowSoul = 1; }
+    if (R(rng)() < (b.RAID_TICKET_FROM_BOSS || 0)) { raidTicket = MM.raidTierForBoss(tier); MM.addRaidTickets(s, raidTicket, 1); MM.addRecord(s, { type: 'raidticket', el: 'rainbow', tier: raidTicket }); }
     var gold = Math.round(tv(b.CLEAR_GOLD, st) * (b.BOSS_GOLD_MULT || 0));
     s.gold += gold;
     var exp = MM.winExp(st) * b.BOSS_EXP_MULT;
@@ -1028,7 +1047,72 @@
     s.stats.battlesWon++;
     s.stats.bossWins = (s.stats.bossWins || 0) + 1;
     MM.addRecord(s, { type: 'boss', el: 'rainbow', tier: tier });
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather, rainbowSoul: rainbowSoul, raidTicket: raidTicket };
+  };
+
+  // ================= 레이드 [사용자 확정 10-27] =================
+  MM.raidTiers = function () { var n = Math.floor(B().MAX_TIER / B().RAID_TIER_STEP), a = []; for (var k = 1; k <= n; k++) a.push(k); return a; };
+  MM.raidRefTier = function (k) { return Math.min(B().MAX_TIER, k * B().RAID_TIER_STEP); };
+  MM.raidTierForBoss = function (bossTier) { return Math.max(1, Math.min(MM.raidTiers().length, Math.ceil(bossTier / B().RAID_TIER_STEP))); };
+  function raidState(s) { s.raid = s.raid || { tickets: {}, progress: {} }; s.raid.tickets = s.raid.tickets || {}; s.raid.progress = s.raid.progress || {}; return s.raid; }
+  MM.raidTicketCount = function (s, k) { return raidState(s).tickets[k] || 0; };
+  MM.raidTicketTotal = function (s) { var t = raidState(s).tickets; return Object.keys(t).reduce(function (a, k) { return a + (t[k] || 0); }, 0); };
+  MM.addRaidTickets = function (s, k, n) { var r = raidState(s); r.tickets[k] = (r.tickets[k] || 0) + n; };
+  MM.raidPhase = function (s, k) { return raidState(s).progress[k] || 0; }; // 0~2: 다음에 싸울 페이즈
+  // 레이드 파티: 속성마다 가장 센 샤들링 1마리 (단계 → 레벨 순). 없는 속성이 있으면 null
+  MM.raidParty = function (s) {
+    var out = [];
+    for (var i = 0; i < MM.RING.length; i++) {
+      var el = MM.RING[i], best = s.monsters.filter(function (m) { return m.el === el; }).sort(function (a, b) { return b.tier - a.tier || b.level - a.level; })[0];
+      if (!best) return null;
+      out.push(best);
+    }
+    return out;
+  };
+  MM.createRaidBattle = function (partyMonsters, k, phase, rng) {
+    var b = B(), t = MM.raidRefTier(k), bt = MM.createBattle(partyMonsters, [{ el: 'rainbow', tier: t, level: MM.summonLevel(t), boss: true, raid: true }], rng);
+    var u = bt.units.filter(function (x) { return x.side === 'e'; })[0];
+    u.maxHp = u.hp = Math.round(u.maxHp * b.RAID_HP_MULT[k - 1][phase]);
+    u.atk = Math.round(u.atk * b.RAID_ATK_MULT[k - 1][phase]);
+    u.spd = Math.round(u.spd * b.BOSS_SPD_MULT * 10) / 10;
+    u.skills = b.RAID_SKILLS[phase] || [];
+    u.raid = true; u.name = k + '단계 레이드 · ' + (phase + 1) + '페이즈';
+    bt.maxRounds = b.RAID_MAX_ROUNDS[phase]; bt.raid = t; bt.raidTier = k; bt.phase = phase;
+    bt.healsLeft = b.RAID_HEALS; bt.revivesLeft = b.RAID_REVIVES;
+    MM.newRound(bt, rng); bt.round = 1;
+    MM.planBoss(bt, u, rng);
+    return bt;
+  };
+  MM.simulateRaidPhase = function (partyMonsters, k, phase, rng, policy) {
+    var bt = MM.createRaidBattle(partyMonsters, k, phase, rng);
+    bt.policy = policy || 'smart';
+    while (!bt.result) MM.act(bt, null, rng);
+    return bt;
+  };
+  // 페이즈 승리: 다음 페이즈로 저장. 마지막 페이즈면 보상 + 입장권 1장 사용
+  MM.winRaidPhase = function (s, k, rng) {
+    var r = raidState(s), ph = MM.raidPhase(s, k);
+    if (ph < 2) { r.progress[k] = ph + 1; return { phase: ph, next: ph + 1, done: false }; }
+    r.progress[k] = 0; r.tickets[k] = Math.max(0, (r.tickets[k] || 0) - 1);
+    return { phase: ph, done: true, reward: MM.grantRaidWin(s, k, rng) };
+  };
+  // k단계 레이드 무지개 장비: (5k)단계 1%, 한 단계 내려갈 때마다 +1% (하나만). 나오면 단계, 아니면 0
+  MM.raidEquipTable = function (k) { var top = MM.raidRefTier(k), p = B().RAID_EQUIP_TOP_PCT, out = []; for (var t = top; t >= 1; t--) out.push({ tier: t, p: p * (top - t + 1) }); return out; };
+  MM.raidEquipRoll = function (k, x) { var acc = 0, tb = MM.raidEquipTable(k); for (var i = 0; i < tb.length; i++) { acc += tb[i].p; if (x < acc) return tb[i].tier; } return 0; };
+  MM.grantRaidWin = function (s, k, rng) {
+    var b = B(), st = MM.raidRefTier(k);
+    var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
+    var drops = MM.applyDrops(s, MM.rollDrops(en, rng, b.RAID_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1)));
+    var gold = Math.round(tv(b.CLEAR_GOLD, st) * b.RAID_DROP_MULT_STAGE); s.gold += gold;
+    var exp = MM.winExp(st), ups = partyExp(s, exp);
+    var feather = 0; if (R(rng)() < tv(b.RAID_FEATHER, k)) { MM.addItem(s, 'feather', 1); feather = 1; MM.addRecord(s, { type: 'feather', el: 'rainbow', tier: st }); }
+    var rr = b.RAID_RAINBOW_SOULS[Math.min(k, b.RAID_RAINBOW_SOULS.length) - 1], rs = rr[0] + Math.floor(R(rng)() * (rr[1] - rr[0] + 1));
+    MM.addItem(s, 'rainbowSoul', rs);
+    var equip = null, et = MM.raidEquipRoll(k, R(rng)());
+    if (et) { equip = { id: s.nextId++, el: 'rainbow', tier: et, plus: 0, stack: 0 }; (s.equips = s.equips || []).push(equip); if (!MM.equippedOf(s, 'rainbow') || MM.equippedOf(s, 'rainbow').tier < et) { s.equipped = s.equipped || {}; s.equipped.rainbow = equip.id; } MM.addRecord(s, { type: 'rainbowequip', el: 'rainbow', tier: et }); }
+    s.stats.battlesWon++; s.stats.raidWins = (s.stats.raidWins || 0) + 1;
+    MM.addRecord(s, { type: 'raid', el: 'rainbow', tier: k });
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather, rainbowSoul: rs, equip: equip };
   };
 
   MM.simulateBattle = function (partyMonsters, enemies, rng) {
