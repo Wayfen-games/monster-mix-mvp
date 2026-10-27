@@ -323,9 +323,9 @@
     check('제단 보너스: 그 속성만 능력치·경험치', MM.playerMult(s, m) > 1 && MM.altarExpBonus(s, 'water') === 0);
     var s2 = MM.newState(t0), seen = {}, acc = 0;
     B.GACHA_TABLE.forEach(function (row) { var x = acc + row.p / 2; acc += row.p; s2.souls.water2 = 100; var g = MM.gachaPull(s2, 'water', 2, function () { return x; }); seen[g.kind + g.n] = g; });
-    check('뽑기: 소울 50개로 1번, 11가지 당첨 품목이 다 나옴 (보스 입장권 포함)', B.GACHA_COST === 50 && Object.keys(seen).length === 11 && seen.souls15 && seen.ticket5 && seen.up3 && seen.boss1 && MM.bossTicketCount(s2, 2) === 1);
+    check('뽑기: 소울 50개로 1번, 11가지 당첨 품목이 다 나옴 (보스 입장권 포함)', B.GACHA_COST === 50 && Object.keys(seen).length === 11 && seen.souls15 && seen.ticket5 && seen.up10 && seen.boss1 && MM.bossTicketCount(s2, 2) === 1);
     check('뽑기 입장권은 같은 단계 (1+2+3+5장)', MM.ticketCount(s2, 2) === 11);
-    check('뽑기 위 단계 소울 (1+2+3개, 같은 속성)', (s2.souls.water3 || 0) === 6, s2.souls.water3);
+    check('뽑기 위 단계 소울 (3+5+10개, 같은 속성)', (s2.souls.water3 || 0) === 18, s2.souls.water3);
     check('뽑기 확률 합 100%', Math.abs(B.GACHA_TABLE.reduce(function (a, r) { return a + r.p; }, 0) - 1) < 1e-9);
     check('소울 부족하면 못 뽑음', !!MM.gachaPull(MM.newState(t0), 'fire', 1).error);
   })();
