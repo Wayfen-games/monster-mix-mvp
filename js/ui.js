@@ -1023,7 +1023,7 @@
       '<div class="pop' + (mainSnap ? '' : ' now') + '">' + monSvg(m.el, m.tier, 130) + '</div></div>' +
       '<div class="reveal' + (mainSnap ? '' : ' now') + '"><div class="big ok">' + line.title + '</div><div class="sub">' + line.sub + '</div>' +
       (dex ? '<div class="new">도감 새 등록! 보상: ' + MM.soulName(m.el, m.tier) + ' ' + dex.soul + '개</div>' : '') +
-      (dex && dex.set ? '<div class="new" style="color:var(--accent)">🎉 ' + dex.set.tier + '단계 도감 5종 완성! 입장권 ' + dex.set.tickets + '장 + 보스 입장권 ' + dex.set.boss + '장</div>' : '') +
+      (dex && dex.set ? '<div class="new set">🎉 ' + dex.set.tier + '단계 도감 5종 완성! 입장권 ' + dex.set.tickets + '장 + 보스 입장권 ' + dex.set.boss + '장 (교환 불가)</div>' : '') +
       '<div class="acts">' + acts + '</div></div></div>');
   }
 

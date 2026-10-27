@@ -212,6 +212,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .result .big.ok { color: var(--accent); }
 .result .big.no { color: #ff9a9a; }
 .result .sub { color: var(--muted); margin-top: 6px; }
+.result .new.set { display: block; background: #2f4a2a; color: #b8f5c2; border: 1px solid #b8f5c2; line-height: 1.4; }
 .result .new { display: inline-block; margin-top: 8px; background: var(--accent); color: #2a2000; font-weight: 900; padding: 3px 10px; border-radius: 999px; font-size: 13px; }
 .result .acts { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
 .stage-anim { position: relative; height: 200px; display: flex; align-items: center; justify-content: center; }
