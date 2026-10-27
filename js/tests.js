@@ -344,13 +344,13 @@
     for (var bt = 1; bt <= B.MAX_TIER; bt++) {
       var w = 0, wn = 0, rounds = [], lv = MM.summonLevel(bt), trios = [['fire', 'water', 'grass'], ['light', 'dark', 'fire'], ['water', 'grass', 'light'], ['dark', 'fire', 'water'], ['grass', 'light', 'dark']];
       for (var i = 0; i < 300; i++) {
-        var pt = trios[i % 5].map(function (e, k) { return { id: k + 1, el: e, tier: bt, level: lv }; });
+        var pt = trios[i % 5].map(function (e, k) { return { id: k + 1, el: e, tier: bt, level: lv, mult: 1 + B.EQUIP_BASE_PER_TIER * bt + B.EQUIP_PER_PLUS * 5 }; });
         var b = MM.simulateBossBattle(pt, bt, rr, 'smart'); if (b.result === 'win') { w++; rounds.push(b.round); }
         if (MM.simulateBossBattle(pt, bt, rr, 'naive').result === 'win') wn++;
       }
       rounds.sort(function (a, c) { return a - c; });
       var med = rounds[Math.floor(rounds.length / 2)];
-      check(bt + '단계 보스: 공격만 하면 어렵고(<50%) 예고에 대응하면 깸(>55%), 20라운드쯤', wn / 300 < 0.5 && w / 300 > 0.55 && med >= 15 && med <= 26, '공격만 ' + Math.round(wn / 3) + '% · 대응 ' + Math.round(w / 3) + '% · ' + med + '라운드');
+      check(bt + '단계 보스 (같은 단계 장비 +5 기준): 공격만 하면 어렵고(<50%) 예고에 대응하면 깸(>55%), 20라운드쯤', wn / 300 < 0.5 && w / 300 > 0.55 && med >= 15 && med <= 26, '공격만 ' + Math.round(wn / 3) + '% · 대응 ' + Math.round(w / 3) + '% · ' + med + '라운드');
     }
     var b1 = MM.createBossBattle([{ id: 1, el: 'fire', tier: 1, level: 10 }, { id: 2, el: 'water', tier: 1, level: 10 }], 1, rr), sealed = false, skipped = false, smashed = false;
     while (!b1.result) { var ev = MM.act(b1, null, rr); if (ev && ev.skill === 'seal') sealed = true; if (ev && ev.skip) skipped = true; if (ev && ev.skill === 'smash') smashed = true; }

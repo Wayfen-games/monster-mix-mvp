@@ -1,4 +1,4 @@
-// 보스 난이도 맞추기: n단계 소환 레벨 3마리(서로 다른 속성)로 공격만 하면 약 25%, 예고에 대응하면 약 75% (이긴 판 중앙 약 20라운드)
+// 보스 난이도 맞추기 [10-27 사용자: 기준 = n단계 3마리 + n단계 장비 +5]: n단계 소환 레벨 3마리(서로 다른 속성, 장비 n단계 +5 배율)로 공격만 하면 약 25%, 예고에 대응하면 약 75% (이긴 판 중앙 약 20라운드)
 // 사용: node tools/tune-boss.js  → 맞춘 BOSS_HP_MULT / BOSS_ATK_MULT 출력
 const MM = require('./load');
 const B = MM.BALANCE, N = +process.argv[2] || 400;
@@ -11,7 +11,8 @@ function measure(tier) {
     let w = 0; const rounds = [];
     for (let i = 0; i < N; i++) {
       const els = trios[i % trios.length], lv = MM.summonLevel(tier);
-      const party = els.map((el, k) => ({ id: k + 1, el, tier, level: lv }));
+      const eq = 1 + B.EQUIP_BASE_PER_TIER * tier + B.EQUIP_PER_PLUS * 5;
+      const party = els.map((el, k) => ({ id: k + 1, el, tier, level: lv, mult: eq }));
       const bt = MM.simulateBossBattle(party, tier, rng, pol);
       if (bt.result === 'win') { w++; rounds.push(bt.round); }
     }

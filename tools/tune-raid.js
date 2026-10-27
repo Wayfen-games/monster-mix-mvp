@@ -1,9 +1,9 @@
-// 레이드 난이도 맞추기 [10-27]: k단계 레이드 = (5k)단계 샤들링 5마리(속성별 1마리, 합성 조건 레벨, 맨 위 단계는 소환~만렙 중간)
+// 레이드 난이도 맞추기 [10-27]: k단계 레이드 = (5k)단계 샤들링 5마리(속성별 1마리, 합성 조건 레벨, 맨 위 단계는 소환~만렙 중간) + (5k)단계 장비 +10 [사용자 10-27 12:25]
 // 페이즈마다: 예고에 대응하면 약 85% (3페이즈 다 합쳐 약 60%, 지면 그 페이즈부터 다시), 이긴 판 중앙 라운드 약 10 / 15 / 25 (합계 약 10분)
 // 사용: node tools/tune-raid.js [판수=200]
 const MM = require('./load');
 const B = MM.BALANCE, N = +process.argv[2] || 200, TARGET = [10, 15, 25], WIN = 0.85, NAIVE = 0.3;
-function party(k) { const t = MM.raidRefTier(k), lv = t < B.MAX_TIER ? MM.fuseLevelReq(t) : Math.round((MM.summonLevel(t) + MM.maxLevel(t)) / 2); return MM.RING.map((el, i) => ({ id: i + 1, el, tier: t, level: lv })); }
+function party(k) { const t = MM.raidRefTier(k), lv = t < B.MAX_TIER ? MM.fuseLevelReq(t) : Math.round((MM.summonLevel(t) + MM.maxLevel(t)) / 2); const eq = 1 + B.EQUIP_BASE_PER_TIER * t + B.EQUIP_PER_PLUS * 10; return MM.RING.map((el, i) => ({ id: i + 1, el, tier: t, level: lv, mult: eq })); }
 function measure(k, ph) {
   const out = {};
   for (const pol of ['naive', 'smart']) { const rng = MM.seededRng(91 + k * 7 + ph); let w = 0; const rs = [];
