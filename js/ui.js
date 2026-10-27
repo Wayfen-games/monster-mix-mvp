@@ -578,7 +578,7 @@
     } else if (Bt.kind === 'boss' || Bt.kind === 'raid') {
       var dead = bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; }), dis = function (ok) { return myTurn && ok ? '' : ' disabled'; };
       // [사용자 확정 10-27 12:31] 보스·레이드도 자동 전투: 공격만 반복 (방어·집중·회복·부활은 직접 해야 함)
-      html += '<div class="battle-bar" style="margin-bottom:8px"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON · 공격만 반복' : 'OFF') + '</button></div>';
+      if (Bt.kind === 'boss') html += '<div class="battle-bar" style="margin-bottom:8px"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON · 공격만 반복' : 'OFF') + '</button></div>'; // 레이드는 자동 없음 [사용자 확정 10-27 12:33]
       if (Bt.pending && myTurn) html += '<div class="boss-plan" style="border-color:var(--good)">' + (Bt.pending === 'heal' ? '💚 회복할 아군을 누르세요' : '✨ 살릴 아군을 누르세요') + ' <button class="btn sm" data-act="bossCancel">취소</button></div>';
       html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + dis(true) + '>⚔ 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + dis(true) + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + dis(true) + '>✊ 집중</button></div>' +
         '<div class="battle-bar boss-acts two" style="margin-top:8px"><button class="btn good" data-act="bossAct" data-a="heal"' + dis(bt.healsLeft > 0) + '>💚 회복 ' + bt.healsLeft + '</button><button class="btn good" data-act="bossAct" data-a="revive"' + dis(bt.revivesLeft > 0 && dead) + '>✨ 부활 ' + bt.revivesLeft + '</button></div>' +
@@ -1402,7 +1402,7 @@
       Bt.pending = null; Bt.busy = true; doAct(+d.uid);
     },
     auto: function () {
-      var Bt = view.battle; if (!Bt) return;
+      var Bt = view.battle; if (!Bt || Bt.kind === 'raid') return;
       Bt.auto = !Bt.auto; Bt.pending = null;
       if (Bt.kind !== 'boss' && Bt.kind !== 'raid') S.settings.autoBattle = Bt.auto; // 보스·레이드 자동은 그 판에만 (기본 설정은 안 바꿈)
       save();
