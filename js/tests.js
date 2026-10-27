@@ -440,8 +440,10 @@
     MM.addItem(s, 'rainbowSoul', 2); MM.enhanceEquip(s, e.id, function () { return 0; });
     check('강화하면 레인보우 소울 소모', e.plus === 2 && MM.rainbowSoulCount(s) === 1);
     var rr = MM.seededRng(3), sb = MM.newState(t0), rt = 0, rs = 0;
-    for (var i = 0; i < 2000; i++) { var g = MM.grantBossWin(sb, 7, rr, t0 + i * 86400000); if (g.raidTicket) { rt++; if (g.raidTicket !== 2) rt = -1e9; } if (g.rainbowSoul) rs++; Object.keys(sb.souls).forEach(function (k) { sb.souls[k] = 0; }); }
-    check('보스 승리: 레이드 입장권 약 10% (7단계 보스 → 2단계 레이드), 레인보우 소울 7×2% = 14%', rt > 150 && rt < 250 && rs > 220 && rs < 340, rt + '/' + rs);
+    var rt1 = 0;
+    for (var i = 0; i < 2000; i++) { var g = MM.grantBossWin(sb, 7, rr, t0 + i * 86400000); g.raidTickets.forEach(function (k) { if (k === 2) rt++; else rt1++; }); if (g.rainbowSoul) rs++; Object.keys(sb.souls).forEach(function (k) { sb.souls[k] = 0; }); }
+    check('보스 승리(7단계): 1단계 레이드 입장권 10% · 2단계 4% (따로 굴림), 레인보우 소울 14%', rt1 > 150 && rt1 < 250 && rt > 45 && rt < 120 && rs > 220 && rs < 340, rt1 + '/' + rt + '/' + rs);
+    check('레이드 입장권 확률표', [1, 3, 5, 9].map(function (n) { return Math.round(MM.raidTicketChance(n, 1) * 100); }).join() === '2,6,10,10' && [5, 6, 7, 10].map(function (n) { return Math.round(MM.raidTicketChance(n, 2) * 100); }).join() === '0,2,4,10');
     var sr = MM.newState(t0); MM.RING.forEach(function (el) { MM.addMonster(sr, el, 5, 59); }); MM.addRaidTickets(sr, 1, 1);
     check('레이드 파티: 속성마다 1마리, 5마리', MM.raidParty(sr).length === 5 && !MM.raidParty(MM.newState(t0)));
     var p1 = MM.winRaidPhase(sr, 1, rr), p2 = MM.winRaidPhase(sr, 1, rr);

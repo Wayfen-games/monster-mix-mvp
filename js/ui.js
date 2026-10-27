@@ -407,7 +407,7 @@
     var leftB = MM.bossLeftToday(S, Date.now());
     var html = '<div class="card"><div class="row between"><b>🌈 레인보우 샤들링</b><span class="chip gold">입장권 ' + MM.bossTicketTotal(S) + '장</span></div>' +
       '<div class="row between small" style="margin-top:6px"><span>오늘 보상 <b>' + leftB + '/' + BAL().BOSS_DAILY_REWARDS + '</b>번 남음</span><span>🪶 무지개 깃털 <b>' + MM.featherCount(S) + '</b>개</span></div>' +
-      '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×' + Math.round(BAL().FEATHER_DROP_PER_TIER * 100) + '% 확률로 🪶 무지개 깃털, n×' + Math.round(BAL().BOSS_RAINBOW_SOUL_PER_TIER * 100) + '% 확률로 🌈 레인보우 소울, ' + Math.round(BAL().RAID_TICKET_FROM_BOSS * 100) + '% 확률로 ⚔ 레이드 입장권 · 🪶 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 입장권은 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
+      '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×' + Math.round(BAL().FEATHER_DROP_PER_TIER * 100) + '% 확률로 🪶 무지개 깃털, n×' + Math.round(BAL().BOSS_RAINBOW_SOUL_PER_TIER * 100) + '% 확률로 🌈 레인보우 소울, 가끔 ⚔ 레이드 입장권(레이드 탭 참고) · 🪶 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 입장권은 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
     MM.tiers().forEach(function (t) {
       var n = MM.bossTicketCount(S, t), sk = BAL().BOSS_SKILLS[t] || [];
       html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 레인보우 샤들링</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
@@ -421,7 +421,7 @@
     var party = MM.raidParty(S);
     var html = '<div class="card"><div class="row between"><b>⚔ 레이드</b><span class="chip gold">입장권 ' + MM.raidTicketTotal(S) + '장</span></div>' +
       '<div class="muted small lh" style="margin-top:6px">다섯 속성 샤들링이 1마리씩 힘을 모아 거대한 레인보우 샤들링과 싸워요 · 3페이즈 (약 10분) · 페이즈를 깨면 저장돼서 나중에 이어 할 수 있어요 · 3페이즈까지 깨면 입장권 1장 사용<br>' +
-      '레이드 입장권은 레인보우 샤들링(보스)을 이기면 ' + Math.round(BAL().RAID_TICKET_FROM_BOSS * 100) + '% 확률로 나와요 (1~5단계 보스 → 1단계 레이드, 6~10단계 → 2단계)<br>' +
+      '레이드 입장권은 레인보우 샤들링(보스)을 이기면 나와요: k단계 레이드 입장권은 ' + (BAL().RAID_TIER_STEP) + '(k-1)+1단계 보스부터 ' + Math.round(BAL().RAID_TICKET_STEP * 100) + '%, 한 단계 오를 때마다 +' + Math.round(BAL().RAID_TICKET_STEP * 100) + '% (최대 ' + Math.round(BAL().RAID_TICKET_MAX * 100) + '%) — 예: 1단계 레이드는 1단계 보스 2% … 5단계 이상 10%, 2단계 레이드는 6단계 보스 2%부터<br>' +
       '보상: 소울·골드 ×' + BAL().RAID_DROP_MULT_STAGE + ' · 🌈 레인보우 소울 · 🪶 무지개 깃털 · 가끔 🌈 무지개 장비(모든 샤들링 강화, 낮은 단계일수록 잘 나와요)</div>' +
       '<div style="margin-top:10px"><div class="muted small">레이드 파티 (속성마다 가장 센 샤들링)</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">' +
       (party ? party.map(function (m) { return '<div class="chip" style="display:flex;align-items:center;gap:4px">' + monSvg(m.el, m.tier, 22) + name(m) + ' Lv' + m.level + '</div>'; }).join('') : '<span class="lack small">다섯 속성 샤들링이 모두 있어야 해요</span>') + '</div></div></div>';
@@ -643,7 +643,7 @@
       else if (Bt.kind === 'boss') { MM.useBossTicket(S, Bt.tier); r = MM.grantBossWin(S, Bt.tier, null, Date.now()); if (r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 보스에서 무지개 깃털이 나왔어요 (+' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)'); }
       else { MM.accrueOffline(S, Date.now()); r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies); }
       if (r && r.bossTicket) showNotice('🌈 보스 입장권!!', r.bossTicket + '단계 레인보우 샤들링 입장권 1장');
-      if (r && r.raidTicket) showNotice('⚔ 레이드 입장권!!!', r.raidTicket + '단계 레이드 입장권 1장');
+      if (r && r.raidTickets && r.raidTickets.length) showNotice('⚔ 레이드 입장권!!!', r.raidTickets.map(function (k) { return k + '단계 레이드 입장권 1장'; }).join(' + '));
       if (r && r.rainbowSoul && Bt.kind === 'boss') showNotice('🌈 레인보우 소울!', '무지개 장비 강화 재료');
       if (r && r.ticket && !Bt.repeat) showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장');
       if (r && r.autoOffline) { showNotice('방치 보상 스테이지 변경', MM.stageLabel(r.autoOffline.el, r.autoOffline.tier) + '로 자동 지정' + (r.offlinePaid ? ' · 쌓인 보상은 받았어요' : '')); }
@@ -695,7 +695,7 @@
   function extraLoot(r) {
     return (r.feather ? '<div class="soul-item rare">🪶 무지개 깃털 ×' + r.feather + '</div>' : '') +
       (r.rainbowSoul ? '<div class="soul-item rare">🌈 레인보우 소울 ×' + r.rainbowSoul + '</div>' : '') +
-      (r.raidTicket ? '<div class="soul-item rare">⚔ ' + r.raidTicket + '단계 레이드 입장권 ×1</div>' : '') +
+      (r.raidTickets || (r.raidTicket ? [r.raidTicket] : [])).map(function (k) { return '<div class="soul-item rare">⚔ ' + k + '단계 레이드 입장권 ×1</div>'; }).join('') +
       (r.equip ? '<div class="soul-item rare">' + equipSvg('rainbow', r.equip.tier, 24) + MM.equipName('rainbow', r.equip.tier) + ' (무지개 장비)</div>' : '');
   }
   function dropsHtml(list) {

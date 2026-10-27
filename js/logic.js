@@ -1037,9 +1037,10 @@
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
     var raw = MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1));
     var drops = MM.applyDrops(s, raw);
-    var rainbowSoul = 0, raidTicket = null;
+    var rainbowSoul = 0, raidTicket = null, raidTickets = [];
     if (R(rng)() < (b.BOSS_RAINBOW_SOUL_PER_TIER || 0) * tier) { MM.addItem(s, 'rainbowSoul', 1); rainbowSoul = 1; }
-    if (R(rng)() < (b.RAID_TICKET_FROM_BOSS || 0)) { raidTicket = MM.raidTierForBoss(tier); MM.addRaidTickets(s, raidTicket, 1); MM.addRecord(s, { type: 'raidticket', el: 'rainbow', tier: raidTicket }); }
+    MM.raidTiers().forEach(function (k) { if (R(rng)() < MM.raidTicketChance(tier, k)) { raidTickets.push(k); MM.addRaidTickets(s, k, 1); MM.addRecord(s, { type: 'raidticket', el: 'rainbow', tier: k }); } });
+    raidTicket = raidTickets.length ? raidTickets[raidTickets.length - 1] : null;
     var gold = Math.round(tv(b.CLEAR_GOLD, st) * (b.BOSS_GOLD_MULT || 0));
     s.gold += gold;
     var exp = MM.winExp(st) * b.BOSS_EXP_MULT;
@@ -1047,12 +1048,14 @@
     s.stats.battlesWon++;
     s.stats.bossWins = (s.stats.bossWins || 0) + 1;
     MM.addRecord(s, { type: 'boss', el: 'rainbow', tier: tier });
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather, rainbowSoul: rainbowSoul, raidTicket: raidTicket };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather, rainbowSoul: rainbowSoul, raidTicket: raidTicket, raidTickets: raidTickets };
   };
 
   // ================= 레이드 [사용자 확정 10-27] =================
   MM.raidTiers = function () { var n = Math.floor(B().MAX_TIER / B().RAID_TIER_STEP), a = []; for (var k = 1; k <= n; k++) a.push(k); return a; };
   MM.raidRefTier = function (k) { return Math.min(B().MAX_TIER, k * B().RAID_TIER_STEP); };
+  // n단계 보스에서 k단계 레이드 입장권이 나올 확률 [사용자 확정 10-27 12:07]
+  MM.raidTicketChance = function (bossTier, k) { var b = B(), d = bossTier - b.RAID_TIER_STEP * (k - 1); return d <= 0 ? 0 : Math.min(b.RAID_TICKET_MAX, b.RAID_TICKET_STEP * d); };
   MM.raidTierForBoss = function (bossTier) { return Math.max(1, Math.min(MM.raidTiers().length, Math.ceil(bossTier / B().RAID_TIER_STEP))); };
   function raidState(s) { s.raid = s.raid || { tickets: {}, progress: {} }; s.raid.tickets = s.raid.tickets || {}; s.raid.progress = s.raid.progress || {}; return s.raid; }
   MM.raidTicketCount = function (s, k) { return raidState(s).tickets[k] || 0; };
