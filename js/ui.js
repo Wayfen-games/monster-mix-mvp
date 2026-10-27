@@ -411,7 +411,7 @@
     MM.tiers().forEach(function (t) {
       var n = MM.bossTicketCount(S, t), sk = BAL().BOSS_SKILLS[t] || [];
       html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 레인보우 샤들링</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
-        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + MM.summonLevel(t) + ' 이상 3마리 + ' + t + '단계 장비 +5</div></div>' +
+        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + (t < T() ? MM.fuseLevelReq(t) : MM.summonLevel(t) + 10) + ' 이상 3마리 + ' + t + '단계 장비 +5</div></div>' +
         '<button class="btn primary sm block" data-act="startBoss" data-tier="' + t + '"' + (n && S.party.length && leftB ? '' : ' disabled') + '>' + (n ? (leftB ? '도전 (이기면 입장권 1장 사용)' : '오늘 보상을 다 받았어요') : t + '단계 던전에서 입장권을 모아 보세요') + '</button></div>';
     });
     return html;
