@@ -441,7 +441,7 @@
     check('강화하면 레인보우 소울 소모', e.plus === 2 && MM.rainbowSoulCount(s) === 1);
     var rr = MM.seededRng(3), sb = MM.newState(t0), rt = 0, rs = 0;
     for (var i = 0; i < 2000; i++) { var g = MM.grantBossWin(sb, 7, rr, t0 + i * 86400000); if (g.raidTicket) { rt++; if (g.raidTicket !== 2) rt = -1e9; } if (g.rainbowSoul) rs++; Object.keys(sb.souls).forEach(function (k) { sb.souls[k] = 0; }); }
-    check('보스 승리: 레이드 입장권 약 10% (7단계 보스 → 2단계 레이드), 레인보우 소울 약 5%', rt > 150 && rt < 250 && rs > 60 && rs < 140, rt + '/' + rs);
+    check('보스 승리: 레이드 입장권 약 10% (7단계 보스 → 2단계 레이드), 레인보우 소울 7×2% = 14%', rt > 150 && rt < 250 && rs > 220 && rs < 340, rt + '/' + rs);
     var sr = MM.newState(t0); MM.RING.forEach(function (el) { MM.addMonster(sr, el, 5, 59); }); MM.addRaidTickets(sr, 1, 1);
     check('레이드 파티: 속성마다 1마리, 5마리', MM.raidParty(sr).length === 5 && !MM.raidParty(MM.newState(t0)));
     var p1 = MM.winRaidPhase(sr, 1, rr), p2 = MM.winRaidPhase(sr, 1, rr);

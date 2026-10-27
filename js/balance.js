@@ -191,7 +191,7 @@ MM.BALANCE = {
   BOSS_TICKET_DROP: 0.02,
   BOSS_DAILY_REWARDS: 10,      // [사용자 확정 17:10] 보스 보상은 하루 10번까지 (채우면 그날은 입장 불가)
   FEATHER_DROP_PER_TIER: 0.01,  // [사용자 확정 10-27] 무지개 깃털: n단계 보스 n × 1% (처음 0.1%에서 10배)
-  BOSS_RAINBOW_SOUL: 0.05,      // [10-27, Claude 기본값] 레인보우 샤들링 승리 시 레인보우 소울 1개 확률
+  BOSS_RAINBOW_SOUL_PER_TIER: 0.02, // [사용자 확정 10-27 12:04] n단계 레인보우 샤들링 승리 시 레인보우 소울 1개 확률 n × 2%
   RAID_TICKET_FROM_BOSS: 0.10,  // [사용자 확정 10-27] 레인보우 샤들링 승리 시 레이드 입장권 (n단계 보스 → ceil(n/5)단계 레이드)
   FEATHER_FROM_PLUS: 10,        // [사용자 확정] +10 이상 강화(+10→+11부터)는 1번에 깃털 1개 필수 (나중에 경매장 거래 품목)
 

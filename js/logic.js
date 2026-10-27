@@ -1038,7 +1038,7 @@
     var raw = MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1));
     var drops = MM.applyDrops(s, raw);
     var rainbowSoul = 0, raidTicket = null;
-    if (R(rng)() < (b.BOSS_RAINBOW_SOUL || 0)) { MM.addItem(s, 'rainbowSoul', 1); rainbowSoul = 1; }
+    if (R(rng)() < (b.BOSS_RAINBOW_SOUL_PER_TIER || 0) * tier) { MM.addItem(s, 'rainbowSoul', 1); rainbowSoul = 1; }
     if (R(rng)() < (b.RAID_TICKET_FROM_BOSS || 0)) { raidTicket = MM.raidTierForBoss(tier); MM.addRaidTickets(s, raidTicket, 1); MM.addRecord(s, { type: 'raidticket', el: 'rainbow', tier: raidTicket }); }
     var gold = Math.round(tv(b.CLEAR_GOLD, st) * (b.BOSS_GOLD_MULT || 0));
     s.gold += gold;
