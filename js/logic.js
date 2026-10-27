@@ -72,7 +72,11 @@
     return m;
   };
 
-  MM.canSummon = function (s, key) { return (s.souls[key] || 0) >= B().SOULS_PER_SUMMON; };
+  // [10-27] 소울은 맨 위 단계 + 1까지 나옴 (지금 11단계). 그 단계 소울은 모으기만 되고 아직 쓸 데가 없음 (다음 단계가 열리면 사용)
+  MM.soulTopTier = function () { return B().MAX_TIER + 1; };
+  MM.soulTiers = function () { var a = []; for (var t = 1; t <= MM.soulTopTier(); t++) a.push(t); return a; };
+  MM.soulUsable = function (tier) { return tier <= B().MAX_TIER; };
+  MM.canSummon = function (s, key) { return MM.soulUsable(MM.parseKey(key).tier) && (s.souls[key] || 0) >= B().SOULS_PER_SUMMON; };
   MM.summonLevel = function (tier) { return Math.round(tv(B().SUMMON_LEVEL, tier)); };
 
   MM.summon = function (s, el, tier) {
@@ -104,6 +108,7 @@
     count = count || 1;
     var key = MM.speciesKey(el, tier);
     if (tier <= 1) return { error: '1단계 소울은 분해할 수 없어요' };
+    if (!MM.soulUsable(tier)) return { error: tier + '단계 소울은 아직 쓸 데가 없어요' };
     if ((s.souls[key] || 0) < count) return { error: '소울이 부족해요' };
     s.souls[key] -= count;
     var low = MM.speciesKey(el, tier - 1);
@@ -118,6 +123,7 @@
   MM.canFeed = function (s, m, el, tier) {
     if (!m) return '샤들링이 없어요';
     if (m.el !== el) return '같은 속성 소울만 먹일 수 있어요';
+    if (!MM.soulUsable(tier)) return tier + '단계 소울은 아직 쓸 데가 없어요';
     if (m.level >= MM.maxLevel(m.tier)) return '이미 최대 레벨이에요';
     if ((s.souls[MM.speciesKey(el, tier)] || 0) < 1) return '소울이 부족해요';
     return null;
@@ -148,6 +154,7 @@
   MM.equippedOf = function (s, el) { eqs(s); return MM.getEquip(s, s.equipped[el]); };
   MM.craftEquip = function (s, el, tier) {
     var key = MM.speciesKey(el, tier), need = B().EQUIP_CRAFT_SOULS;
+    if (!MM.soulUsable(tier)) return { error: tier + '단계 소울은 아직 쓸 데가 없어요' };
     if ((s.souls[key] || 0) < need) return { error: MM.josa(MM.soulName(el, tier) + '', '이', '가') + ' ' + need + '개 필요해요' };
     s.souls[key] -= need;
     var e = { id: s.nextId++, el: el, tier: tier, plus: 0, stack: 0 };
@@ -255,6 +262,7 @@
   MM.altarStatBonus = function (s, el) { return alt(s, el).level * B().ALTAR_STAT_PER_LV; };
   MM.offerSouls = function (s, el, tier, count) {
     var key = MM.speciesKey(el, tier), have = s.souls[key] || 0;
+    if (!MM.soulUsable(tier)) return { error: tier + '단계 소울은 아직 쓸 데가 없어요' };
     count = Math.min(count || 1, have);
     if (count <= 0) return { error: '소울이 없어요' };
     s.souls[key] -= count;
@@ -273,15 +281,16 @@
   // ================= 소울 뽑기 =================
   MM.gachaPull = function (s, el, tier, rng) {
     var b = B(), key = MM.speciesKey(el, tier);
+    if (!MM.soulUsable(tier)) return { error: tier + '단계 소울은 아직 쓸 데가 없어요' };
     if ((s.souls[key] || 0) < b.GACHA_COST) return { error: MM.josa(MM.soulName(el, tier) + '', '이', '가') + ' ' + b.GACHA_COST + '개 필요해요' };
     s.souls[key] -= b.GACHA_COST;
     var r = R(rng)(), acc = 0, row = b.GACHA_TABLE[0];
     for (var i = 0; i < b.GACHA_TABLE.length; i++) { acc += b.GACHA_TABLE[i].p; if (r < acc) { row = b.GACHA_TABLE[i]; break; } }
-    var out = { kind: row.kind, n: row.n, big: !!row.big, souls: {}, tickets: 0 }, top = tier >= b.MAX_TIER;
+    var out = { kind: row.kind, n: row.n, big: !!row.big, souls: {}, tickets: 0 };
     if (row.kind === 'souls') out.souls[MM.speciesKey(MM.RING[Math.floor(R(rng)() * MM.RING.length)], tier)] = row.n;
     else if (row.kind === 'ticket') out.tickets = row.n;
     else if (row.kind === 'boss') { out.bossTickets = row.n; MM.addBossTickets(s, tier, row.n); }
-    else if (row.kind === 'up') out.souls[MM.speciesKey(el, top ? tier : tier + 1)] = row.n * (top ? 5 : 1);
+    else if (row.kind === 'up') out.souls[MM.speciesKey(el, tier + 1)] = row.n; // 10단계 뽑기는 11단계 소울 (아직 쓸 데 없음)
     out.drops = MM.applyDrops(s, out.souls);
     if (out.tickets) MM.addTickets(s, tier, out.tickets);
     s.stats.gachaPulls = (s.stats.gachaPulls || 0) + 1;
@@ -497,10 +506,10 @@
   }
 
   // 스테이지: n단계 = (n+1)단계 보스 + n단계 쫄 2 (쫄은 매 판 랜덤, 서로 다르고 보스와도 다른 속성)
-  // 맨 위 단계는 같은 단계 3마리. 보스는 가운데.
+  // [10-27 사용자] 맨 위 단계도 다른 단계와 같은 구성: 10단계 스테이지 = 11단계 보스 + 10단계 쫄 2 (11단계 샤들링은 얻을 수 없고, 11단계 소울만 나옴)
   MM.stageEnemies = function (el, tier, rng) {
-    var b = B(), top = tier >= b.MAX_TIER;
-    var bossTier = top ? tier : tier + 1;
+    var b = B();
+    var bossTier = tier + 1;
     var lv = MM.summonLevel(tier), mult = tv(b.STAGE_ENEMY_MULT, tier);
     var mins = pickOthers([el], 2, rng);
     return [
@@ -519,7 +528,7 @@
     return list.map(function (e, i) { return { el: e, tier: tier, level: lv, mult: mult, boss: i === 1, guaranteeT1: true }; });
   };
 
-  MM.dungeonLevel = function (tier) { return tier < B().MAX_TIER ? MM.fuseLevelReq(tier) : MM.maxLevel(tier); };
+  MM.dungeonLevel = function (tier) { return MM.fuseLevelReq(tier); }; // [10-27] 맨 위 단계도 같은 규칙
   MM.dungeonElementFor = function (ms) { return B().DUNGEON_DAY_ELEMENT[MM.weekday(ms)]; };
   MM.dungeonUnlocked = function (s, tier) { return tier === 1 || !!s.dungeon.cleared[tier - 1]; };
   // 하루 기준 초기화. 자동 반복은 하루 AUTO_REPEAT_DAILY판씩 쌓이고 못 쓴 판은 AUTO_REPEAT_MAX까지 이월 (확정)
@@ -553,7 +562,7 @@
   // 적 목록에서 소울 굴리기. mult = 배수(던전 10배, 빠른 테스트 등). 평균이 유지되게 굴림 횟수를 늘린다.
   MM.rollDrops = function (enemies, rng, mult) {
     mult = mult || 1;
-    var got = {}, mean = MM.meanSoulCount(), max = B().MAX_TIER;
+    var got = {}, mean = MM.meanSoulCount(), max = MM.soulTopTier();
     enemies.forEach(function (e) {
       var top = Math.min(e.tier, max);
       for (var k = 1; k <= top; k++) {
@@ -648,7 +657,6 @@
   MM.grantDungeonWin = function (s, tier, enemies, rng, opts) {
     opts = opts || {};
     var b = B(), mult = b.DUNGEON_DROP_MULT * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1);
-    if (tier >= b.MAX_TIER && !opts.noTopBonus) mult *= b.DUNGEON_TOP_BONUS;
     var drops = MM.applyDrops(s, MM.rollDrops(enemies, rng, mult));
     var gold = Math.round(tv(b.CLEAR_GOLD, tier) * b.DUNGEON_GOLD_MULT);
     s.gold += gold;
@@ -1033,7 +1041,7 @@
     MM.bossLeftToday(s, now); s.bossDaily.used++;
     var feather = 0;
     if (R(rng)() < B().FEATHER_DROP_PER_TIER * tier) { s.items = s.items || {}; s.items.feather = (s.items.feather || 0) + 1; feather = 1; MM.addRecord(s, { type: 'feather', el: 'rainbow', tier: tier }); }
-    var b = B(), st = Math.min(tier + 1, b.MAX_TIER);
+    var b = B(), st = tier + 1; // [10-27] 10단계 보스도 한 단계 위(11단계) 스테이지 ×100
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
     var raw = MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1));
     var drops = MM.applyDrops(s, raw);

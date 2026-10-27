@@ -5,7 +5,7 @@
 const MM = require('./load');
 const B = MM.BALANCE, T = B.MAX_TIER;
 const N = +(process.env.N || 800), DT = +(process.env.DT || 0.4);
-const topRef = () => Math.round((MM.summonLevel(T) + MM.maxLevel(T)) / 2);
+const topRef = () => MM.fuseLevelReq(T); // [10-27] 맨 위 단계도 같은 규칙 (10단계 스테이지 = 11단계 보스 + 10단계 쫄)
 function trio(t, lv, j) { const els = [MM.RING[j % 5], MM.RING[(j + 1) % 5], MM.RING[(j + 3) % 5]]; return els.map(el => ({ el, tier: t, level: lv })); }
 function stageRate(st, t, lv, seed, n) { const rng = MM.seededRng(seed); let w = 0;
   for (let j = 0; j < n; j++) if (MM.simulateBattle(trio(t, lv, j), MM.stageEnemies(MM.RING[j % 5], st, rng), rng).result === 'win') w++; return w / n; }
@@ -19,7 +19,7 @@ function search(get, set, rateFn, target) {
 const sm = [], dm = [];
 if (!process.env.DUNGEON_ONLY) B.STAGE_ENEMY_MULT = Array(T).fill(1); B.DUNGEON_ENEMY_MULT = Array(T).fill(1);
 for (let st = 1; st <= T; st++) {
-  const lv = st < T ? MM.fuseLevelReq(st) : topRef();
+  const lv = MM.fuseLevelReq(st);
   if (!process.env.DUNGEON_ONLY) search(null, v => B.STAGE_ENEMY_MULT[st - 1] = v, () => stageRate(st, st, lv, 11 * st, N), 0.6);
   sm.push(B.STAGE_ENEMY_MULT[st - 1]);
   search(null, v => B.DUNGEON_ENEMY_MULT[st - 1] = v, () => dungeonRate(st, st, lv, 17 * st, N), DT);

@@ -126,8 +126,10 @@
   for (i = 0; i < N; i++) { dd = MM.rollDrops([{ el: 'fire', tier: 1 }], rng, 30); total += dd.fire1 || 0; }
   check('던전 30배도 평균 유지', Math.abs(total / N / 30 - MM.soulDropAvg(1)) < 0.01, (total / N).toFixed(2));
   check('1단계 소울 50%, 단계마다 ×0.3', close(MM.soulDropAvg(1), 0.5) && Math.abs(MM.soulDropAvg(4) / MM.soulDropAvg(3) - 0.3) < 1e-9);
-  var over = MM.rollDrops([{ el: 'fire', tier: B.MAX_TIER + 1 }], ALWAYS, 1);
-  check('맨 위 단계보다 높은 적은 그 단계 소울을 주지 않음', !over['fire' + (B.MAX_TIER + 1)] && over['fire' + B.MAX_TIER] > 0);
+  var over = MM.rollDrops([{ el: 'fire', tier: B.MAX_TIER + 2 }], ALWAYS, 1);
+  check('소울은 맨 위 단계 + 1(11단계)까지만 나옴', !over['fire' + (B.MAX_TIER + 2)] && over['fire' + (B.MAX_TIER + 1)] > 0);
+  (function () { var s11 = MM.newState(t0); s11.souls['fire' + (B.MAX_TIER + 1)] = 100;
+    check('11단계 소울은 모으기만 (소환·뽑기·장비·분해 불가)', !MM.canSummon(s11, 'fire' + (B.MAX_TIER + 1)) && !!MM.gachaPull(s11, 'fire', B.MAX_TIER + 1).error && !!MM.craftEquip(s11, 'fire', B.MAX_TIER + 1).error && !!MM.decomposeSoul(s11, 'fire', B.MAX_TIER + 1).error && !MM.registerDex(s11, 'fire', B.MAX_TIER + 1)); })();
 
   // ---- 스테이지·던전 구성 ----
   var ok = true;
@@ -137,7 +139,7 @@
   }
   check('스테이지: 가운데 보스 (n+1)단계 + 쫄 n단계 2, 셋 다 다른 속성', ok);
   var top = MM.stageEnemies('fire', B.MAX_TIER, rng);
-  check('맨 위 스테이지는 맨 위 단계 3마리', top.every(function (e) { return e.tier === B.MAX_TIER; }));
+  check('맨 위 스테이지도 같은 구성: (n+1)단계 보스 + n단계 쫄 2', top[1].tier === B.MAX_TIER + 1 && top[0].tier === B.MAX_TIER && top[2].tier === B.MAX_TIER);
   check('n단계 던전 = n단계 3마리, 적 레벨 = 합성 조건 레벨 (스테이지보다 높음)', MM.dungeonEnemies(['dark'], 5).every(function (e) { return e.tier === 5 && e.el === 'dark' && e.level === MM.fuseLevelReq(5); }) && MM.stageEnemies('dark', 5, rng)[0].level === MM.summonLevel(5));
   var guaranteedOk = true;
   for (i = 0; i < 500; i++) { var gd = MM.rollDrops(MM.dungeonEnemies(['fire', 'grass', 'dark'], 3), rng, 10); if (!(gd.fire1 >= 1 && gd.grass1 >= 1 && gd.dark1 >= 1)) guaranteedOk = false; }
@@ -342,7 +344,7 @@
     var rr = MM.seededRng(5);
     check('무지개 보스는 상성 없음', MM.elementMult('fire', 'rainbow') === 1 && MM.elementMult('rainbow', 'grass') === 1);
     for (var bt = 1; bt <= B.MAX_TIER; bt++) {
-      var w = 0, wn = 0, rounds = [], lv = bt < B.MAX_TIER ? MM.fuseLevelReq(bt) : Math.round((MM.summonLevel(bt) + MM.maxLevel(bt)) / 2), trios = [['fire', 'water', 'grass'], ['light', 'dark', 'fire'], ['water', 'grass', 'light'], ['dark', 'fire', 'water'], ['grass', 'light', 'dark']];
+      var w = 0, wn = 0, rounds = [], lv = MM.fuseLevelReq(bt), trios = [['fire', 'water', 'grass'], ['light', 'dark', 'fire'], ['water', 'grass', 'light'], ['dark', 'fire', 'water'], ['grass', 'light', 'dark']];
       for (var i = 0; i < 300; i++) {
         var pt = trios[i % 5].map(function (e, k) { return { id: k + 1, el: e, tier: bt, level: lv, mult: 1 + B.EQUIP_BASE_PER_TIER * bt + B.EQUIP_PER_PLUS * 5 }; });
         var b = MM.simulateBossBattle(pt, bt, rr, 'smart'); if (b.result === 'win') { w++; rounds.push(b.round); }

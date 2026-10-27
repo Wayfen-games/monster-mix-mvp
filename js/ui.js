@@ -136,7 +136,7 @@
   }
   function partyMons() { return S.party.map(function (id) { return MM.getMonster(S, id); }).filter(Boolean); }
   function maxPartyTier() { return Math.max.apply(null, partyMons().map(function (m) { return m.tier; }).concat([1])); }
-  function gridCols() { return 'grid-template-columns:44px repeat(' + T() + ', minmax(52px, 1fr))'; }
+  function gridCols(n) { return 'grid-template-columns:44px repeat(' + (n || T()) + ', minmax(52px, 1fr))'; }
   function elChart() {
     return '<div class="elchart">' + elName('grass') + '<span class="arrow">▶</span>' + elName('water') + '<span class="arrow">▶</span>' + elName('fire') + '<span class="arrow">▶</span>' + elName('grass') +
       '<span class="arrow" style="margin:0 6px">·</span>' + elName('dark') + '<span class="arrow">⇄</span>' + elName('light') + '</div>' +
@@ -313,7 +313,7 @@
     MM.RING.forEach(function (el) {
       html += '<div class="el">' + elName(el) + '</div>';
       MM.tiers().forEach(function (t) {
-        var c = S.cleared[MM.speciesKey(el, t)] || 0, bossT = t < T() ? t + 1 : t;
+        var c = S.cleared[MM.speciesKey(el, t)] || 0, bossT = t + 1;
         html += '<button class="stage-cell' + (c ? ' clear' : '') + (t === mt ? ' rec' : '') + '" data-act="stage" data-el="' + el + '" data-tier="' + t + '">' +
           monSvg(el, bossT, 24) + '<span>' + (c ? '✓' + c : '') + '</span></button>';
       });
@@ -322,7 +322,7 @@
   }
 
   function possibleSouls(el, tier) {
-    var bossT = Math.min(tier < T() ? tier + 1 : tier, T());
+    var bossT = tier + 1;
     var list = [];
     for (var k = bossT; k >= 1; k--) list.push(monSvg(el, k, 18) + MM.speciesName(el, k));
     return '<div class="row wrap" style="gap:6px;margin-top:8px">' + list.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('') + '</div>' +
@@ -340,7 +340,7 @@
 
   SCREENS.stageDetail = function () {
     var st = view.stage, cleared = !!S.cleared[MM.speciesKey(st.el, st.tier)];
-    var bossT = st.tier < T() ? st.tier + 1 : st.tier, now = Date.now();
+    var bossT = st.tier + 1, now = Date.now();
     var off = S.offline.stage, isOff = off && off.el === st.el && off.tier === st.tier;
     var pm = partyMons();
     var html = '<button class="btn sm" data-act="tab" data-tab="stages">← 스테이지 목록</button>' +
@@ -809,14 +809,14 @@
       }).join('');
     } else {
       html += '<div class="muted small" style="margin-bottom:10px">같은 종 소울 ' + BAL().SOULS_PER_SUMMON + '개 = 샤들링 1마리 · 종별 최대 ' + BAL().SOUL_CAP + '개 (' + BAL().SOUL_WARN + '개부터 주의) · 칸을 누르면 소환·분해</div>';
-      html += '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
+      html += '<div class="hscroll"><div class="tgrid" style="' + gridCols(MM.soulTiers().length) + '"><div></div>' + MM.soulTiers().map(function (t) { return '<div class="head">' + t + '단계' + (MM.soulUsable(t) ? '' : ' 🔒') + '</div>'; }).join('');
       MM.RING.forEach(function (el) {
         html += '<div class="el">' + elName(el) + '</div>';
-        MM.tiers().forEach(function (t) {
+        MM.soulTiers().forEach(function (t) {
           var key = MM.speciesKey(el, t), n = S.souls[key] || 0, k = Math.floor(n / BAL().SOULS_PER_SUMMON);
           var warn = n >= BAL().SOUL_WARN;
-          html += '<button class="soul-cell' + (k ? ' ready' : '') + (warn ? ' warn' : '') + '" data-act="soulCell" data-el="' + el + '" data-tier="' + t + '"><b>' + n + '개</b>' +
-            (warn ? '가득 주의' : k ? '소환 ' + k + '회' : (BAL().SOULS_PER_SUMMON - n) + '개 더') + '</button>';
+          html += '<button class="soul-cell' + (k && MM.soulUsable(t) ? ' ready' : '') + (warn ? ' warn' : '') + '" data-act="soulCell" data-el="' + el + '" data-tier="' + t + '"><b>' + n + '개</b>' +
+            (!MM.soulUsable(t) ? '아직 못 씀' : warn ? '가득 주의' : k ? '소환 ' + k + '회' : (BAL().SOULS_PER_SUMMON - n) + '개 더') + '</button>';
         });
       });
       html += '</div></div>';
@@ -954,6 +954,7 @@
 
   function soulSheet(el, tier) {
     var key = MM.speciesKey(el, tier), n = S.souls[key] || 0, per = BAL().SOULS_PER_SUMMON;
+    if (!MM.soulUsable(tier)) { openSheet('<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.soulName(el, tier) + ' 🔒</b><div class="muted small">보유 ' + n + '개 / 최대 ' + BAL().SOUL_CAP + '개</div></div></div><div class="card muted small lh" style="margin-top:12px">' + tier + '단계 샤들링은 아직 세상에 나타나지 않았어요. 소울만 모아 둘 수 있고, ' + tier + '단계가 열리면 소환·장비·뽑기에 쓸 수 있어요.</div>'); return; }
     var html = '<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.soulName(el, tier) + '</b><div class="muted small">보유 ' + n + '개 / 최대 ' + BAL().SOUL_CAP + '개</div></div></div>' +
       '<div class="pick-list" style="margin-top:14px">' +
       '<button class="pick" data-act="summon" data-el="' + el + '" data-tier="' + tier + '"' + (n >= per ? '' : ' disabled') + '><b>소환</b><span class="muted small">소울 ' + per + '개 → ' + MM.speciesName(el, tier) + ' Lv ' + MM.summonLevel(tier) + '</span></button>';

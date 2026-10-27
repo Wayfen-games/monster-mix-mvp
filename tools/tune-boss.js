@@ -10,7 +10,7 @@ function measure(tier) {
     const rng = MM.seededRng(77 + tier);
     let w = 0; const rounds = [];
     for (let i = 0; i < N; i++) {
-      const els = trios[i % trios.length], lv = tier < B.MAX_TIER ? MM.fuseLevelReq(tier) : Math.round((MM.summonLevel(tier) + MM.maxLevel(tier)) / 2);
+      const els = trios[i % trios.length], lv = MM.fuseLevelReq(tier);
       const eq = 1 + B.EQUIP_BASE_PER_TIER * tier + B.EQUIP_PER_PLUS * 5;
       const party = els.map((el, k) => ({ id: k + 1, el, tier, level: lv, mult: eq }));
       const bt = MM.simulateBossBattle(party, tier, rng, pol);
