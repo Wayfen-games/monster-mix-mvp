@@ -291,7 +291,7 @@
     else if (row.kind === 'ticket') out.tickets = row.n;
     else if (row.kind === 'boss') { out.bossTickets = row.n; MM.addBossTickets(s, tier, row.n); }
     else if (row.kind === 'up') out.souls[MM.speciesKey(el, tier + 1)] = row.n; // 10단계 뽑기는 11단계 소울 (아직 쓸 데 없음)
-    out.drops = MM.applyDrops(s, out.souls);
+    out.drops = MM.applyDrops(s, out.souls, tier);
     if (out.tickets) MM.addTickets(s, tier, out.tickets);
     s.stats.gachaPulls = (s.stats.gachaPulls || 0) + 1;
     if (row.big) MM.addRecord(s, { type: 'gacha', el: el, tier: tier, kind: row.kind, n: row.n });
@@ -586,12 +586,14 @@
   };
 
   // 드랍을 상태에 넣고 요약을 돌려준다
-  MM.applyDrops = function (s, drops) {
+  // minTier: 지금 콘텐츠 단계 [10-27 141번] 기록은 그 단계 이상 소울만 (최소 RECORD_MIN_SOUL_TIER)
+  MM.applyDrops = function (s, drops, minTier) {
+    var floor = Math.max(B().RECORD_MIN_SOUL_TIER, minTier || 0);
     var list = [];
     Object.keys(drops).forEach(function (key) {
       var r = MM.addSouls(s, key, drops[key]), p = MM.parseKey(key);
       list.push({ key: key, el: p.el, tier: p.tier, count: drops[key], added: r.added, wasted: r.wasted, first: r.first });
-      if (p.tier >= B().RECORD_MIN_SOUL_TIER && r.added > 0) {
+      if (p.tier >= floor && r.added > 0) {
         MM.addRecord(s, { type: 'soul', el: p.el, tier: p.tier, count: r.added, first: r.first });
       }
     });
@@ -624,7 +626,7 @@
   // 스테이지 승리 보상
   MM.grantStageWin = function (s, el, tier, enemies, rng) {
     var b = B(), mult = s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1;
-    var drops = MM.applyDrops(s, MM.rollDrops(enemies, rng, mult));
+    var drops = MM.applyDrops(s, MM.rollDrops(enemies, rng, mult), tier);
     var gold = Math.round(tv(b.CLEAR_GOLD, tier));
     s.gold += gold;
     var exp = MM.winExp(tier);
@@ -636,7 +638,7 @@
       var boss = enemies.filter(function (e) { return e.boss; })[0] || enemies[1];
       var bt = Math.min(boss.tier, b.MAX_TIER), n = Math.round(tv(b.FIRST_CLEAR_SOULS || [0], tier));
       if (n > 0) {
-        var fc = MM.applyDrops(s, (function () { var o = {}; o[MM.speciesKey(boss.el, bt)] = n; return o; })());
+        var fc = MM.applyDrops(s, (function () { var o = {}; o[MM.speciesKey(boss.el, bt)] = n; return o; })(), tier);
         firstClear = fc[0];
       }
     }
@@ -657,7 +659,7 @@
   MM.grantDungeonWin = function (s, tier, enemies, rng, opts) {
     opts = opts || {};
     var b = B(), mult = b.DUNGEON_DROP_MULT * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1);
-    var drops = MM.applyDrops(s, MM.rollDrops(enemies, rng, mult));
+    var drops = MM.applyDrops(s, MM.rollDrops(enemies, rng, mult), tier);
     var gold = Math.round(tv(b.CLEAR_GOLD, tier) * b.DUNGEON_GOLD_MULT);
     s.gold += gold;
     var exp = MM.winExp(tier) * (b.DUNGEON_EXP_MULT || 1);
@@ -762,7 +764,7 @@
     if (!MM.offlineReady(s)) { o.pendingMs = 0; return null; }
     var bag = o.bag, st = o.stage, team = MM.offlineTeam(s);
     o.bag = emptyBag(); o.pendingMs = 0;
-    var drops = MM.applyDrops(s, bag.souls);
+    var drops = MM.applyDrops(s, bag.souls, st && st.tier);
     s.gold += bag.gold;
     if (bag.tickets) MM.addTickets(s, st.tier, bag.tickets);
     var ups = [], expBy = {};
@@ -1044,7 +1046,7 @@
     var b = B(), st = tier + 1; // [10-27] 10단계 보스도 한 단계 위(11단계) 스테이지 ×100
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
     var raw = MM.rollDrops(en, rng, b.BOSS_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1));
-    var drops = MM.applyDrops(s, raw);
+    var drops = MM.applyDrops(s, raw, tier);
     var rainbowSoul = 0, raidTicket = null, raidTickets = [];
     if (R(rng)() < (b.BOSS_RAINBOW_SOUL_PER_TIER || 0) * tier) { MM.addItem(s, 'rainbowSoul', 1); rainbowSoul = 1; }
     MM.raidTiers().forEach(function (k) { if (R(rng)() < MM.raidTicketChance(tier, k)) { raidTickets.push(k); MM.addRaidTickets(s, k, 1); MM.addRecord(s, { type: 'raidticket', el: 'rainbow', tier: k }); } });
@@ -1113,7 +1115,7 @@
   MM.grantRaidWin = function (s, k, rng) {
     var b = B(), st = MM.raidRefTier(k);
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
-    var drops = MM.applyDrops(s, MM.rollDrops(en, rng, b.RAID_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1)));
+    var drops = MM.applyDrops(s, MM.rollDrops(en, rng, b.RAID_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1)), st);
     var gold = Math.round(tv(b.CLEAR_GOLD, st) * b.RAID_DROP_MULT_STAGE); s.gold += gold;
     var exp = MM.winExp(st), ups = partyExp(s, exp);
     var feather = 0; if (R(rng)() < tv(b.RAID_FEATHER, k)) { MM.addItem(s, 'feather', 1); feather = 1; MM.addRecord(s, { type: 'feather', el: 'rainbow', tier: st }); }

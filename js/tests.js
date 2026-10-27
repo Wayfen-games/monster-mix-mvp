@@ -130,6 +130,11 @@
   check('소울은 맨 위 단계 + 1(11단계)까지만 나옴', !over['fire' + (B.MAX_TIER + 2)] && over['fire' + (B.MAX_TIER + 1)] > 0);
   (function () { var s11 = MM.newState(t0); s11.souls['fire' + (B.MAX_TIER + 1)] = 100;
     check('11단계 소울은 모으기만 (소환·뽑기·장비·분해 불가)', !MM.canSummon(s11, 'fire' + (B.MAX_TIER + 1)) && !!MM.gachaPull(s11, 'fire', B.MAX_TIER + 1).error && !!MM.craftEquip(s11, 'fire', B.MAX_TIER + 1).error && !!MM.decomposeSoul(s11, 'fire', B.MAX_TIER + 1).error && !MM.registerDex(s11, 'fire', B.MAX_TIER + 1)); })();
+    (function () { var sr = MM.newState(t0); sr.records = []; MM.applyDrops(sr, { fire3: 2, fire4: 1, fire5: 1 }, 4);
+      var tiers = sr.records.filter(function (r) { return r.type === 'soul'; }).map(function (r) { return r.tier; }).sort();
+      check('기록은 지금 콘텐츠 단계 이상 소울만 (4단계면 3단계 소울은 기록 안 함)', tiers.join() === '4,5');
+      sr.records = []; MM.applyDrops(sr, { fire2: 1, fire3: 1 }, 1);
+      check('낮은 단계에서도 3단계 미만 소울은 기록 안 함', sr.records.filter(function (r) { return r.type === 'soul'; }).length === 1); })();
 
   // ---- 스테이지·던전 구성 ----
   var ok = true;

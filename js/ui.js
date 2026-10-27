@@ -1153,7 +1153,7 @@
   }
   function recordsHtml() {
     if (S.settings.recordOn === false) return '<div class="card muted">기록이 꺼져 있어요. 설정에서 켤 수 있어요.</div>';
-    if (!S.records.length) return '<div class="card muted">아직 기록이 없어요. ' + BAL().RECORD_MIN_SOUL_TIER + '단계 이상 소울, 도감 첫 등록 합성, ' + BAL().RECORD_MIN_SOUL_TIER + '단계 이상 합성이 자동으로 남아요.</div>';
+    if (!S.records.length) return '<div class="card muted">아직 기록이 없어요. ' + '지금 하는 단계 이상 소울(최소 ' + BAL().RECORD_MIN_SOUL_TIER + '단계), 도감 첫 등록 합성, ' + BAL().RECORD_MIN_SOUL_TIER + '단계 이상 합성이 자동으로 남아요.</div>';
     return S.records.map(function (r, i) {
       var l = recLine(r);
       return '<button class="rec-row" data-act="recOpen" data-i="' + i + '">' + monSvg(r.el, r.tier, 38) + '<div style="flex:1"><b>' + l.title + '</b><div class="muted small">' + l.sub + '</div></div><span class="when">' + timeText(r.t) + '</span></button>';
@@ -1213,7 +1213,7 @@
     function sw(k, title, desc) { return '<div class="card"><div class="switch-row"><div><b>' + title + '</b><div class="muted small">' + desc + '</div></div><button class="switch' + (S.settings[k] ? ' on' : '') + '" data-act="setting" data-k="' + k + '"></button></div></div>'; }
     return '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2 style="margin-top:12px">설정</h2>' +
       sw('autoBattle', '전투 자동', '한 번 켜면 다음 전투에도 계속 자동이에요. 전투 화면의 자동 버튼과 같아요.') +
-      sw('recordOn', '희귀 획득 기록', BAL().RECORD_MIN_SOUL_TIER + '단계 이상 소울, 도감 첫 등록 등을 자동으로 남겨요.') +
+      sw('recordOn', '희귀 획득 기록', '지금 하는 단계 이상 소울(최소 ' + BAL().RECORD_MIN_SOUL_TIER + '단계), 도감 첫 등록 등을 자동으로 남겨요.') +
       sw('fastTest', '빠른 테스트', '소울이 ' + BAL().FAST_TEST_DROP_MULT + '배 잘 나와요. 실제 템포를 보려면 꺼 두세요.') +
       '<div class="card"><b>방치 보상</b><div class="muted small lh" style="margin-top:6px">' + (off && MM.offlineStageValid(S) ? '지정: ' + MM.stageLabel(off.el, off.tier) + '' : '지정한 스테이지가 없어요. 마을의 방치 보상 카드에서 지정하세요.') + '<br>게임을 하든 안 하든 최대 ' + BAL().OFFLINE_MAX_HOURS + '시간, 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%</div></div>' +
       '<div class="card"><b>데이터</b><div class="muted small" style="margin:6px 0 10px">진행 상황은 이 브라우저에 자동 저장돼요.</div><button class="btn block danger" data-act="reset">데이터 초기화</button></div>' +
