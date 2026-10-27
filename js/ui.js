@@ -474,14 +474,14 @@
     var r = u.hp / u.maxHp;
     var allyPick = pickable === 'heal' ? u.hp > 0 : pickable === 'revive' ? u.hp <= 0 : false;
     if (pickable === 'heal' || pickable === 'revive') pickable = false;
-    var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.boss ? ' bossu' : '') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 || allyPick ? ' pickable' : '');
+    var cls = 'unit ' + (u.side === 'e' ? 'enemy' : 'ally') + (u.boss ? ' bossu' : '') + (u.raid ? ' raidu' : '') + (u.hp <= 0 ? ' dead' : '') + (actor && actor.uid === u.uid ? ' turn' : '') + (pickable && u.hp > 0 || allyPick ? ' pickable' : '');
     var adv = '';
     if (u.side === 'e' && actor && actor.side === 'p') {
       var up = MM.beats(actor.el, u.el), down = MM.beats(u.el, actor.el);
       if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
     }
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
-      monSvg(u.el, u.tier, u.raid ? 84 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
+      monSvg(u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.raid ? '<div class="weak">상성 없음</div>' : u.side === 'e' ? weakText(u.el) : '') +
       (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
@@ -547,7 +547,7 @@
     var html = '<div class="battle">' +
       '<div class="row between"><span class="muted small">' + title + ' · ' + bt.round + '라운드' + (bt.partyBonus ? ' · <span style="color:var(--good)">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</span>' +
       (Bt.repeat || Bt.kind === 'tutorial' ? '' : '<button class="btn sm" data-act="flee">나가기</button>') + '</div>' +
-      '<div class="side enemies">' + en.map(function (u) { return unitHtml(u, bt, actor, myTurn); }).join('') + '</div>' +
+      '<div class="side enemies' + (bt.raid ? ' raid' : '') + '">' + en.map(function (u) { return unitHtml(u, bt, actor, myTurn); }).join('') + '</div>' +
       (bt.raid && !bt.result ? bossPlanHtml(bt) : '') +
       '<div class="battle-mid"><div class="msg">' + msg + '</div><div class="muted small">' + sub + '</div></div>' +
       '<div class="side">' + bt.units.filter(function (u) { return u.side === 'p'; }).map(function (u) { return unitHtml(u, bt, actor, myTurn && Bt.pending ? Bt.pending : false); }).join('') + '</div>';

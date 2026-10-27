@@ -300,3 +300,10 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .tier-scroll { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 6px; -webkit-overflow-scrolling: touch; }
 .tier-scroll .btn { flex-shrink: 0; }
 .soul-n { flex-wrap: wrap; }
+
+/* [10-27] 보스전: 레인보우 샤들링은 큰 정사각형 카드로 가운데 */
+.side.enemies.raid { display: flex; justify-content: center; }
+.unit.raidu { width: min(72vw, 280px); aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 14px; }
+.unit.raidu .nm { font-size: 16px; font-weight: 800; }
+.unit.raidu .lv { font-size: 12px; }
+.unit.raidu .hpbar { width: 100%; }
