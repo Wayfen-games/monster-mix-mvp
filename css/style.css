@@ -314,3 +314,17 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .side.five .unit .mon svg, .side.five .unit .mon img { width: 40px; height: 40px; }
 .side.five .unit .nm { font-size: 10px; }
 .side.five .unit .hpnum { font-size: 9px; }
+
+/* [10-28 사용자] 보스·레이드 화면이 폰 한 화면에 들어가게 */
+.battle.bossmode { gap: 6px; }
+.battle.bossmode .unit.raidu { width: min(60vw, 28vh, 250px); padding: 6px 10px; }
+.battle.bossmode > .row.between .btn.sm { white-space: nowrap; flex: none; }
+.battle.bossmode > .row.between > .muted { flex: 1; min-width: 0; }
+.battle.bossmode .unit.raidu .mon svg, .battle.bossmode .unit.raidu .mon img { width: min(36vw, 14vh, 150px); height: auto; }
+.battle.bossmode .unit.raidu .nm { font-size: 14px; margin-top: 2px; }
+.battle.bossmode .boss-plan { margin: 2px 0; padding: 5px 8px; }
+.battle.bossmode .battle-mid { min-height: 40px; padding: 2px 6px; }
+.battle.bossmode .side:not(.enemies) .unit { padding: 6px 4px 6px; }
+.battle.bossmode .side:not(.enemies) .unit .mon svg, .battle.bossmode .side:not(.enemies) .unit .mon img { width: 44px; height: 44px; }
+.battle.bossmode .boss-acts .btn { padding-top: 10px; padding-bottom: 10px; }
+.battle.bossmode .boss-acts.two { margin-top: 6px; }

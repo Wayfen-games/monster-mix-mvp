@@ -125,9 +125,9 @@
   function name(m) { return MM.speciesName(m.el, m.tier); }
   function pct(x) { return Math.round(x * 1000) / 10 + '%'; }
   function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
-  function toast(msg) {
+  function toast(msg, ms) {
     var t = $('toast'); t.textContent = msg; t.hidden = false;
-    clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 2400);
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, ms || 2400);
   }
   function sortMons(list) {
     return list.slice().sort(function (a, b) {
@@ -507,11 +507,11 @@
       (u.raid ? (u.el === 'rainbow' ? '<div class="weak">상성 없음</div>' : '<div class="weak" style="color:' + MM.ELEMENTS[u.el].color + ';font-weight:700">' + MM.ELEMENTS[u.el].name + ' 속성</div>' + weakText(u.el)) : u.side === 'e' ? weakText(u.el) : '') +
       (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
-      '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u) + '</div>';
+      '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u, bt) + '</div>';
   }
   // 아군 카드 아래 경험치 바와 퍼센트 (전투 중에도 실제 샤들링 경험치를 보여줌)
-  function expHtml(u) {
-    if (u.side !== 'p' || !u.monsterId) return '';
+  function expHtml(u, bt) {
+    if (u.side !== 'p' || !u.monsterId || (bt && bt.raid)) return ''; // 보스·레이드는 화면 한 장에 들어가게 경험치 바 숨김
     var m = MM.getMonster(S, u.monsterId); if (!m) return '';
     var maxed = m.level >= MM.maxLevel(m.tier), r = maxed ? 1 : Math.min(0.999, m.exp / MM.expToNext(m.level));
     return '<div class="expbar" style="margin-top:5px"><i style="width:' + (r * 100).toFixed(1) + '%"></i></div>' +
@@ -567,9 +567,9 @@
     if (Bt.last && Bt.last.shift && !bt.result) sub = (sub ? sub + ' · ' : '') + '🔄 보스가 ' + MM.ELEMENTS[Bt.last.shift.to].name + ' 속성으로 변했어요!';
     var title = Bt.kind === 'raid' ? Bt.tier + '단계 레이드 · ' + (bt.phase + 1) + '/3 페이즈' : Bt.kind === 'boss' ? Bt.tier + '단계 보스 ' + MM.bossName(Bt.tier) : Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : Bt.kind === 'ticket' ? Bt.tier + '단계 입장권 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
     var en = bt.units.filter(function (u) { return u.side === 'e'; });
-    var html = '<div class="battle">' +
+    var html = '<div class="battle' + (bt.raid ? ' bossmode' : '') + '">' +
       '<div class="row between"><span class="muted small">' + title + ' · ' + bt.round + '라운드' + (bt.partyBonus ? ' · <span style="color:var(--good)">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '') + '</span>' +
-      (Bt.repeat || Bt.kind === 'tutorial' ? '' : '<button class="btn sm" data-act="flee">나가기</button>') + '</div>' +
+      '<span class="row" style="gap:6px">' + (bt.raid ? '<button class="btn sm" data-act="bossHelp">?</button>' : '') + (Bt.repeat || Bt.kind === 'tutorial' ? '' : '<button class="btn sm" data-act="flee">나가기</button>') + '</span></div>' +
       '<div class="side enemies' + (bt.raid ? ' raid' : '') + '">' + en.map(function (u) { return unitHtml(u, bt, actor, myTurn); }).join('') + '</div>' +
       (bt.raid && !bt.result ? bossPlanHtml(bt) : '') +
       '<div class="battle-mid"><div class="msg">' + msg + '</div><div class="muted small">' + sub + '</div></div>' +
@@ -582,11 +582,12 @@
     } else if (Bt.kind === 'boss' || Bt.kind === 'raid') {
       var dead = bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; }), dis = function (ok) { return myTurn && ok ? '' : ' disabled'; };
       // [사용자 확정 10-27 12:31] 보스·레이드도 자동 전투: 공격만 반복 (방어·집중·회복·부활은 직접 해야 함)
-      if (Bt.kind === 'boss') html += '<div class="battle-bar" style="margin-bottom:8px"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON · 공격만 반복' : 'OFF') + '</button></div>'; // 레이드는 자동 없음 [사용자 확정 10-27 12:33]
       if (Bt.pending && myTurn) html += '<div class="boss-plan" style="border-color:var(--good)">' + (Bt.pending === 'heal' ? '💚 회복할 아군을 누르세요' : '✨ 살릴 아군을 누르세요') + ' <button class="btn sm" data-act="bossCancel">취소</button></div>';
       html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + dis(true) + '>⚔ 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + dis(true) + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + dis(true) + '>✊ 집중</button></div>' +
-        '<div class="battle-bar boss-acts two" style="margin-top:8px"><button class="btn good" data-act="bossAct" data-a="heal"' + dis(bt.healsLeft > 0) + '>💚 회복 ' + bt.healsLeft + '</button><button class="btn good" data-act="bossAct" data-a="revive"' + dis(bt.revivesLeft > 0 && dead) + '>✨ 부활 ' + bt.revivesLeft + '</button></div>' +
-        '<div class="muted small lh" style="text-align:center;margin-top:6px">방어: 다음 내 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '% · 집중: 쉬고 다음 공격 ×' + BAL().BOSS_FOCUS_MULT + '<br>회복: 아군 1마리 체력 ' + Math.round(BAL().BOSS_HEAL_PCT * 100) + '% (1판 ' + BAL().BOSS_HEALS + '번) · 부활: 쓰러진 아군 체력 ' + Math.round(BAL().BOSS_REVIVE_PCT * 100) + '%로 (1판 ' + BAL().BOSS_REVIVES + '번)<br>보스전은 자동 전투가 안 돼요 · 지면 입장권은 그대로</div>';
+        '<div class="battle-bar boss-acts two"><button class="btn good" data-act="bossAct" data-a="heal"' + dis(bt.healsLeft > 0) + '>💚 회복 ' + bt.healsLeft + '</button><button class="btn good" data-act="bossAct" data-a="revive"' + dis(bt.revivesLeft > 0 && dead) + '>✨ 부활 ' + bt.revivesLeft + '</button></div>' +
+        '';
+      // [10-28 사용자] 자동은 맨 밑 (레이드는 자동 없음 [10-27 12:33])
+      if (Bt.kind === 'boss') html += '<div class="battle-bar" style="margin-top:8px"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON · 공격만 반복' : 'OFF') + '</button></div>';
     } else if (Bt.kind !== 'tutorial') {
       html += '<div class="battle-bar"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON' : 'OFF') + '</button></div>';
     }
@@ -1414,6 +1415,7 @@
       if (!actor || actor.side !== 'p') return;
       Bt.pending = null; Bt.busy = true; doAct(+d.uid);
     },
+    bossHelp: function () { toast('방어: 다음 내 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '% · 집중: 쉬고 다음 공격 ×' + BAL().BOSS_FOCUS_MULT + ' · 회복: 아군 1마리 체력 ' + Math.round(BAL().BOSS_HEAL_PCT * 100) + '% · 부활: 쓰러진 아군 체력 ' + Math.round(BAL().BOSS_REVIVE_PCT * 100) + '%로 · 보스 자동은 공격만, 레이드는 자동 없음 · 지면 입장권은 그대로', 6000); },
     auto: function () {
       var Bt = view.battle; if (!Bt || Bt.kind === 'raid') return;
       Bt.auto = !Bt.auto; Bt.pending = null;
