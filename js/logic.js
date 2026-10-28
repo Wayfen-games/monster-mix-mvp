@@ -811,8 +811,9 @@
     };
   };
 
-  MM.createBattle = function (partyMonsters, enemies, rng) {
-    var units = [], uid = 0, bonus = MM.partyHasBonus(partyMonsters);
+  // noBonus: 속성 조화 보너스 없음 [10-28 사용자: 레이드는 없음]
+  MM.createBattle = function (partyMonsters, enemies, rng, noBonus) {
+    var units = [], uid = 0, bonus = !noBonus && MM.partyHasBonus(partyMonsters);
     partyMonsters.forEach(function (m) { units.push(MM.makeUnit(m, 'p', uid++, bonus)); });
     enemies.forEach(function (e) { units.push(MM.makeUnit(e, 'e', uid++, false)); });
     var bt = { units: units, round: 0, queue: [], log: [], result: null, partyBonus: bonus };
@@ -1093,7 +1094,7 @@
   };
   // startEl: 3페이즈 시작 속성 (2페이즈가 끝났을 때 속성). 없으면 무작위
   MM.createRaidBattle = function (partyMonsters, k, phase, rng, startEl) {
-    var b = B(), t = MM.raidRefTier(k), bt = MM.createBattle(partyMonsters, [{ el: 'rainbow', tier: t, level: MM.summonLevel(t), boss: true, raid: true }], rng);
+    var b = B(), t = MM.raidRefTier(k), bt = MM.createBattle(partyMonsters, [{ el: 'rainbow', tier: t, level: MM.summonLevel(t), boss: true, raid: true }], rng, true);
     var u = bt.units.filter(function (x) { return x.side === 'e'; })[0];
     u.maxHp = u.hp = Math.round(u.maxHp * b.RAID_HP_MULT[k - 1][phase]);
     u.atk = Math.round(u.atk * b.RAID_ATK_MULT[k - 1][phase]);

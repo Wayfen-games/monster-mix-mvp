@@ -468,6 +468,7 @@
       check('바뀌기 전 예고 (이 행동 뒤에 바뀜)', (function () { var b = MM.createRaidBattle(pm, 1, 2, rr, 'fire'), x = b.units.filter(function (u) { return u.raid; })[0]; x.turns = 2; return MM.shiftAfterThisTurn(x) && x.nextEl === 'grass'; })());
       var sx = MM.newState(t0); MM.addRaidTickets(sx, 1, 1); MM.winRaidPhase(sx, 1, rr); MM.winRaidPhase(sx, 1, rr, 'dark');
       check('2페이즈 끝 속성 저장 → 3페이즈 시작 속성', MM.raidStartEl(sx, 1) === 'dark');
+      check('레이드는 속성 조화 보너스 없음', !MM.createRaidBattle(pm, 1, 0, rr).partyBonus && MM.createBattle(pm.slice(0, 3), [{ el: 'fire', tier: 1, level: 1 }], rr).partyBonus);
     })();
     var p1 = MM.winRaidPhase(sr, 1, rr), p2 = MM.winRaidPhase(sr, 1, rr);
     check('레이드 페이즈 저장: 1·2페이즈 깨면 진행만 저장, 입장권은 그대로', !p1.done && !p2.done && MM.raidPhase(sr, 1) === 2 && MM.raidTicketCount(sr, 1) === 1);
