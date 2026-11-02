@@ -1,4 +1,4 @@
-# 몬스터 믹스 (MVP v2)
+# 샤들링 (Shardlings): 몬스터 퓨전 RPG — 시제품 (저장소 이름은 아직 monster-mix-mvp)
 
 소울을 모아 몬스터를 소환하고, 합성해서 상위 몬스터를 만드는 턴제 RPG 웹게임 시제품.
 
@@ -16,7 +16,12 @@
 | `js/tests.js` | 규칙 테스트 |
 | `tools/balance-elements.js` | 속성별 스탯 균형 자동 조정 |
 | `tools/tune-difficulty.js` | 스테이지·던전 난이도 자동 조정 |
-| `tools/month-sim.js` | 실제 규칙으로 한 달 플레이 시뮬레이션 (5단계 5종 완성일) |
+| `tools/month-sim.js` | 실제 규칙으로 한 달 플레이 시뮬레이션 (첫 n단계 일수, 소환/합성 배수) |
+| `tools/level-table.js` | 소환·합성 조건·단계 만렙 레벨 표 생성 |
+| `tools/calib-gold.js` | 합성 골드 자동 보정 (month-sim 반복) |
+| `tools/tune-boss.js` / `tools/tune-raid.js` | 보스·레이드 체력·공격 배율 자동 조정 |
+| `tools/cut-art.py` | 제미나이 그림(연두 배경) → 배경 지운 256px PNG |
+| `tools/ui/*.js` | Playwright 화면 점검 (전 화면 투어, 레이드 흐름, 보스 화면 배치) |
 | `devlog/` | 제작 기록 스크린샷 |
 
 ## 밸런스 다시 맞추기
