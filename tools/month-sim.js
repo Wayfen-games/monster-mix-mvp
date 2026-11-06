@@ -248,7 +248,7 @@ function simulatePlayer(seed) {
         const e = MM.equippedOf(s, m.el);
         if (e && e.plus < B.EQUIP_MAX_PLUS) {
           const ec = MM.equipEnhCost(e), tries = MM.equipExpectedTries(e.plus);
-          const ok = !ec.feather && !ec.rainbow && (s.souls[ec.key] || 0) >= ec.souls + keep; // 소환용 소울은 남김
+          const ok = (!ec.feather || MM.featherCount(s) >= ec.feather) && !ec.rainbow && (s.souls[ec.key] || 0) >= ec.souls + keep; // 소환용 소울은 남김
           const gain = B.EQUIP_PER_PLUS / (1 + MM.equipBonus(e)), cost = ec.gold * tries;
           if (ok && (!best || gain / cost > best.v)) best = { v: gain / cost, kind: 'eq', id: e.id, gold: ec.gold };
         }
@@ -402,6 +402,7 @@ function simulatePlayer(seed) {
   log.gold = s.gold;
   log.eqPlus = (s.equips || []).filter(e => MM.isEquipped(s, e)).map(e => e.tier + '단+' + e.plus).join(' ');
   log.altar = MM.RING.map(el => MM.altarOf(s, el).level).join('/');
+  log.maxPlus = Math.max(0, ...(s.equips || []).map(e => e.plus)); log.feathers = MM.featherCount(s);
   return log;
 }
 
@@ -411,7 +412,7 @@ for (let p = 0; p < PLAYERS; p++) {
   const r = simulatePlayer(1000 + p * 77); r.idx = p; res.push(r);
   if (process.env.JSON) process.stderr.write('플레이어 ' + p + ' 끝: ' + (r.goalDay == null ? '목표 못 감' : r.goalDay + '일') + '\n');
 }
-if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
+if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
 const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
