@@ -92,9 +92,43 @@ function simulatePlayer(seed) {
 
   // 다음 목표 합성 후보: 짝은 맞는데 레벨 등으로 막힌 것 중 가장 가치 있는 것
   const core = () => { const out = []; s.monsters.slice().sort((a, b) => b.tier - a.tier || b.level - a.level).forEach(m => { if (out.length < 3 && !out.some(c => c.el === m.el)) out.push(m); }); return out; };
+  // ---- 목표를 거꾸로 따라가는 계획 (OPT·STYLE) [11-06 사용자: 낮은 단계 합성을 굳이 할 이유가 없음] ----
+  // 목표 하나(최적화·반반형: 최고 단계 샤들링을 한 단계 위로 / 사용자형: 핵심 3마리 중 가장 낮은 단계를 한 단계 위로)를 정하고,
+  // 거기에 필요한 주재료·부재료를 가진 샤들링으로 채우고, 없는 것만 거꾸로 '만들 것' 목록에 넣는다. 목록에 있는 합성만 한다.
+  // 부재료 속성은 짝 중 이미 더 높이 키운 속성을 고른다.
+  function planWanted() {
+    const avail = new Map(), key = (el, t) => el + '|' + t, wanted = new Set();
+    s.monsters.forEach(m => avail.set(key(m.el, m.tier), (avail.get(key(m.el, m.tier)) || 0) + 1));
+    const bestTier = el => Math.max(0, ...s.monsters.filter(m => m.el === el).map(m => m.tier));
+    const take = (el, t) => { const k = key(el, t), n = avail.get(k) || 0; if (n > 0) { avail.set(k, n - 1); return true; } return false; };
+    const need = (el, t, depth) => {
+      if (take(el, t) || t <= 1 || depth > 20) return; // 1단계는 소환으로
+      wanted.add(key(el, t));
+      need(el, t - 1, depth + 1);
+      const nb = MM.partnersOf(el).slice().sort((p, q) => bestTier(q) - bestTier(p))[0];
+      need(nb, MM.subTierFor(t - 1), depth + 1);
+    };
+    let goal;
+    if (STYLE === 'user') goal = core().sort((p, q) => p.tier - q.tier || q.level - p.level)[0];
+    else goal = s.monsters.slice().sort((p, q) => q.tier - p.tier || q.level - p.level)[0];
+    if (goal && goal.tier < T) need(goal.el, goal.tier + 1, 0);
+    return wanted;
+  }
   function bestCandidate() {
     let best = null;
-    const cs = STYLE === 'user' ? core() : null, coreMin = cs ? Math.min(...cs.map(m => m.tier)) : 0;
+    if (OPT) {
+      const wanted = planWanted();
+      for (const main of s.monsters) {
+        if (!MM.canBeMain(main) || !wanted.has(main.el + '|' + (main.tier + 1))) continue;
+        for (const sub of s.monsters) {
+          if (!MM.isPair(main, sub)) continue;
+          const score = main.tier * 10 + main.level / 1000 + main.stack - sub.level / 1e6;
+          if (!best || score > best.score) best = { main, sub, score };
+        }
+      }
+      return best;
+    }
+    const cs = null, coreMin = 0;
     for (const main of s.monsters) {
       if (!MM.canBeMain(main)) continue;
       if (cs) { const inCore = cs.includes(main); if (inCore ? main.tier !== coreMin : main.tier + 1 > Math.max(1, coreMin - 1)) continue; }
@@ -164,6 +198,7 @@ function simulatePlayer(seed) {
         if (STYLE) s.offline.team = savedTeam;
         // 최고 단계 진행이 무엇 때문에 막혔나 (최고 단계 -1 이상 주재료만): 레벨(주재료/부재료)·골드·소울
         if (c.main.tier >= Math.max(...s.monsters.map(m => m.tier)) - 1) { const why = chk.reasons.some(r => /골드/.test(r)) ? 'gold' : chk.reasons.some(r => /소울/.test(r)) ? 'soul' : chk.reasons.some(r => r.indexOf(MM.speciesName(c.sub.el, c.sub.tier) + ' Lv') === 0) ? 'subLv' : chk.reasons.some(r => /Lv/.test(r)) ? 'mainLv' : 'other'; log.hi = log.hi || {}; log.hi[why] = (log.hi[why] || 0) + 1; }
+        if (OPT && cost.soulTier && chk.reasons.some(r => /소울/.test(r))) c.needSoul = { el: soulEl || cost.soulOptions[0], tier: cost.soulTier }; // 합성에 쓸 소울이 없으면 그 속성 스테이지를 돎
         if (chk.reasons.some(r => /골드/.test(r))) log.goldBlocked++;
         else if (chk.reasons.some(r => /소울/.test(r))) log.soulBlocked++;
         else if (chk.reasons.some(r => /Lv/.test(r))) log.levelBlocked++;
@@ -244,7 +279,7 @@ function simulatePlayer(seed) {
     }
   }
 
-  function chooseStage(party) {
+  function chooseStage(party, blocked) {
     // 깰 수 있는(추정 승률 55% 이상) 가장 높은 단계, 속성은 진행이 가장 늦은 속성
     const maxT = Math.max(...party.map(m => m.tier));
     let tier = 1;
@@ -255,6 +290,7 @@ function simulatePlayer(seed) {
       if (r >= 0.55) { tier = st; break; }
     }
     const els = MM.RING.slice().sort((a, b) => need(b) - need(a) || rng() - 0.5);
+    if (blocked && blocked.needSoul && tier >= blocked.needSoul.tier) return { el: blocked.needSoul.el, tier };
     return { el: els[0], tier };
   }
 
@@ -327,7 +363,7 @@ function simulatePlayer(seed) {
     blocked = manage(dayStart);
     pickParty(focusOf(blocked));
     let party = s.party.map(id => MM.getMonster(s, id));
-    let stage = chooseStage(party);
+    let stage = chooseStage(party, blocked);
     invest(stage.tier);
     let fight = P(party);
     for (let run = 0; run < B.AUTO_REPEAT_DAILY; run++) {
@@ -335,7 +371,7 @@ function simulatePlayer(seed) {
         blocked = manage(dayStart + run / B.AUTO_REPEAT_DAILY * 86400000 * 0.999);
         pickParty(focusOf(blocked));
         party = s.party.map(id => MM.getMonster(s, id));
-        stage = chooseStage(party);
+        stage = chooseStage(party, blocked);
         invest(stage.tier); fight = P(party);
         if (goalDone()) break;
       }
