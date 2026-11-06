@@ -162,6 +162,8 @@ function simulatePlayer(seed) {
       }
       if (!chk.ok) {
         if (STYLE) s.offline.team = savedTeam;
+        // 최고 단계 진행이 무엇 때문에 막혔나 (최고 단계 -1 이상 주재료만): 레벨(주재료/부재료)·골드·소울
+        if (c.main.tier >= Math.max(...s.monsters.map(m => m.tier)) - 1) { const why = chk.reasons.some(r => /골드/.test(r)) ? 'gold' : chk.reasons.some(r => /소울/.test(r)) ? 'soul' : chk.reasons.some(r => r.indexOf(MM.speciesName(c.sub.el, c.sub.tier) + ' Lv') === 0) ? 'subLv' : chk.reasons.some(r => /Lv/.test(r)) ? 'mainLv' : 'other'; log.hi = log.hi || {}; log.hi[why] = (log.hi[why] || 0) + 1; }
         if (chk.reasons.some(r => /골드/.test(r))) log.goldBlocked++;
         else if (chk.reasons.some(r => /소울/.test(r))) log.soulBlocked++;
         else if (chk.reasons.some(r => /Lv/.test(r))) log.levelBlocked++;
@@ -172,6 +174,8 @@ function simulatePlayer(seed) {
       if (r.success) { log.fusions++; if (r.monster.tier === T && log.e5Day[r.monster.el] == null) log.e5Day[r.monster.el] = (now - t0) / 86400000; }
       else log.fails++;
     }
+    // 막힌 후보도 없음: 최고 단계 샤들링에게 짝(이웃 속성 한 단계 아래)이 없음
+    { const top = Math.max(...s.monsters.map(m => m.tier)); if (top < T && !s.monsters.some(a => a.tier >= top - 1 && MM.canBeMain(a) && s.monsters.some(b => MM.isPair(a, b)))) { log.hi = log.hi || {}; log.hi.noPair = (log.hi.noPair || 0) + 1; } }
     return null;
   }
 
@@ -381,6 +385,7 @@ console.log('최대 보유 골드', avg(r => r.maxGold).toFixed(0), '| 마지막
 console.log('끝날 때 최고 레벨(플레이어별):', res.map(r => r.maxLv).join(', '));
 console.log('예시 마지막 몬스터:', res[0].levels);
 if (OPT) {
+  console.log('[최고 단계 막힘, 관리 시점 횟수] 주재료 레벨', avg(r => (r.hi || {}).mainLv || 0).toFixed(0), '| 부재료 레벨', avg(r => (r.hi || {}).subLv || 0).toFixed(0), '| 골드', avg(r => (r.hi || {}).gold || 0).toFixed(0), '| 소울', avg(r => (r.hi || {}).soul || 0).toFixed(0), '| 짝 없음', avg(r => (r.hi || {}).noPair || 0).toFixed(0), '| 기타', avg(r => (r.hi || {}).other || 0).toFixed(0));
   console.log('[최적화] 스테이지 = 파티 최고 단계 + 평균', avg(r => (r.stageSum || 0) / Math.max(1, r.stageWins || 0)).toFixed(2), '| 장비 제작', avg(r => r.crafted).toFixed(1), '| 장비 강화 시도', avg(r => r.eqTries).toFixed(0), '(골드 ' + avg(r => r.eqGold).toFixed(0) + ')', '| 샤들링 강화 시도', avg(r => r.monTries).toFixed(0), '(골드 ' + avg(r => r.monGold).toFixed(0) + ')');
   console.log('[최적화] 뽑기', avg(r => r.gacha).toFixed(0), '| 제단에 바친 소울', avg(r => r.offered).toFixed(0), '| 레이드 클리어', avg(r => r.raids).toFixed(1), '(페이즈 시도 ' + avg(r => r.raidTries).toFixed(0) + ')');
   console.log('[최적화] 예시 장착 장비:', res[0].eqPlus, '| 제단 레벨(불/물/풀/빛/어둠 순서 아님, RING 순):', res[0].altar);
