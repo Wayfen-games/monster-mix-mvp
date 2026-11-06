@@ -2,12 +2,17 @@
 // 기준(사용자 확정): 하루 = 자동 반복 한도(AUTO_REPEAT_DAILY판) + 요일 던전 2판 + 오프라인 보상 1회(12시간).
 // 직접 전투 0. 5단계 던전 추가 보너스는 제외.
 // 사용: node tools/month-sim.js [플레이어 수=12] [최대 일수=60]
+// OPT=1 → 최적화 유저 [11-06 사용자: 실제 유저는 효율을 다 계산함]: 방치 12시간 + 8시간 두 번 받기, 장비 제작·강화와 샤들링 강화를
+//   '능력치 1%당 골드'가 싼 것부터(다음 합성 골드는 남김), 남는 소울은 지금 단계면 뽑기·낮은 단계면 제단, 레이드 도전,
+//   장비·강화를 넣은 전투력으로 이길 수 있는 가장 높은 스테이지(파티 단계 +3까지)
 const MM = require('./load');
 const B = MM.BALANCE, T = B.MAX_TIER;
 const PLAYERS = +process.argv[2] || 12, MAX_DAYS = +process.argv[3] || 60;
 const FEED_KEEP = +(process.env.FEED_KEEP || (B.SOULS_PER_SUMMON + 10));
 const STOP_FIRST = process.env.STOP !== 'all'; // 기본: 첫 맨 위 단계(10단계)를 만들면 그 플레이어는 끝
+const OPT = !!process.env.OPT;
 const OFFLINE_CLAIMS_PER_DAY = +(process.env.OFFLINE_CLAIMS || 1);
+const OFFLINE_HOURS = OPT ? [12, 8] : Array(OFFLINE_CLAIMS_PER_DAY).fill(12);
 // 실험용 덮어쓰기: DROP=드랍 배율, EXPA, EXPP, EXPW=승리 경험치 배율, OVR='{"키":값}'
 if (process.env.DROP) B.SOUL_DROP_AVG = B.SOUL_DROP_AVG.map(v => v * +process.env.DROP);
 if (process.env.EXPA) B.EXP_A = +process.env.EXPA;
@@ -25,7 +30,7 @@ function winRateEst(party, mk, rng, cache, key, n) {
   for (let i = 0; i < n; i++) if (MM.simulateBattle(party, mk(), rng).result === 'win') w++;
   const r = w / n; cache.set(key, r); return r;
 }
-const sig = ms => ms.map(m => m.el + m.tier + ':' + m.level).sort().join(',');
+const sig = ms => ms.map(m => m.el + m.tier + ':' + m.level + 'x' + (m.mult || 1).toFixed(2)).sort().join(',');
 
 function simulatePlayer(seed) {
   const rng = MM.seededRng(seed);
@@ -33,7 +38,9 @@ function simulatePlayer(seed) {
   const s = MM.newState(t0);
   const cache = makeCache();
   const log = { t3Day: null, t2Day: null, e5Day: {}, goalDay: null, fusions: 0, fails: 0, goldBlocked: 0, soulBlocked: 0, levelBlocked: 0,
-    first: {}, cum: {}, cum30: {}, actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0, soulSwap: 0 };
+    first: {}, cum: {}, cum30: {}, actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0, soulSwap: 0,
+    crafted: 0, eqTries: 0, monTries: 0, eqGold: 0, monGold: 0, gacha: 0, offered: 0, raids: 0, raidTries: 0 };
+  const P = ms => OPT ? MM.battleParty(s, ms) : ms; // 최적화 유저만 장비·강화·제단 능력치를 전투에 반영
 
   // ---- 튜토리얼 ----
   const applyOrig = MM.applyDrops;
@@ -141,13 +148,75 @@ function simulatePlayer(seed) {
     return null;
   }
 
+  // ---- 최적화 유저의 소울·골드 투자 ----
+  const topTier = () => Math.max(1, ...s.monsters.map(m => m.tier));
+  function invest(stageTier) {
+    if (!OPT) return;
+    const top = topTier(), keep = FEED_KEEP;
+    const roster = new Set(s.monsters.map(m => m.el));
+    // 1) 장비 제작: 가진 속성마다, 지금 장비보다 높은 단계 소울이 소환용을 빼고 100개 넘게 남으면
+    for (const el of roster) for (let t = Math.min(top, T); t >= 1; t--) {
+      const cur = MM.equippedOf(s, el);
+      if (cur && cur.tier >= t) break;
+      if ((s.souls[MM.speciesKey(el, t)] || 0) >= B.EQUIP_CRAFT_SOULS + keep) { MM.craftEquip(s, el, t); log.crafted++; break; }
+    }
+    // 2) 남는 소울: 지금 도는 단계 이상이면 뽑기(입장권·위 단계 소울), 최고 단계보다 2단계 이상 낮으면 제단
+    for (const sp of MM.allSpecies()) {
+      const have = () => s.souls[sp.key] || 0;
+      if (sp.tier >= stageTier) { while (have() >= keep + B.GACHA_COST) { const g = MM.gachaPull(s, sp.el, sp.tier, rng); if (g.error) break; log.gacha++; } }
+      else if (sp.tier <= top - 2 && have() > keep) { const o = MM.offerSouls(s, sp.el, sp.tier, have() - keep); if (!o.error) log.offered += o.used; }
+    }
+    // 3) 골드: 다음 합성 골드(실패 스택 반영)는 남기고, 능력치 1%당 골드가 가장 싼 강화부터
+    const c = bestCandidate();
+    const reserve = c ? MM.fusionCost(c.main, c.sub).gold * (1 + (B.FUSION_GOLD_STACK_UP || 0) * (c.main.stack || 0)) : 0;
+    const party = s.party.map(id => MM.getMonster(s, id)).filter(Boolean);
+    for (let guard = 0; guard < 200; guard++) {
+      let best = null;
+      for (const m of party) {
+        const e = MM.equippedOf(s, m.el);
+        if (e && e.plus < B.EQUIP_MAX_PLUS) {
+          const ec = MM.equipEnhCost(e), tries = MM.equipExpectedTries(e.plus);
+          const ok = !ec.feather && !ec.rainbow && (s.souls[ec.key] || 0) >= ec.souls + keep; // 소환용 소울은 남김
+          const gain = B.EQUIP_PER_PLUS / (1 + MM.equipBonus(e)), cost = ec.gold * tries;
+          if (ok && (!best || gain / cost > best.v)) best = { v: gain / cost, kind: 'eq', id: e.id, gold: ec.gold };
+        }
+        if ((m.plus || 0) < B.MON_ENH_BONUS.length) {
+          const mc = MM.monEnhCost(m), rate = MM.monEnhRate(m);
+          // 합성 재료로 곧 쓸 샤들링(합성 조건 레벨 미만인 하위 단계)은 강화가 사라지니 가치 절반
+          const life = m.tier >= top || m.level >= MM.fuseLevelReq(m.tier) ? 1 : 0.5;
+          const prev = m.plus ? B.MON_ENH_BONUS[m.plus - 1] : 0, gain = (B.MON_ENH_BONUS[m.plus || 0] - prev) / (1 + prev) * life;
+          if ((s.souls[mc.key] || 0) > keep && (!best || gain / (mc.gold / rate) > best.v)) best = { v: gain / (mc.gold / rate), kind: 'mon', id: m.id, gold: mc.gold };
+        }
+      }
+      if (!best || s.gold - best.gold < reserve) break;
+      if (best.kind === 'eq') { const r = MM.enhanceEquip(s, best.id, rng); if (r.error) break; log.eqTries++; log.eqGold += best.gold; }
+      else { const r = MM.enhanceMonster(s, best.id, rng); if (r.error) break; log.monTries++; log.monGold += best.gold; }
+    }
+  }
+  // ---- 최적화 유저의 레이드: 입장권이 있고 속성별 5마리가 있으면 대응 전투로 도전 (하루 페이즈당 5번까지) ----
+  function doRaids() {
+    if (!OPT) return;
+    for (const k of MM.raidTiers()) {
+      const rp = MM.raidParty(s);
+      if (!rp || MM.raidTicketCount(s, k) <= 0) continue;
+      for (let guard = 0; guard < 15 && MM.raidTicketCount(s, k) > 0; guard++) {
+        const ph = MM.raidPhase(s, k);
+        const bt = MM.simulateRaidPhase(P(rp), k, ph, rng, 'smart'); log.raidTries++; log.battles++; log.actions += bt.log.length;
+        if (bt.result !== 'win') { if (guard % 5 === 4) break; continue; }
+        const w = MM.winRaidPhase(s, k, rng, (bt.units.filter(u => u.raid)[0] || {}).el);
+        if (w.done) { log.raids++; w.reward.drops.forEach(d => log.wasted += d.wasted); }
+      }
+    }
+  }
+
   function chooseStage(party) {
     // 깰 수 있는(추정 승률 55% 이상) 가장 높은 단계, 속성은 진행이 가장 늦은 속성
     const maxT = Math.max(...party.map(m => m.tier));
     let tier = 1;
-    for (let st = Math.min(T, maxT); st >= 1; st--) {
-      const key = sig(party) + '|' + st;
-      const r = winRateEst(party, () => MM.stageEnemies(MM.RING[Math.floor(rng() * 5)], st, rng), rng, cache, key, 40);
+    const fp = P(party);
+    for (let st = Math.min(T, maxT + (OPT ? 3 : 0)); st >= 1; st--) {
+      const key = sig(fp) + '|' + st;
+      const r = winRateEst(fp, () => MM.stageEnemies(MM.RING[Math.floor(rng() * 5)], st, rng), rng, cache, key, 40);
       if (r >= 0.55) { tier = st; break; }
     }
     const els = MM.RING.slice().sort((a, b) => need(b) - need(a) || rng() - 0.5);
@@ -158,8 +227,8 @@ function simulatePlayer(seed) {
   for (day = 0; day < MAX_DAYS && !goalDone(); day++) {
     const dayStart = t0 + day * 86400000;
     // 오프라인 보상 (전날 지정 스테이지)
-    for (let c = 0; c < OFFLINE_CLAIMS_PER_DAY; c++) {
-      s.offline.lastSeen = dayStart - 12 * 3600000;
+    for (const h of OFFLINE_HOURS) {
+      s.offline.lastSeen = dayStart - h * 3600000;
       const off = MM.claimOffline(s, dayStart, rng);
       if (off) off.drops.forEach(d => log.wasted += d.wasted);
     }
@@ -169,7 +238,7 @@ function simulatePlayer(seed) {
     pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
     const dEl = MM.dungeonElementFor(dayStart);
     for (let k = 0; k < B.DUNGEON_DAILY; k++) {
-      const party = MM.RING.length && s.party.map(id => MM.getMonster(s, id));
+      const party = P(s.party.map(id => MM.getMonster(s, id)));
       const els = dEl ? [dEl] : MM.RING.slice().sort((a, b) => need(b) - need(a)).slice(0, 3);
       let tier = 0;
       for (let dt = T; dt >= 1; dt--) {
@@ -191,7 +260,7 @@ function simulatePlayer(seed) {
       const tk = s.dungeon.tickets || {};
       for (let dt = T; dt >= 1; dt--) {
         while ((tk[dt] || 0) > 0) {
-          const party = s.party.map(id => MM.getMonster(s, id));
+          const party = P(s.party.map(id => MM.getMonster(s, id)));
           const els = MM.RING.slice().sort((a, b) => need(b) - need(a)).slice(0, 3); // 입장권 던전: 요일 상관없이 3속성
           const r = winRateEst(party, () => MM.dungeonEnemies(els, dt), rng, cache, sig(party) + '|D' + dt + els.join(), 30);
           if (r < 0.15) break;
@@ -218,28 +287,31 @@ function simulatePlayer(seed) {
         }
       }
     };
-    useTickets(); useBoss();
+    useTickets(); useBoss(); doRaids();
     // 자동 반복
     blocked = manage(dayStart);
     pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
     let party = s.party.map(id => MM.getMonster(s, id));
     let stage = chooseStage(party);
+    invest(stage.tier);
+    let fight = P(party);
     for (let run = 0; run < B.AUTO_REPEAT_DAILY; run++) {
       if (run % 20 === 19) {
         blocked = manage(dayStart + run / B.AUTO_REPEAT_DAILY * 86400000 * 0.999);
         pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
         party = s.party.map(id => MM.getMonster(s, id));
         stage = chooseStage(party);
+        invest(stage.tier); fight = P(party);
         if (goalDone()) break;
       }
       now0.t = dayStart + run / B.AUTO_REPEAT_DAILY * 86400000 * 0.999;
       const en = MM.stageEnemies(stage.el, stage.tier, rng);
-      const bt = MM.simulateBattle(party, en, rng);
+      const bt = MM.simulateBattle(fight, en, rng);
       log.actions += bt.log.length; log.battles++;
-      if (bt.result === 'win') { const r = MM.grantStageWin(s, stage.el, stage.tier, en, rng); r.drops.forEach(d => log.wasted += d.wasted); }
+      if (bt.result === 'win') { log.stageSum = (log.stageSum || 0) + stage.tier - Math.max(...party.map(m => m.tier)); log.stageWins = (log.stageWins || 0) + 1; const r = MM.grantStageWin(s, stage.el, stage.tier, en, rng); r.drops.forEach(d => log.wasted += d.wasted); }
       else { log.losses++; s.stats.battlesLost++; }
     }
-    useTickets(); useBoss();
+    useTickets(); useBoss(); doRaids();
     s.offline.stage = { el: stage.el, tier: stage.tier };
     s.cleared[MM.speciesKey(stage.el, stage.tier)] = s.cleared[MM.speciesKey(stage.el, stage.tier)] || 1;
     log.maxGold = Math.max(log.maxGold, s.gold);
@@ -249,6 +321,8 @@ function simulatePlayer(seed) {
   log.levels = s.monsters.map(m => m.tier + '단' + m.level).join(' ');
   log.maxLv = Math.max(...s.monsters.map(m => m.level)); log.top5 = s.monsters.filter(m => m.tier === T).map(m => m.level).sort((a, b) => b - a).slice(0, 3).join('/');
   log.gold = s.gold;
+  log.eqPlus = (s.equips || []).filter(e => MM.isEquipped(s, e)).map(e => e.tier + '단+' + e.plus).join(' ');
+  log.altar = MM.RING.map(el => MM.altarOf(s, el).level).join('/');
   return log;
 }
 
@@ -269,3 +343,8 @@ console.log('막힘(관리 시점 횟수): 골드', avg(r => r.goldBlocked).toFi
 console.log('최대 보유 골드', avg(r => r.maxGold).toFixed(0), '| 마지막 골드', avg(r => r.gold).toFixed(0), '| 최고 던전', avg(r => r.dungeonTop).toFixed(1));
 console.log('끝날 때 최고 레벨(플레이어별):', res.map(r => r.maxLv).join(', '));
 console.log('예시 마지막 몬스터:', res[0].levels);
+if (OPT) {
+  console.log('[최적화] 스테이지 = 파티 최고 단계 + 평균', avg(r => (r.stageSum || 0) / Math.max(1, r.stageWins || 0)).toFixed(2), '| 장비 제작', avg(r => r.crafted).toFixed(1), '| 장비 강화 시도', avg(r => r.eqTries).toFixed(0), '(골드 ' + avg(r => r.eqGold).toFixed(0) + ')', '| 샤들링 강화 시도', avg(r => r.monTries).toFixed(0), '(골드 ' + avg(r => r.monGold).toFixed(0) + ')');
+  console.log('[최적화] 뽑기', avg(r => r.gacha).toFixed(0), '| 제단에 바친 소울', avg(r => r.offered).toFixed(0), '| 레이드 클리어', avg(r => r.raids).toFixed(1), '(페이즈 시도 ' + avg(r => r.raidTries).toFixed(0) + ')');
+  console.log('[최적화] 예시 장착 장비:', res[0].eqPlus, '| 제단 레벨(불/물/풀/빛/어둠 순서 아님, RING 순):', res[0].altar);
+}
