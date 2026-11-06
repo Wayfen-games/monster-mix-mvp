@@ -453,7 +453,7 @@
     var rr = MM.seededRng(3), sb = MM.newState(t0), rt = 0, rs = 0;
     var rt1 = 0;
     for (var i = 0; i < 2000; i++) { var g = MM.grantBossWin(sb, 7, rr, t0 + i * 86400000); g.raidTickets.forEach(function (k) { if (k === 2) rt++; else rt1++; }); if (g.rainbowSoul) rs++; Object.keys(sb.souls).forEach(function (k) { sb.souls[k] = 0; }); }
-    check('보스 승리(7단계): 1단계 레이드 입장권 10% · 2단계 4% (따로 굴림), 레인보우 소울 14%', rt1 > 150 && rt1 < 250 && rt > 45 && rt < 120 && rs > 220 && rs < 340, rt1 + '/' + rt + '/' + rs);
+    check('보스 승리(7단계): 1단계 레이드 입장권 10% · 2단계 4% (따로 굴림), 레인보우 소울 7%', rt1 > 150 && rt1 < 250 && rt > 45 && rt < 120 && rs > 100 && rs < 190, rt1 + '/' + rt + '/' + rs);
     check('레이드 입장권 확률표', [1, 3, 5, 9].map(function (n) { return Math.round(MM.raidTicketChance(n, 1) * 100); }).join() === '2,6,10,10' && [5, 6, 7, 10].map(function (n) { return Math.round(MM.raidTicketChance(n, 2) * 100); }).join() === '0,2,4,10');
     var sr = MM.newState(t0); MM.RING.forEach(function (el) { MM.addMonster(sr, el, 5, 59); }); MM.addRaidTickets(sr, 1, 1);
     check('레이드 파티: 속성마다 1마리, 5마리', MM.raidParty(sr).length === 5 && !MM.raidParty(MM.newState(t0)));
@@ -478,11 +478,11 @@
     check('레이드 페이즈 저장: 1·2페이즈 깨면 진행만 저장, 입장권은 그대로', !p1.done && !p2.done && MM.raidPhase(sr, 1) === 2 && MM.raidTicketCount(sr, 1) === 1);
     var p3 = MM.winRaidPhase(sr, 1, rr);
     (function () { var c1 = {}, c2 = {}, sx = MM.newState(t0), rq = MM.seededRng(11); for (var q = 0; q < 3000; q++) { var a = MM.grantRaidWin(sx, 1, rq).rainbowSoul, b2 = MM.grantRaidWin(sx, 2, rq).rainbowSoul; c1[a] = (c1[a] || 0) + 1; c2[b2] = (c2[b2] || 0) + 1; Object.keys(sx.souls).forEach(function (k) { sx.souls[k] = 0; }); }
-      check('레이드 레인보우 소울 100%: 1단계 1~5개, 2단계 1~10개 (고르게)', Object.keys(c1).join() === '1,2,3,4,5' && Object.keys(c2).length === 10 && !c2[0] && c2[10] > 200 && c1[5] > 450, JSON.stringify(c1)); })();
+      check('레이드 레인보우 소울 100%: 1단계 1~3개, 2단계 1~5개 (2.5k 반올림, 고르게)', Object.keys(c1).join() === '1,2,3' && Object.keys(c2).join() === '1,2,3,4,5' && c2[5] > 450 && c1[3] > 800, JSON.stringify(c1)); })();
     check('3페이즈 깨면 입장권 1장 사용 + 보상(레인보우 소울)', p3.done && MM.raidTicketCount(sr, 1) === 0 && MM.raidPhase(sr, 1) === 0 && MM.rainbowSoulCount(sr) >= 1 && p3.reward.drops.length === 0); // [11-06] 일반 소울 보상 없음
     var t1 = MM.raidEquipTable(1).map(function (x) { return x.tier + ':' + Math.round(x.p * 100); }).join(), t2 = MM.raidEquipTable(2);
     t1 = MM.raidEquipTable(1).map(function (x) { return x.tier + ':' + Math.round(x.p * 1000) / 10; }).join();
-    check('무지개 장비: 1단계 레이드 5단계 0.2% … 1단계 1% (합 3%), 2단계 레이드 1~6단계 각 1% · 맨 위 4개 0.8~0.2% (합 8%), 일반 장비는 절반', t1 === '5:0.2,4:0.4,3:0.6,2:0.8,1:1' && t2.length === 10 && Math.abs(t2.reduce(function (a, r) { return a + r.p; }, 0) - 0.08) < 1e-9 && MM.raidEquipRoll(1, 0.001) === 5 && MM.raidEquipRoll(1, 0.029) === 1 && MM.raidEquipRoll(1, 0.031) === 0 && Math.abs(MM.raidNormalEquipTable(2)[9].p - 0.005) < 1e-9, t1);
+    check('무지개 장비: 1단계 레이드 5단계 0.2% … 1단계 1% (합 3%), 2단계 레이드 1~6단계 각 1% · 맨 위 4개 0.8~0.2% (합 8%), 일반 장비는 같은 확률', t1 === '5:0.2,4:0.4,3:0.6,2:0.8,1:1' && t2.length === 10 && Math.abs(t2.reduce(function (a, r) { return a + r.p; }, 0) - 0.08) < 1e-9 && MM.raidEquipRoll(1, 0.001) === 5 && MM.raidEquipRoll(1, 0.029) === 1 && MM.raidEquipRoll(1, 0.031) === 0 && Math.abs(MM.raidNormalEquipTable(2)[9].p - 0.01) < 1e-9 && MM.equipEnhCost({ el: 'rainbow', tier: 5, plus: 12 }).feather === 0 && MM.equipEnhCost({ el: 'fire', tier: 5, plus: 12 }).feather === 1, t1);
     var bt = MM.simulateRaidPhase(MM.raidParty(sr), 1, 0, rr, 'smart');
     check('레이드 전투: 아군 5마리 vs 보스 1마리', bt.units.filter(function (u) { return u.side === 'p'; }).length === 5 && bt.units.filter(function (u) { return u.side === 'e'; }).length === 1);
     var st = MM.newState(t0); MM.addTickets(st, 2, 3);

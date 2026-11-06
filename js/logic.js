@@ -180,7 +180,7 @@
     var b = B(), n = e.plus, rb = e.el === 'rainbow';
     // 무지개 장비는 소울 대신 레인보우 소울: 0→1은 0개, 1~5강 1개, 6~10강 2개 … [사용자 확정 10-27]
     var souls = rb ? (n ? Math.ceil(n / (b.RAINBOW_ENH_STEP || 5)) : 0) : (n ? 1 : 0); // [사용자 11-06] 일반 장비는 시도마다 소울 1개 (0→1은 골드만), 무지개는 그대로
-    return { souls: souls, rainbow: rb, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: rb ? 'rainbowSoul' : MM.speciesKey(e.el, e.tier), feather: n >= (b.FEATHER_FROM_PLUS || 999) ? 1 : 0 };
+    return { souls: souls, rainbow: rb, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: rb ? 'rainbowSoul' : MM.speciesKey(e.el, e.tier), feather: n >= (b.FEATHER_FROM_PLUS || 999) && (!rb || b.FEATHER_RAINBOW) ? 1 : 0 };
   };
   MM.rainbowSoulCount = function (s) { return (s.items && s.items.rainbowSoul) || 0; };
   MM.addItem = function (s, k, n) { s.items = s.items || {}; s.items[k] = (s.items[k] || 0) + n; };
@@ -1158,7 +1158,7 @@
     var gold = Math.round(tv(b.CLEAR_GOLD, st) * b.RAID_GOLD_MULT); s.gold += gold;
     var exp = MM.winExp(st), ups = partyExp(s, exp);
     var feather = 0; if (R(rng)() < Math.min(1, k * b.RAID_FEATHER_STEP)) { MM.addItem(s, 'feather', 1); feather = 1; MM.addRecord(s, { type: 'feather', el: 'rainbow', tier: st }); }
-    var rs = 1 + Math.floor(R(rng)() * k * b.RAID_RAINBOW_STEP);
+    var rs = 1 + Math.floor(R(rng)() * Math.round(k * b.RAID_RAINBOW_STEP));
     MM.addItem(s, 'rainbowSoul', rs);
     var equip = null, et = MM.raidEquipRoll(k, R(rng)());
     if (et) { equip = { id: s.nextId++, el: 'rainbow', tier: et, plus: 0, stack: 0 }; (s.equips = s.equips || []).push(equip); if (MM.canEquip(s, equip) && (!MM.equippedOf(s, 'rainbow') || MM.equippedOf(s, 'rainbow').tier < et)) { s.equipped = s.equipped || {}; s.equipped.rainbow = equip.id; } MM.addRecord(s, { type: 'rainbowequip', el: 'rainbow', tier: et }); }
