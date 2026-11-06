@@ -24,11 +24,11 @@
   check('불 → 빛 보통', MM.elementMult('fire', 'light') === 1);
 
   // ---- 능력치 ----
-  var s1 = MM.calcStats('fire', 1, 1), s2 = MM.calcStats('fire', 2, 1), s30 = MM.calcStats('fire', 1, 30);
-  check('단계당 ×1.5', Math.abs(s2.hp / s1.hp - 1.5) < 0.05, (s2.hp / s1.hp).toFixed(2));
+  var s1 = MM.calcStats('fire', 1, MM.summonLevel(1)), s2 = MM.calcStats('fire', 2, MM.summonLevel(2)), s30 = MM.calcStats('fire', 1, 30);
+  check('단계당 ×1.5 (각자 소환 레벨에서)', Math.abs(s2.hp / s1.hp - 1.5) < 0.05, (s2.hp / s1.hp).toFixed(2));
   check('레벨당 +0.5% (Lv100 = 1.495배)', Math.abs(MM.levelMult(100) - 1.495) < 1e-9);
-  check('단계 만렙 n단계 < 소환 레벨 n+1단계 (모든 단계)', MM.tiers().slice(0, -1).every(function (t) { return MM.tierMult(t) * MM.levelMult(MM.maxLevel(t)) < MM.tierMult(t + 1) * MM.levelMult(MM.summonLevel(t + 1)); }));
-  check('만렙 아래 단계 < 다음 단계 Lv1', MM.tierMult(1) * MM.levelMult(MM.maxLevel(1)) < MM.tierMult(2) * MM.levelMult(1));
+  check('단계 만렙 n단계 > 소환 레벨 n+1단계, 합성 조건 n단계 < 소환 레벨 n+1단계 (모든 단계)', MM.tiers().slice(0, -1).every(function (t) { var nx = MM.tierMult(t + 1) * MM.levelMult(MM.summonLevel(t + 1), t + 1); return MM.tierMult(t) * MM.levelMult(MM.maxLevel(t), t) > nx * 1.08 && MM.tierMult(t) * MM.levelMult(MM.fuseLevelReq(t), t) < nx; }));
+  check('단계 만렙도 다음 단계 만렙에는 못 미침', MM.tierMult(1) * MM.levelMult(MM.maxLevel(1), 1) < MM.tierMult(2) * MM.levelMult(MM.maxLevel(2), 2));
   check('크리티컬 1단계 4%, 5단계 8%', close(MM.calcStats('fire', 1, 1).crit, 0.04) && close(MM.calcStats('fire', 5, 1).crit, 0.08));
   check('파티 보너스: 서로 다른 3속성', MM.partyHasBonus([{ el: 'fire' }, { el: 'grass' }, { el: 'dark' }]) && !MM.partyHasBonus([{ el: 'fire' }, { el: 'fire' }, { el: 'dark' }]));
 
@@ -39,9 +39,9 @@
   var m = { level: 1, exp: 0, tier: 3 }; MM.giveExp(m, 1e30);
   check('단계 만렙에서 멈춤 (전체 만렙 개념 없음)', m.level === MM.maxLevel(3) && m.exp === 0 && MM.maxLevel(30) > 300);
   check('경험치 통 = 5.5 × 1.074^(레벨-1)', MM.expToNext(1) === 6 && MM.expToNext(100) === Math.round(5.5 * Math.pow(1.074, 99)));
-  (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (L < MM.fuseLevelReq(t2) && e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; };
-    var r = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(runs), okr = r.every(function (x, i) { var want = 10 * Math.pow(1.7, i); return x >= want * 0.85 && x <= want * 1.25; });
-    check('소환 → 합성 조건 판수: 1단계 10판, 단계마다 ×1.7', okr, r.join('/')); })();
+  (function () { var runs = function (t2) { var L = MM.summonLevel(t2), e = 0, n = 0, W = MM.winExp(t2 + 1); while (L < MM.fuseLevelReq(t2)) { e += W; n++; while (L < MM.fuseLevelReq(t2) && e >= MM.expToNext(L)) { e -= MM.expToNext(L); L++; } } return n; };
+    var want = [17, 33, 66, 129, 253, 500, 658, 866, 1140, 1500], r = want.map(function (w, i) { return runs(i + 1); }), okr = r.every(function (x, i) { return x >= want[i] * 0.85 && x <= want[i] * 1.2; });
+    check('소환 → 합성 조건 판수(한 단계 위 스테이지): 1단계 17판(3분), 6단계 500판(하루), 10단계 1500판(3일)', okr, r.join('/')); })();
   check('단계 만렙 = (n+2)단계 소환 레벨', [1, 2, 3, 8].every(function (t) { return MM.maxLevel(t) === MM.summonLevel(t + 2); }) && MM.maxLevel(30) === 347);
 
   // ---- 합성 ----

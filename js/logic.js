@@ -307,11 +307,16 @@
 
   // ================= 능력치 =================
   MM.tierMult = function (tier) { return Math.pow(B().TIER_GROWTH, tier - 1); };
-  MM.levelMult = function (level) { return 1 + B().LEVEL_GROWTH * (level - 1); };
+  // 단계를 주면 그 단계 소환 레벨 기준 (소환 레벨 미만은 깎이되 0.5배까지)
+  MM.levelMult = function (level, tier) {
+    var b = B();
+    if (tier && b.LEVEL_REL) return Math.max(0.5, 1 + b.LEVEL_REL * (level - MM.summonLevel(tier)));
+    return 1 + b.LEVEL_GROWTH * (level - 1);
+  };
 
   MM.calcStats = function (el, tier, level, extraMult) {
     var b = B(), base = b.BASE_STATS, mod = b.ELEMENT_STAT_MOD[el];
-    var mult = MM.tierMult(tier) * MM.levelMult(level) * (extraMult || 1);
+    var mult = MM.tierMult(tier) * MM.levelMult(level, tier) * (extraMult || 1);
     return {
       hp: Math.round(base.hp * mult * mod.hp),
       atk: Math.round(base.atk * mult * mod.atk),
