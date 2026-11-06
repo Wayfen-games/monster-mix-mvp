@@ -2,7 +2,7 @@
 // 기준(사용자 확정): 하루 = 자동 반복 한도(AUTO_REPEAT_DAILY판) + 요일 던전 2판 + 오프라인 보상 1회(12시간).
 // 직접 전투 0. 5단계 던전 추가 보너스는 제외.
 // 사용: node tools/month-sim.js [플레이어 수=12] [최대 일수=60]
-// OPT=1 → 최적화 유저 [11-06 사용자: 실제 유저는 효율을 다 계산함]: 방치 12시간 + 8시간 두 번 받기, 장비 제작·강화와 샤들링 강화를
+// OPT=1 → 최적화 유저 [11-06 사용자: 실제 유저는 효율을 다 계산함]: 방치 3시간마다 받기(하루 24시간어치), 장비 제작·강화와 샤들링 강화를
 //   '능력치 1%당 골드'가 싼 것부터(다음 합성 골드는 남김), 남는 소울은 지금 단계면 뽑기·낮은 단계면 제단, 레이드 도전,
 //   장비·강화를 넣은 전투력으로 이길 수 있는 가장 높은 스테이지(파티 단계 +3까지)
 const MM = require('./load');
@@ -12,7 +12,7 @@ const FEED_KEEP = +(process.env.FEED_KEEP || (B.SOULS_PER_SUMMON + 10));
 const STOP_FIRST = process.env.STOP !== 'all'; // 기본: 첫 맨 위 단계(10단계)를 만들면 그 플레이어는 끝
 const OPT = !!process.env.OPT;
 const OFFLINE_CLAIMS_PER_DAY = +(process.env.OFFLINE_CLAIMS || 1);
-const OFFLINE_HOURS = OPT ? [12, 8] : Array(OFFLINE_CLAIMS_PER_DAY).fill(12);
+const OFFLINE_HOURS = OPT ? Array(8).fill(3) : Array(OFFLINE_CLAIMS_PER_DAY).fill(12); // 최적화 유저는 3시간마다 받음 (하루 24시간어치)
 // 실험용 덮어쓰기: DROP=드랍 배율, EXPA, EXPP, EXPW=승리 경험치 배율, OVR='{"키":값}'
 if (process.env.DROP) B.SOUL_DROP_AVG = B.SOUL_DROP_AVG.map(v => v * +process.env.DROP);
 if (process.env.EXPA) B.EXP_A = +process.env.EXPA;
