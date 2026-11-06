@@ -387,7 +387,7 @@
     check('회복: 1판 ' + B.BOSS_HEALS + '번', b3.healsLeft === B.BOSS_HEALS);
     var s = MM.newState(t0); MM.addBossTickets(s, 3, 1);
     var g = MM.grantBossWin(s, 3, rr);
-    check('보스 보상: 한 단계 위 스테이지의 소울·골드 ×100, 경험치는 1판분', g.gold === Math.round(B.CLEAR_GOLD[3] * 100) && g.exp === MM.winExp(4) && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
+    check('보스 보상: 한 단계 위 스테이지의 소울 ×100·골드 ×BOSS_GOLD_MULT, 경험치는 1판분', g.gold === Math.round(B.CLEAR_GOLD[3] * B.BOSS_GOLD_MULT) && g.exp === MM.winExp(4) && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
     var dg = MM.grantDungeonWin(MM.newState(t0), 3, MM.dungeonEnemies(['fire'], 3), rr);
     check('던전 보상: 골드 스테이지의 30배, 경험치는 스테이지와 같음', dg.exp === MM.winExp(3) && dg.gold === Math.round(B.CLEAR_GOLD[2] * 30));
     check('보스 입장권 사용', MM.useBossTicket(s, 3) && !MM.useBossTicket(s, 3));
@@ -426,7 +426,7 @@
     check('같은 속성 소울 2개 먹이면 2개 소모 + 경험치', r.used === 2 && s.souls.fire1 === 3 && r.exp === MM.soulExp(1) * 2);
     var p = MM.feedPreview(m, 2, 3), r2 = MM.feedSouls(s, m.id, 2, 3);
     check('미리보기와 실제 결과가 같음', p.level === r2.level && p.used === r2.used);
-    var mx = MM.addMonster(s, 'fire', 1, MM.maxLevel(1) - 1); mx.exp = MM.expToNext(MM.maxLevel(1) - 1) - 1; s.souls.fire5 = 50;
+    var mx = MM.addMonster(s, 'fire', 1, MM.maxLevel(1) - 1); mx.exp = MM.expToNext(MM.maxLevel(1) - 1, 1) - 1; s.souls.fire5 = 50;
     var r3 = MM.feedSouls(s, mx.id, 5, 50);
     check('최대 레벨이 되면 멈추고 남은 소울은 안 씀', mx.level === MM.maxLevel(1) && r3.used === 1 && s.souls.fire5 === 49);
     check('최대 레벨이면 먹일 수 없음', !!MM.feedSouls(s, mx.id, 5, 1).error);

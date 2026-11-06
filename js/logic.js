@@ -321,8 +321,10 @@
     };
   };
 
-  MM.expToNext = function (level) {
+  MM.expToNext = function (level, tier) {
     var b = B(), x = b.EXP_A * Math.pow(b.EXP_R, level - 1);
+    var req = tier && b.EXP_AFTER_REQ ? tv(b.FUSE_LEVEL_REQ, tier) : 0;
+    if (req && level >= req) x *= Math.pow(b.EXP_AFTER_REQ, level - req + 1);
     if (b.EXP_BAND_FROM) { var bm = 1; for (var i = 0; i < b.EXP_BAND_FROM.length; i++) if (level >= b.EXP_BAND_FROM[i]) bm = b.EXP_BAND_MULT[i]; x *= bm; }
     if (b.EXP_HIGH1 && level > b.EXP_HIGH1_FROM) x *= Math.pow(b.EXP_HIGH1, Math.min(level, b.EXP_HIGH1_TO || 999) - b.EXP_HIGH1_FROM);
     if (b.EXP_HIGH2 && level > b.EXP_HIGH2_FROM) x *= Math.pow(b.EXP_HIGH2, level - b.EXP_HIGH2_FROM);
@@ -368,8 +370,8 @@
     var ups = 0, max = m.tier ? MM.maxLevel(m.tier) : B().MAX_LEVEL;
     if (m.level >= max) return 0;
     m.exp += amount;
-    while (m.level < max && m.exp >= MM.expToNext(m.level)) {
-      m.exp -= MM.expToNext(m.level);
+    while (m.level < max && m.exp >= MM.expToNext(m.level, m.tier)) {
+      m.exp -= MM.expToNext(m.level, m.tier);
       m.level++; ups++;
     }
     if (m.level >= max) m.exp = 0;
@@ -1136,7 +1138,7 @@
     var b = B(), st = MM.raidRefTier(k);
     var en = MM.stageEnemies(MM.RING[Math.floor(R(rng)() * MM.RING.length)], st, rng);
     var drops = MM.applyDrops(s, MM.rollDrops(en, rng, b.RAID_DROP_MULT_STAGE * (s.settings.fastTest ? b.FAST_TEST_DROP_MULT : 1)), st);
-    var gold = Math.round(tv(b.CLEAR_GOLD, st) * b.RAID_DROP_MULT_STAGE); s.gold += gold;
+    var gold = Math.round(tv(b.CLEAR_GOLD, st) * b.RAID_GOLD_MULT); s.gold += gold;
     var exp = MM.winExp(st), ups = partyExp(s, exp);
     var feather = 0; if (R(rng)() < tv(b.RAID_FEATHER, k)) { MM.addItem(s, 'feather', 1); feather = 1; MM.addRecord(s, { type: 'feather', el: 'rainbow', tier: st }); }
     var rr = b.RAID_RAINBOW_SOULS[Math.min(k, b.RAID_RAINBOW_SOULS.length) - 1], rs = rr[0] + Math.floor(R(rng)() * (rr[1] - rr[0] + 1));

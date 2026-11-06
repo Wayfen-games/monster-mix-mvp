@@ -427,7 +427,7 @@
     var html = '<div class="card"><div class="row between"><b>⚔ 레이드</b><span class="chip gold">입장권 ' + MM.raidTicketTotal(S) + '장</span></div>' +
       '<div class="muted small lh" style="margin-top:6px">다섯 속성 샤들링이 1마리씩 힘을 모아 거대한 레인보우 샤들링과 싸워요 · 3페이즈 (약 10분) · 페이즈를 깨면 저장돼서 나중에 이어 할 수 있어요 · 3페이즈까지 깨면 입장권 1장 사용<br>' +
       '레이드 입장권은 레인보우 샤들링(보스)을 이기면 나와요: k단계 레이드 입장권은 ' + (BAL().RAID_TIER_STEP) + '(k-1)+1단계 보스부터 ' + Math.round(BAL().RAID_TICKET_STEP * 100) + '%, 한 단계 오를 때마다 +' + Math.round(BAL().RAID_TICKET_STEP * 100) + '% (최대 ' + Math.round(BAL().RAID_TICKET_MAX * 100) + '%) — 예: 1단계 레이드는 1단계 보스 2% … 5단계 이상 10%, 2단계 레이드는 6단계 보스 2%부터<br>' +
-      '보상: 소울·골드 ×' + BAL().RAID_DROP_MULT_STAGE + ' · 🌈 레인보우 소울 · 🪶 무지개 깃털 · 가끔 🌈 무지개 장비(모든 샤들링 강화, 낮은 단계일수록 잘 나와요)</div>' +
+      '보상: 소울 ×' + BAL().RAID_DROP_MULT_STAGE + ' · 골드 ×' + BAL().RAID_GOLD_MULT + ' · 🌈 레인보우 소울 · 🪶 무지개 깃털 · 가끔 🌈 무지개 장비(모든 샤들링 강화, 낮은 단계일수록 잘 나와요)</div>' +
       '<div style="margin-top:10px"><div class="muted small">레이드 파티 (속성마다 가장 센 샤들링)</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">' +
       (party ? party.map(function (m) { return '<div class="chip" style="display:flex;align-items:center;gap:4px">' + monSvg(m.el, m.tier, 22) + name(m) + ' Lv' + m.level + '</div>'; }).join('') : '<span class="lack small">다섯 속성 샤들링이 모두 있어야 해요</span>') + '</div></div></div>';
     MM.raidTiers().forEach(function (k) {
@@ -517,7 +517,7 @@
   function expHtml(u, bt) {
     if (u.side !== 'p' || !u.monsterId || (bt && bt.raid)) return ''; // 보스·레이드는 화면 한 장에 들어가게 경험치 바 숨김
     var m = MM.getMonster(S, u.monsterId); if (!m) return '';
-    var maxed = m.level >= MM.maxLevel(m.tier), r = maxed ? 1 : Math.min(0.999, m.exp / MM.expToNext(m.level));
+    var maxed = m.level >= MM.maxLevel(m.tier), r = maxed ? 1 : Math.min(0.999, m.exp / MM.expToNext(m.level, m.tier));
     return '<div class="expbar" style="margin-top:5px"><i style="width:' + (r * 100).toFixed(1) + '%"></i></div>' +
       '<div class="hpnum">' + (maxed ? '최대 레벨' : 'EXP ' + (Math.floor(r * 1000) / 10).toFixed(1) + '%') + '</div>';
   }
@@ -820,7 +820,7 @@
           (inParty ? '<span class="chip party">파티</span>' : '') + (MM.inOfflineTeam(S, m.id) ? '<span class="chip">방치</span>' : '') + (m.stack ? '<span class="chip stack">스택 ' + m.stack + '</span>' : '') +
           (req ? '<span class="chip' + (m.level >= req ? ' adv' : '') + '">주재료 Lv' + req + (m.level >= req ? ' ✓' : '') + '</span>' : '') + '</div>' +
           '<div class="muted small">체력 ' + st.hp + ' · 공격 ' + st.atk + ' · 방어 ' + st.def + ' · 크리 ' + Math.round(st.crit * 100) + '%</div>' +
-          '<div class="expbar"><i style="width:' + (maxed ? 100 : m.exp / MM.expToNext(m.level) * 100) + '%"></i></div></div>' +
+          '<div class="expbar"><i style="width:' + (maxed ? 100 : m.exp / MM.expToNext(m.level, m.tier) * 100) + '%"></i></div></div>' +
           '<div class="acts"><button class="btn sm" data-act="party" data-id="' + m.id + '">' + (inParty ? '빼기' : '넣기') + '</button>' +
           (maxed ? '' : '<button class="btn sm" data-act="feedSheet" data-id="' + m.id + '">먹이기</button>') +
           ((m.plus || 0) < BAL().MON_ENH_BONUS.length ? '<button class="btn sm" data-act="monEnhSheet" data-id="' + m.id + '">강화</button>' : '') +
@@ -935,8 +935,8 @@
   function feedSheet(id) {
     var m = MM.getMonster(S, id); if (!m) return;
     var html = '<div class="row" style="gap:12px">' + monSvg(m.el, m.tier, 52) + '<div><b>' + name(m) + '에게 소울 먹이기</b><div class="muted small">Lv ' + m.level + ' / ' + MM.maxLevel(m.tier) + ' · ' + elName(m.el) + ' 소울만 먹일 수 있어요</div></div></div>' +
-      '<div class="expbar" style="margin:10px 0 4px"><i style="width:' + (m.exp / MM.expToNext(m.level) * 100) + '%"></i></div>' +
-      '<div class="muted small" style="margin-bottom:10px">다음 레벨까지 EXP ' + fmt(MM.expToNext(m.level) - m.exp) + '</div><div class="pick-list">';
+      '<div class="expbar" style="margin:10px 0 4px"><i style="width:' + (m.exp / MM.expToNext(m.level, m.tier) * 100) + '%"></i></div>' +
+      '<div class="muted small" style="margin-bottom:10px">다음 레벨까지 EXP ' + fmt(MM.expToNext(m.level, m.tier) - m.exp) + '</div><div class="pick-list">';
     var any = false;
     MM.tiers().forEach(function (t) {
       var n = S.souls[MM.speciesKey(m.el, t)] || 0;
