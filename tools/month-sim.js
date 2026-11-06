@@ -57,6 +57,8 @@ function simulatePlayer(seed) {
     first: {}, cum: {}, cum30: {}, actions: 0, battles: 0, wasted: 0, decomposed: 0, summons: 0, losses: 0, maxGold: 0, levelAtGoal: null, dungeonTop: 0, fed: 0, tickets: 0, bosses: 0, soulSwap: 0,
     crafted: 0, eqTries: 0, monTries: 0, eqGold: 0, monGold: 0, gacha: 0, offered: 0, raids: 0, raidTries: 0 };
   const P = ms => OPT ? MM.battleParty(s, ms) : ms; // 최적화 유저만 장비·강화·제단 능력치를 전투에 반영
+  // 첫 n단계: 날짜와 그때까지 쌓인 최고 단계 막힘 횟수(구간별 막힘은 앞 단계와의 차이)
+  const markFirst = (tr, now) => { if (log.first[tr] != null) return; log.first[tr] = (now - t0) / 86400000; (log.hiAt = log.hiAt || {})[tr] = Object.assign({}, log.hi || {}); };
 
   // ---- 튜토리얼 ----
   const applyOrig = MM.applyDrops;
@@ -153,7 +155,7 @@ function simulatePlayer(seed) {
         if (sp.tier === T && s.monsters.some(m => m.el === sp.el && m.tier === T)) break;
         if (s.monsters.filter(m => m.el === sp.el && m.tier === sp.tier).length >= 3) break; // 같은 종 3마리까지만
         MM.summon(s, sp.el, sp.tier); log.summons++;
-        for (let tr = 2; tr <= sp.tier; tr++) if (log.first[tr] == null) log.first[tr] = (now - t0) / 86400000;
+        for (let tr = 2; tr <= sp.tier; tr++) markFirst(tr, now);
       }
     }
     // 1.5) 소울 먹이기: 소환용으로 FEED_KEEP개는 남기고, 나머지를 같은 속성 중 합성 조건 레벨이 모자란 몬스터에게
@@ -207,7 +209,7 @@ function simulatePlayer(seed) {
         return c; // 막힌 후보 → 파티로 키우기
       }
       const r = MM.attemptFusion(s, c.main.id, c.sub.id, soulEl, rng, { souls: nSouls });
-      if (r.success) for (let tr = 2; tr <= r.monster.tier; tr++) if (log.first[tr] == null) log.first[tr] = (now - t0) / 86400000;
+      if (r.success) for (let tr = 2; tr <= r.monster.tier; tr++) markFirst(tr, now);
       if (r.success) { log.fusions++; if (r.monster.tier === T && log.e5Day[r.monster.el] == null) log.e5Day[r.monster.el] = (now - t0) / 86400000; }
       else log.fails++;
     }
@@ -226,7 +228,16 @@ function simulatePlayer(seed) {
     for (const el of roster) for (let t = Math.min(top, T); t >= 1; t--) {
       const cur = MM.equippedOf(s, el);
       if (cur && cur.tier >= t) break;
+      if ((s.equips || []).some(e => e.el === el && e.tier >= t)) break; // 이미 가진 장비가 있으면 안 만듦
       if ((s.souls[MM.speciesKey(el, t)] || 0) >= B.EQUIP_CRAFT_SOULS + keep) { MM.craftEquip(s, el, t); log.crafted++; break; }
+    }
+    // 1.5) 칸마다 낄 수 있는 가장 좋은 장비로 바꾸고, 지금 장비보다 못한 남는 장비는 분해 (거래가 없으니 분해)
+    for (const el of MM.RING.concat(['rainbow'])) {
+      const mine = (s.equips || []).filter(e => e.el === el);
+      const bestE = mine.filter(e => MM.canEquip(s, e)).sort((a, b) => b.tier - a.tier || b.plus - a.plus)[0]; // 낄 수 있는 가장 높은 단계 (같으면 강화 높은 것)
+      if (bestE && !MM.isEquipped(s, bestE)) MM.equip(s, bestE.id);
+      const cur = MM.equippedOf(s, el);
+      mine.forEach(e => { if (cur && e !== cur && e.tier <= cur.tier) { const d = MM.decomposeEquip(s, e.id); if (!d.error) { log.decomp = (log.decomp || 0) + 1; if (el === 'rainbow') log.rbFromDecomp = (log.rbFromDecomp || 0) + (d.souls || 0); } } });
     }
     // 2) 남는 소울: 지금 도는 단계 이상이면 뽑기(입장권·위 단계 소울), 최고 단계보다 2단계 이상 낮으면 제단
     for (const sp of MM.allSpecies()) {
@@ -260,7 +271,14 @@ function simulatePlayer(seed) {
           if ((s.souls[mc.key] || 0) > keep && (!best || gain / (mc.gold / rate) > best.v)) best = { v: gain / (mc.gold / rate), kind: 'mon', id: m.id, gold: mc.gold };
         }
       }
+      // 무지개 장비 강화: 레인보우 소울 + 골드, 파티 전원에게 효과라 가치 3배
+      { const re = MM.equippedOf(s, 'rainbow');
+        if (re && re.plus < B.EQUIP_MAX_PLUS) { const rc = MM.equipEnhCost(re), tries = MM.equipExpectedTries(re.plus);
+          const ok = (!rc.feather || MM.featherCount(s) >= rc.feather) && MM.rainbowSoulCount(s) >= rc.souls;
+          const v = 3 * B.EQUIP_PER_PLUS / (1 + MM.equipBonus(re)) / Math.max(1, rc.gold * tries);
+          if (ok && (!best || v > best.v)) best = { v, kind: 'eq', id: re.id, gold: rc.gold, rb: rc.souls }; } }
       if (!best || s.gold - best.gold < reserve) break;
+      if (best.kind === 'eq') { const ce = MM.equipEnhCost(MM.getEquip(s, best.id)); if (ce.feather) log.featherUsed = (log.featherUsed || 0) + ce.feather; if (ce.rainbow) log.rbUsed = (log.rbUsed || 0) + ce.souls; }
       if (best.kind === 'eq') { const r = MM.enhanceEquip(s, best.id, rng); if (r.error) break; log.eqTries++; log.eqGold += best.gold; }
       else { const r = MM.enhanceMonster(s, best.id, rng); if (r.error) break; log.monTries++; log.monGold += best.gold; }
     }
@@ -353,7 +371,7 @@ function simulatePlayer(seed) {
         while ((bk[bt] || 0) > 0) {
           const party = MM.battleParty(s, s.party.map(id => MM.getMonster(s, id)));
           let win = false;
-          for (let tries = 0; !win && tries < 10; tries++) { const b = MM.simulateBossBattle(party, bt, rng); log.actions += b.log.length; log.battles++; win = b.result === 'win'; }
+          for (let tries = 0; !win && tries < 10; tries++) { const b = MM.simulateBossBattle(party, bt, rng); log.bossTries = (log.bossTries || 0) + 1; log.actions += b.log.length; log.battles++; win = b.result === 'win'; }
           if (!win) break;
           bk[bt]--; log.bosses++;
           const g = MM.grantBossWin(s, bt, rng); g.drops.forEach(d => log.wasted += d.wasted);
@@ -390,7 +408,10 @@ function simulatePlayer(seed) {
     { const topM = s.monsters.reduce((a, b) => (b.tier > a.tier || (b.tier === a.tier && b.level > a.level) ? b : a));
       log.days = (log.days || 0) + 1; if (topM.level >= MM.maxLevel(topM.tier)) log.topMaxDays = (log.topMaxDays || 0) + 1;
       log.maxFirst = log.maxFirst || {}; s.monsters.forEach(m => { if (m.level >= MM.maxLevel(m.tier) && log.maxFirst[m.tier] == null) log.maxFirst[m.tier] = day; });
-      if (day % 30 === 0) (log.goldSeries = log.goldSeries || []).push(s.gold); }
+      if (day % 30 === 0) (log.goldSeries = log.goldSeries || []).push(s.gold);
+      if (day % 90 === 0) { const tt = topM.tier, sum = t => MM.RING.reduce((a, el) => a + (s.souls[MM.speciesKey(el, t)] || 0), 0);
+        (log.snaps = log.snaps || []).push({ day, top: tt, gold: s.gold, feather: MM.featherCount(s), rainbow: MM.rainbowSoulCount(s), souls: [tt - 2, tt - 1, tt, tt + 1].map(t => t >= 1 ? sum(t) : 0),
+          eq: MM.RING.concat(['rainbow']).map(el => { const e = MM.equippedOf(s, el); return e ? e.tier + '+' + e.plus : '-'; }).join(' '), tickets: Object.values(s.dungeon.tickets || {}).reduce((a, b) => a + b, 0), bossTk: Object.values(s.dungeon.bossTickets || {}).reduce((a, b) => a + b, 0) }); } }
     s.offline.stage = { el: stage.el, tier: stage.tier };
     s.cleared[MM.speciesKey(stage.el, stage.tier)] = s.cleared[MM.speciesKey(stage.el, stage.tier)] || 1;
     log.maxGold = Math.max(log.maxGold, s.gold);
@@ -413,7 +434,7 @@ for (let p = 0; p < PLAYERS; p++) {
   const r = simulatePlayer(1000 + p * 77); r.idx = p; res.push(r);
   if (process.env.JSON) process.stderr.write('플레이어 ' + p + ' 끝: ' + (r.goalDay == null ? '목표 못 감' : r.goalDay + '일') + '\n');
 }
-if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, raids: r.raids, raidTries: r.raidTries, rainbowEq: r.rainbowEq, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
+if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, raids: r.raids, raidTries: r.raidTries, rainbowEq: r.rainbowEq, hiAt: r.hiAt, snaps: r.snaps, bosses: r.bosses, bossTries: r.bossTries, wasted: r.wasted, eqTries: r.eqTries, monTries: r.monTries, monGold: r.monGold, gacha: r.gacha, offered: r.offered, decomp: r.decomp, rbFromDecomp: r.rbFromDecomp, featherUsed: r.featherUsed, rbUsed: r.rbUsed, crafted: r.crafted, tickets: r.tickets, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
 const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
