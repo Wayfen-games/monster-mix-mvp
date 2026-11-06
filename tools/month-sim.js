@@ -386,6 +386,11 @@ function simulatePlayer(seed) {
     }
     useTickets(); useBoss(); doRaids();
     if (process.env.DEBUG && day % +process.env.DEBUG === 0) { const top = s.monsters.slice().sort((a, b) => b.tier - a.tier || b.level - a.level).slice(0, 4); process.stderr.write(day + "일 스테이지 " + stage.tier + " 파티 " + party.map(m => m.el + m.tier + "Lv" + m.level).join(",") + " 상위 " + top.map(m => m.el + m.tier + "Lv" + m.level + "/" + (m.tier < T ? MM.fuseLevelReq(m.tier) : "-")).join(",") + " 막힘 " + (blocked ? blocked.main.el + blocked.main.tier + "Lv" + blocked.main.level + "+" + blocked.sub.el + blocked.sub.tier + "Lv" + blocked.sub.level + " 이유: " + MM.fusionCheck(s, blocked.main, blocked.sub).reasons.join("/") : "-") + " 골드 " + s.gold + " 방치팀 " + MM.offlineTeam(s).map(id => { const m = MM.getMonster(s, id); return m ? m.el + m.tier + "Lv" + m.level : "?"; }).join(",") + "\n"); }
+    // 기록: 최고 단계 샤들링이 만렙인 날 수, 단계별 첫 만렙 날, 30일마다 보유 골드
+    { const topM = s.monsters.reduce((a, b) => (b.tier > a.tier || (b.tier === a.tier && b.level > a.level) ? b : a));
+      log.days = (log.days || 0) + 1; if (topM.level >= MM.maxLevel(topM.tier)) log.topMaxDays = (log.topMaxDays || 0) + 1;
+      log.maxFirst = log.maxFirst || {}; s.monsters.forEach(m => { if (m.level >= MM.maxLevel(m.tier) && log.maxFirst[m.tier] == null) log.maxFirst[m.tier] = day; });
+      if (day % 30 === 0) (log.goldSeries = log.goldSeries || []).push(s.gold); }
     s.offline.stage = { el: stage.el, tier: stage.tier };
     s.cleared[MM.speciesKey(stage.el, stage.tier)] = s.cleared[MM.speciesKey(stage.el, stage.tier)] || 1;
     log.maxGold = Math.max(log.maxGold, s.gold);
@@ -406,7 +411,7 @@ for (let p = 0; p < PLAYERS; p++) {
   const r = simulatePlayer(1000 + p * 77); r.idx = p; res.push(r);
   if (process.env.JSON) process.stderr.write('플레이어 ' + p + ' 끝: ' + (r.goalDay == null ? '목표 못 감' : r.goalDay + '일') + '\n');
 }
-if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first })))); }
+if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
 const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
