@@ -302,9 +302,9 @@
     check('장착 중이면 분해 불가', !!MM.decomposeEquip(s, e.id).error);
     s.souls.light1 = 190; var e0 = MM.craftEquip(s, 'light', 1).equip, before = s.souls.light1;
     var d0 = MM.decomposeEquip(s, e0.id);
-    check('+0 분해: 받는 것 없음 (제작 소울은 사라짐)', d0.souls === 0 && s.souls.light1 === before && d0.gold === 0);
+    check('+0 분해: 소울 1개 (제작 소울 100개는 사라짐)', d0.souls === 1 && s.souls.light1 === before + 1 && d0.gold === 0);
     MM.unequip(s, 'light'); var v = MM.equipDecompValue(e), ex = MM.equipExpectedSpend(1, 3);
-    check('+3 분해: 강화 기댓값의 50%', v.souls === Math.floor(ex.souls * 0.5) && v.gold === Math.floor(ex.gold * 0.5 / 10) * 10);
+    check('+3 분해: 소울 1 + 강화 기댓값의 50%', v.souls === 1 + Math.floor(ex.souls * 0.5) && v.gold === Math.floor(ex.gold * 0.5 / 10) * 10);
   })();
   // ---- 샤들링 강화 ----
   (function () {
@@ -437,9 +437,13 @@
   // ---- 무지개 장비·레이드·입장권 소탕 [10-27] ----
   (function () {
     var s = MM.newState(t0); s.gold = 1e9;
-    var e = { id: s.nextId++, el: 'rainbow', tier: 5, plus: 0, stack: 0 }; s.equips.push(e); MM.equip(s, e.id);
+    var e = { id: s.nextId++, el: 'rainbow', tier: 5, plus: 0, stack: 0 }; s.equips.push(e);
+    var d11 = { id: s.nextId++, el: 'dark', tier: 11, plus: 0, stack: 0 }; s.equips.push(d11);
+    check('장착 제한: 가진 샤들링 최고 단계보다 높은 장비는 못 낌', !MM.equip(s, e.id));
+    MM.addMonster(s, 'fire', 11, 114);
+    check('장착 제한: 불 11단계가 있으면 어둠 샤들링이 없어도 어둠 11단계 장비를 낄 수 있음', MM.equip(s, d11.id) && MM.equip(s, e.id));
     var m = MM.addMonster(s, 'fire', 1, 1), m2 = MM.addMonster(s, 'dark', 1, 1);
-    check('무지개 장비: 모든 속성 샤들링에 단계×2%', Math.abs(MM.playerMult(s, m) - 1.10) < 1e-9 && Math.abs(MM.playerMult(s, m2) - 1.10) < 1e-9);
+    check('무지개 장비: 모든 속성 샤들링에 단계×2% (어둠은 어둠 11단계 장비도)', Math.abs(MM.playerMult(s, m) - 1.10) < 1e-9 && Math.abs(MM.playerMult(s, m2) - 1.10 * 1.22) < 1e-9);
     check('무지개 장비 강화 소울: 0→1 0개, 1~5강 1개, 6~10강 2개, 11강 3개', [0, 1, 5, 6, 10, 11].map(function (n) { return MM.equipEnhCost({ el: 'rainbow', tier: 5, plus: n }).souls; }).join() === '0,1,1,2,2,3' && MM.equipEnhCost({ el: 'rainbow', tier: 5, plus: 1 }).rainbow);
     var r0 = MM.enhanceEquip(s, e.id, function () { return 0; });
     check('무지개 장비 +0 → +1은 레인보우 소울 없이', r0.success && e.plus === 1);
@@ -475,9 +479,10 @@
     var p3 = MM.winRaidPhase(sr, 1, rr);
     (function () { var c1 = {}, c2 = {}, sx = MM.newState(t0), rq = MM.seededRng(11); for (var q = 0; q < 3000; q++) { var a = MM.grantRaidWin(sx, 1, rq).rainbowSoul, b2 = MM.grantRaidWin(sx, 2, rq).rainbowSoul; c1[a] = (c1[a] || 0) + 1; c2[b2] = (c2[b2] || 0) + 1; Object.keys(sx.souls).forEach(function (k) { sx.souls[k] = 0; }); }
       check('레이드 레인보우 소울 100%: 1단계 1~5개, 2단계 1~10개 (고르게)', Object.keys(c1).join() === '1,2,3,4,5' && Object.keys(c2).length === 10 && !c2[0] && c2[10] > 200 && c1[5] > 450, JSON.stringify(c1)); })();
-    check('3페이즈 깨면 입장권 1장 사용 + 보상(레인보우 소울)', p3.done && MM.raidTicketCount(sr, 1) === 0 && MM.raidPhase(sr, 1) === 0 && MM.rainbowSoulCount(sr) >= 1 && p3.reward.drops.length > 0);
+    check('3페이즈 깨면 입장권 1장 사용 + 보상(레인보우 소울)', p3.done && MM.raidTicketCount(sr, 1) === 0 && MM.raidPhase(sr, 1) === 0 && MM.rainbowSoulCount(sr) >= 1 && p3.reward.drops.length === 0); // [11-06] 일반 소울 보상 없음
     var t1 = MM.raidEquipTable(1).map(function (x) { return x.tier + ':' + Math.round(x.p * 100); }).join(), t2 = MM.raidEquipTable(2);
-    check('무지개 장비: 1단계 레이드 5단계 1% … 1단계 5%, 2단계 레이드 10단계 1% … 1단계 10%', t1 === '5:1,4:2,3:3,2:4,1:5' && t2.length === 10 && Math.round(t2[9].p * 100) === 10 && MM.raidEquipRoll(1, 0.005) === 5 && MM.raidEquipRoll(1, 0.149) === 1 && MM.raidEquipRoll(1, 0.151) === 0, t1);
+    t1 = MM.raidEquipTable(1).map(function (x) { return x.tier + ':' + Math.round(x.p * 1000) / 10; }).join();
+    check('무지개 장비: 1단계 레이드 5단계 0.2% … 1단계 1% (합 3%), 2단계 레이드 1~6단계 각 1% · 맨 위 4개 0.8~0.2% (합 8%), 일반 장비는 절반', t1 === '5:0.2,4:0.4,3:0.6,2:0.8,1:1' && t2.length === 10 && Math.abs(t2.reduce(function (a, r) { return a + r.p; }, 0) - 0.08) < 1e-9 && MM.raidEquipRoll(1, 0.001) === 5 && MM.raidEquipRoll(1, 0.029) === 1 && MM.raidEquipRoll(1, 0.031) === 0 && Math.abs(MM.raidNormalEquipTable(2)[9].p - 0.005) < 1e-9, t1);
     var bt = MM.simulateRaidPhase(MM.raidParty(sr), 1, 0, rr, 'smart');
     check('레이드 전투: 아군 5마리 vs 보스 1마리', bt.units.filter(function (u) { return u.side === 'p'; }).length === 5 && bt.units.filter(function (u) { return u.side === 'e'; }).length === 1);
     var st = MM.newState(t0); MM.addTickets(st, 2, 3);

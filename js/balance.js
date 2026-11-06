@@ -131,7 +131,7 @@ MM.BALANCE = {
   EQUIP_ENH_DECAY: 0.75,
   EQUIP_HARD_PLUS: 999,     // 이 수치부터 천장이 20번째·2배씩으로 바뀜 (999 = 안 씀)
   // 분해 [사용자 11-06]: 그 강화 수치까지 드는 소울·골드 기댓값의 50%, 제작에 쓴 소울은 돌려주지 않음 (분해보다 거래를 쓰게)
-  EQUIP_DECOMP_SOULS: 0,
+  EQUIP_DECOMP_SOULS: 1,     // [사용자 11-06] 0강 장비 분해도 소울 1개 (무지개 장비는 그 단계 수만큼 레인보우 소울)
   EQUIP_DECOMP_RATE: 0.5,
 
   // ---------- 몬스터 강화 [사용자 확정: +3까지, 같은 단계 소울 + 골드, 비효율, 합성하면 사라짐] ----------
@@ -176,8 +176,9 @@ MM.BALANCE = {
   BOSS_GOLD_MULT: 300,  // [사용자 11-06] 골드만 3배 (100 → 300)
   BOSS_MAX_ROUNDS: 60,
   // 보스 레벨 = 그 단계 소환 레벨. 체력·공격 배율 [조정: tools/tune-boss.js]
-  BOSS_HP_MULT: [10.5, 13.35, 10, 9.15, 8.5, 13.15, 8.15, 13.35, 11.5, 10.5], // [10-27 사용자: 기준 = n단계 합성 조건 레벨 3마리 + n단계 장비 +5] 공격만 0~4% · 예고 대응 71~81% (19~22라운드)
-  BOSS_ATK_MULT: [1.88, 1.25, 1.75, 1.53, 1.61, 1.1, 1.9, 1.22, 1.13, 1.17],
+  BOSS_HP_MULT: [10.5, 13.35, 10, 9.15, 8.5, 13.15, 8.15, 13.35, 11.5, 10.5, 13.15, 12.2, 15.8, 14.35, 9.5, 15.65, 15, 15.15, 9.85, 13.7, 13, 15.3, 15.65, 15.5, 12.5, 15, 14.35, 13.5, 12.85, 15.8], // [10-27 사용자: 기준 = n단계 합성 조건 레벨 3마리 + n단계 장비 +5] 공격만 0~4% · 예고 대응 71~81% (19~22라운드)
+  // [11-06] 11~30단계는 새 스킬 넣고 tune-boss로 맞춤(공격만 0~14% · 대응 75~77%, 약 13~21라운드). 3~6단계 레이드는 2단계 레이드와 같은 체감(대응 99% / 31~41% / 23~27%)으로 맞춤
+  BOSS_ATK_MULT: [1.88, 1.25, 1.75, 1.53, 1.61, 1.1, 1.9, 1.22, 1.13, 1.17, 1.53, 1.41, 0.8, 1.92, 2.12, 1.23, 1.38, 1.17, 2.39, 1, 2.05, 1.34, 1.15, 2.13, 1.82, 1.42, 1.88, 1.25, 2.12, 0.92],
   BOSS_SPD_MULT: 1.1,
   // 보스는 다음 행동을 예고함. 아군은 보스전에서 공격 / 방어(받는 피해 절반) / 집중(쉬고 다음 공격 2배) 선택 [사용자 확정: 전략으로 깨게]
   // 목표: 소환 레벨 3마리로 공격만 하면 약 25%, 예고에 맞춰 대응하면 약 75% [tools/tune-boss.js]
@@ -187,7 +188,7 @@ MM.BALANCE = {
   BOSS_HEAL_PCT: 0.25,
   BOSS_REVIVES: 1,             // 부활: 1판에 1번, 쓰러진 아군을 체력 30%로 [사용자 확정]
   BOSS_REVIVE_PCT: 0.3,
-  BOSS_SKILLS: {
+  BOSS_SKILLS: (function (s) { for (var t = 21; t <= 30; t++) s[t] = s[t - 10].map(function (k) { var c = {}; for (var q in k) c[q] = k[q]; if (c.mult && c.type !== 'enrage') c.mult = Math.round(c.mult * 1.1 * 100) / 100; if (c.type === 'enrage') c.mult = Math.round((c.mult + 0.1) * 100) / 100; if (c.pct && c.type === 'poison') c.pct = Math.round((c.pct + 0.01) * 100) / 100; return c; }); return s; })({
     1: [{ type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 4, turns: 2 }],
     2: [{ type: 'smash', every: 3, mult: 3 }, { type: 'sweep', every: 4, mult: 1.2 }],
     3: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'seal', every: 3, turns: 2 }, { type: 'smash', every: 4, mult: 3 }],
@@ -198,8 +199,21 @@ MM.BALANCE = {
     7: [{ type: 'shield', every: 4, turns: 2, cut: 0.7 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }, { type: 'sweep', every: 5, mult: 1.2 }, { type: 'seal', every: 7, turns: 2 }],
     8: [{ type: 'enrage', at: 0.5, mult: 1.4 }, { type: 'heal', every: 8, pct: 0.1 }, { type: 'charge', every: 4, mult: 2.5 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }],
     9: [{ type: 'enrage', at: 0.4, mult: 1.5 }, { type: 'shield', every: 6, turns: 2, cut: 0.7 }, { type: 'charge', every: 4, mult: 3 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 5, turns: 2 }],
-    10: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'shield', every: 7, turns: 2, cut: 0.7 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'charge', every: 4, mult: 3 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }, { type: 'seal', every: 5, turns: 2 }]
-  },
+    10: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'shield', every: 7, turns: 2, cut: 0.7 }, { type: 'heal', every: 6, pct: 0.1 }, { type: 'charge', every: 4, mult: 3 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }, { type: 'seal', every: 5, turns: 2 }],
+    // [11-06, Claude 설계] 11~15단계: 새 스킬 '중독'(아군 전체가 몇 라운드 동안 매 라운드 최대 체력 일부를 잃음, 중독으로는 쓰러지지 않음, 회복하면 풀림)
+    11: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'poison', every: 4, turns: 3, pct: 0.05 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 5, turns: 2 }],
+    12: [{ type: 'shield', every: 5, turns: 2, cut: 0.7 }, { type: 'poison', every: 4, turns: 3, pct: 0.05 }, { type: 'sweep', every: 3, mult: 1.2 }, { type: 'drain', every: 5, mult: 2, pct: 0.5 }],
+    13: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'charge', every: 5, mult: 3 }, { type: 'poison', every: 4, turns: 3, pct: 0.06 }, { type: 'smash', every: 3, mult: 3 }],
+    14: [{ type: 'heal', every: 7, pct: 0.1 }, { type: 'poison', every: 3, turns: 3, pct: 0.05 }, { type: 'drain', every: 4, mult: 2, pct: 0.5 }, { type: 'seal', every: 5, turns: 2 }],
+    15: [{ type: 'enrage', at: 0.4, mult: 1.6 }, { type: 'shield', every: 6, turns: 2, cut: 0.7 }, { type: 'charge', every: 4, mult: 3 }, { type: 'poison', every: 5, turns: 3, pct: 0.06 }, { type: 'smash', every: 3, mult: 3 }],
+    // 16~20단계: 새 스킬 '연타'(무작위 아군을 여러 번 때림, 누가 맞을지 몰라 방어 타이밍이 어려움)
+    16: [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'frenzy', every: 4, hits: 3, mult: 1.2 }, { type: 'smash', every: 3, mult: 3 }, { type: 'seal', every: 5, turns: 2 }],
+    17: [{ type: 'shield', every: 6, turns: 2, cut: 0.7 }, { type: 'frenzy', every: 4, hits: 3, mult: 1.2 }, { type: 'poison', every: 5, turns: 3, pct: 0.06 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }],
+    18: [{ type: 'enrage', at: 0.5, mult: 1.6 }, { type: 'charge', every: 5, mult: 3 }, { type: 'frenzy', every: 4, hits: 4, mult: 1.1 }, { type: 'seal', every: 6, turns: 2 }],
+    19: [{ type: 'heal', every: 7, pct: 0.1 }, { type: 'poison', every: 4, turns: 3, pct: 0.07 }, { type: 'frenzy', every: 3, hits: 3, mult: 1.2 }, { type: 'smash', every: 5, mult: 3 }],
+    20: [{ type: 'enrage', at: 0.4, mult: 1.7 }, { type: 'shield', every: 6, turns: 2, cut: 0.7 }, { type: 'charge', every: 4, mult: 3 }, { type: 'frenzy', every: 5, hits: 4, mult: 1.2 }, { type: 'poison', every: 3, turns: 3, pct: 0.06 }, { type: 'seal', every: 7, turns: 2 }]
+    // 21~30단계는 11~20단계 스킬을 더 세게(배율 ×1.1, 분노 +0.1, 중독 +1%p) 이어 붙임
+  }),
   // 보스 입장권: 던전(요일·입장권 던전) 승리 시 같은 단계 2%, 소울 뽑기 0.1%
   BOSS_TICKET_DROP: 0.02,
   BOSS_DAILY_REWARDS: 10,      // [사용자 확정 17:10] 보스 보상은 하루 10번까지 (채우면 그날은 입장 불가)
@@ -215,8 +229,8 @@ MM.BALANCE = {
   // 내 샤들링 속성별 1마리씩 5마리 vs 레이드 보스(무지개) 1마리, 3페이즈. 페이즈를 깨면 저장(지면 그 페이즈부터 다시), 3페이즈까지 깨면 입장권 1장 사용
   // k단계 레이드 = (5k)단계 샤들링 5마리 기준, 약 10분 (페이즈 약 10/15/25라운드)
   RAID_TIER_STEP: 5,
-  RAID_HP_MULT: [[11.78,21.08,20.951],[12.524,19.989,22.36]],   // [k단계][페이즈] [10-27 사용자: 기준 = (5k)단계 5마리 + (5k)단계 장비 +10] 대응하면 1페이즈 약 100% · 2페이즈 86~87% · 3페이즈 76~77%, 공격만 0~1% [19:14 속성 변화 넣고 2·3페이즈 다시 맞춤]
-  RAID_ATK_MULT: [[3.86,1.287,1.08],[4.246,1.465,1.195]],   // [11-06] 능력치 공식 변경 후, 사용자가 '진짜 재미있다'고 한 예전 승률에 맞춤: 대응 1페이즈 99~100% · 2페이즈 35~39% · 3페이즈 22~28%, 중앙 11 / 17 / 28라운드
+  RAID_HP_MULT: [[11.78,21.08,20.951],[12.524,19.989,22.36],[14.403,22.987,19.956],[16.281,25.286,27.615],[18.16,24.687,35.664],[19.976,30.433,35.664]],   // [k단계][페이즈] [10-27 사용자: 기준 = (5k)단계 5마리 + (5k)단계 장비 +10] 대응하면 1페이즈 약 100% · 2페이즈 86~87% · 3페이즈 76~77%, 공격만 0~1% [19:14 속성 변화 넣고 2·3페이즈 다시 맞춤]
+  RAID_ATK_MULT: [[3.86,1.287,1.08],[4.246,1.465,1.195],[4.946,1.289,1.495],[5.265,1.348,1.338],[5.476,1.524,1.284],[5.313,1.575,1.423]],   // [11-06] 능력치 공식 변경 후, 사용자가 '진짜 재미있다'고 한 예전 승률에 맞춤: 대응 1페이즈 99~100% · 2페이즈 35~39% · 3페이즈 22~28%, 중앙 11 / 17 / 28라운드
   RAID_MAX_ROUNDS: [30, 45, 75],
   // [사용자 확정 10-27 19:14] 레이드 보스 속성 변화: 1페이즈 무지개 고정, 2페이즈 보스 차례 4번마다, 3페이즈 3번마다 바뀜 (바뀌기 전에 예고)
   // 순서 불 → 풀 → 물 → 빛 → 어둠 → 불… (2페이즈 첫 속성만 무작위, 3페이즈는 2페이즈 끝 속성에서 이어서)
@@ -227,14 +241,21 @@ MM.BALANCE = {
     [{ type: 'enrage', at: 0.5, mult: 1.3 }, { type: 'charge', every: 6, mult: 2.5 }, { type: 'sweep', every: 4, mult: 1.2 }, { type: 'smash', every: 3, mult: 3 }],
     [{ type: 'enrage', at: 0.5, mult: 1.5 }, { type: 'shield', every: 6, turns: 2, cut: 0.7 }, { type: 'heal', every: 7, pct: 0.08 }, { type: 'charge', every: 4, mult: 3 }, { type: 'drain', every: 3, mult: 2, pct: 0.5 }, { type: 'seal', every: 5, turns: 2 }]
   ],
-  // 보상: (5k)단계 스테이지 소울·골드 ×200 (맨 위 단계까지), 경험치 1판분 + 무지개 깃털 k×10% [사용자 확정] + 레인보우 소울 + 무지개 장비
-  RAID_DROP_MULT_STAGE: 200,
+  // [11-06, Claude 설계] 3단계 레이드부터 페이즈별 스킬 추가: 3단계 중독, 4단계 연타, 5단계 1페이즈 연타, 6단계 3페이즈 분노 강화
+  RAID_SKILLS_ADD: [
+    null, null,
+    [[{ type: 'poison', every: 5, turns: 3, pct: 0.04 }], [{ type: 'poison', every: 5, turns: 3, pct: 0.05 }], [{ type: 'poison', every: 4, turns: 3, pct: 0.05 }]],
+    [[{ type: 'poison', every: 5, turns: 3, pct: 0.04 }], [{ type: 'poison', every: 5, turns: 3, pct: 0.05 }, { type: 'frenzy', every: 5, hits: 3, mult: 1.1 }], [{ type: 'poison', every: 4, turns: 3, pct: 0.05 }, { type: 'frenzy', every: 4, hits: 3, mult: 1.2 }]],
+    [[{ type: 'poison', every: 5, turns: 3, pct: 0.05 }, { type: 'frenzy', every: 6, hits: 3, mult: 1.1 }], [{ type: 'poison', every: 5, turns: 3, pct: 0.06 }, { type: 'frenzy', every: 5, hits: 3, mult: 1.2 }], [{ type: 'poison', every: 4, turns: 3, pct: 0.06 }, { type: 'frenzy', every: 4, hits: 4, mult: 1.2 }]],
+    [[{ type: 'poison', every: 5, turns: 3, pct: 0.05 }, { type: 'frenzy', every: 6, hits: 3, mult: 1.2 }], [{ type: 'poison', every: 4, turns: 3, pct: 0.06 }, { type: 'frenzy', every: 5, hits: 4, mult: 1.2 }], [{ type: 'enrage', at: 0.3, mult: 1.3 }, { type: 'poison', every: 4, turns: 3, pct: 0.07 }, { type: 'frenzy', every: 4, hits: 4, mult: 1.3 }]]
+  ],
+  // 보상 [사용자 11-06]: 골드, 경험치 1판분, 레인보우 소울 1~5k개(개수별 확률 같음), 무지개 깃털 k×10%, 무지개 장비, 속성별 일반 장비. 일반 소울 보상은 없음
   RAID_GOLD_MULT: 1000, // [사용자 11-06] 골드만 5배 (200 → 1000), 소울은 그대로
-  RAID_FEATHER: [0.10, 0.20],
-  RAID_RAINBOW_SOULS: [[1, 5], [1, 10]],            // [사용자 확정 10-27 12:02] 레이드 클리어 시 100%, 1단계 1~5개 · 2단계 1~10개 (개수별 확률 같음)
-  // 무지개 장비 [사용자 확정 10-27 11:56]: k단계 레이드는 1~(5k)단계 무지개 장비 중 하나가 나올 수 있음. 맨 위 단계 1%, 한 단계 내려갈 때마다 +1%
-  // (1단계 레이드: 5단계 1% … 1단계 5%, 합 15% / 2단계 레이드: 10단계 1% … 1단계 10%, 합 55%) → 상위 유저가 얻는 하위 장비를 초보가 싸게 사서 쓰게
-  RAID_EQUIP_TOP_PCT: 0.01,
+  RAID_FEATHER_STEP: 0.10,                       // k단계 레이드 깃털 k×10% (최대 100%)
+  RAID_RAINBOW_STEP: 5,                          // k단계 레이드 레인보우 소울 1~5k개 (개수별 확률 같음)
+  // 무지개 장비 [사용자 11-06]: k단계 레이드는 1~(5k-4)단계 각 1%, 맨 위 4개 단계는 0.8% · 0.6% · 0.4% · 0.2% (1단계 레이드 합 3%, 2단계 8%, 6단계 28%)
+  RAID_EQUIP_TOP_PCT: 0.01, RAID_EQUIP_TOP_STEP: 0.002,
+  RAID_NORMAL_EQUIP_RATE: 0.5,                   // 일반 장비: 속성마다 무지개 장비 확률의 절반 (속성마다 따로 굴림)
   // 무지개 장비 [사용자 확정 10-27]: 모든 속성 샤들링에 일반 장비와 같은 비율(단계×2% + 강화×1%). 무지개 칸에 1개 장착
   // 강화 n → n+1: 레인보우 소울 (0→1은 0개, 1~5강은 1개, 6~10강은 2개 … 5강마다 1개씩 증가) + 골드, +10 이상은 무지개 깃털도
   RAINBOW_ENH_STEP: 5,

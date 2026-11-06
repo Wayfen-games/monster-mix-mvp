@@ -406,7 +406,9 @@
     shield: function (k) { return k.every + '턴마다 ' + k.turns + '턴 보호막 (받는 피해 ' + Math.round((1 - k.cut) * 100) + '%만)'; },
     heal: function (k) { return k.every + '턴마다 체력 ' + Math.round(k.pct * 100) + '% 회복'; },
     charge: function (k) { return k.every + '턴마다 힘 모으기 → 다음 차례 아군 전체 대폭발 (×' + k.mult + ')'; },
-    drain: function (k) { return k.every + '턴마다 1마리 흡수 (×' + k.mult + ', 준 피해의 ' + Math.round(k.pct * 100) + '% 회복)'; }
+    drain: function (k) { return k.every + '턴마다 1마리 흡수 (×' + k.mult + ', 준 피해의 ' + Math.round(k.pct * 100) + '% 회복)'; },
+    poison: function (k) { return k.every + '턴마다 아군 전체 ' + k.turns + '라운드 중독 (매 라운드 최대 체력 ' + Math.round(k.pct * 100) + '%, 회복하면 풀림)'; },
+    frenzy: function (k) { return k.every + '턴마다 무작위 ' + k.hits + '번 연타 (×' + k.mult + ')'; }
   };
   function bossHtml() {
     var leftB = MM.bossLeftToday(S, Date.now());
@@ -427,13 +429,13 @@
     var html = '<div class="card"><div class="row between"><b>⚔ 레이드</b><span class="chip gold">입장권 ' + MM.raidTicketTotal(S) + '장</span></div>' +
       '<div class="muted small lh" style="margin-top:6px">다섯 속성 샤들링이 1마리씩 힘을 모아 거대한 레인보우 샤들링과 싸워요 · 3페이즈 (약 10분) · 페이즈를 깨면 저장돼서 나중에 이어 할 수 있어요 · 3페이즈까지 깨면 입장권 1장 사용<br>' +
       '레이드 입장권은 레인보우 샤들링(보스)을 이기면 나와요: k단계 레이드 입장권은 ' + (BAL().RAID_TIER_STEP) + '(k-1)+1단계 보스부터 ' + Math.round(BAL().RAID_TICKET_STEP * 100) + '%, 한 단계 오를 때마다 +' + Math.round(BAL().RAID_TICKET_STEP * 100) + '% (최대 ' + Math.round(BAL().RAID_TICKET_MAX * 100) + '%) — 예: 1단계 레이드는 1단계 보스 2% … 5단계 이상 10%, 2단계 레이드는 6단계 보스 2%부터<br>' +
-      '보상: 소울 ×' + BAL().RAID_DROP_MULT_STAGE + ' · 골드 ×' + BAL().RAID_GOLD_MULT + ' · 🌈 레인보우 소울 · 🪶 무지개 깃털 · 가끔 🌈 무지개 장비(모든 샤들링 강화, 낮은 단계일수록 잘 나와요)</div>' +
+      '보상: 골드 ×' + BAL().RAID_GOLD_MULT + ' · 🌈 레인보우 소울 1~' + BAL().RAID_RAINBOW_STEP + 'k개 · 🪶 무지개 깃털 k×' + Math.round(BAL().RAID_FEATHER_STEP * 100) + '% · ⚔ 가끔 무지개 장비와 속성 장비 (단계가 높을수록 드묾)</div>' +
       '<div style="margin-top:10px"><div class="muted small">레이드 파티 (속성마다 가장 센 샤들링)</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">' +
       (party ? party.map(function (m) { return '<div class="chip" style="display:flex;align-items:center;gap:4px">' + monSvg(m.el, m.tier, 22) + name(m) + ' Lv' + m.level + '</div>'; }).join('') : '<span class="lack small">다섯 속성 샤들링이 모두 있어야 해요</span>') + '</div></div></div>';
     MM.raidTiers().forEach(function (k) {
       var n = MM.raidTicketCount(S, k), ph = MM.raidPhase(S, k), rt = MM.raidRefTier(k);
       html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + k + '단계 레이드</b><span class="chip' + (n ? ' gold' : '') + '">⚔ ' + n + '장</span></div>' +
-        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', rt, 64) + '<div class="muted small lh">추천: ' + rt + '단계 샤들링 5마리 + ' + rt + '단계 장비 +10<br>진행: ' + [0, 1, 2].map(function (i) { return i < ph ? '✅' : i === ph ? '▶' : '⬜'; }).join(' ') + ' (' + (ph + 1) + '페이즈 차례)<br>깃털 ' + Math.round(MM.tierVal(BAL().RAID_FEATHER, k) * 100) + '% · 무지개 장비 1~' + rt + '단계 (' + rt + '단계 ' + Math.round(BAL().RAID_EQUIP_TOP_PCT * 100) + '% … 1단계 ' + Math.round(BAL().RAID_EQUIP_TOP_PCT * rt * 100) + '%)</div></div>' +
+        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', rt, 64) + '<div class="muted small lh">추천: ' + rt + '단계 샤들링 5마리 + ' + rt + '단계 장비 +10<br>진행: ' + [0, 1, 2].map(function (i) { return i < ph ? '✅' : i === ph ? '▶' : '⬜'; }).join(' ') + ' (' + (ph + 1) + '페이즈 차례)<br>레인보우 소울 1~' + (k * BAL().RAID_RAINBOW_STEP) + '개 · 깃털 ' + Math.round(Math.min(1, k * BAL().RAID_FEATHER_STEP) * 100) + '% · 무지개 장비 ' + (Math.round(MM.raidEquipTable(k).reduce(function (a, r) { return a + r.p; }, 0) * 1000) / 10) + '% (1~' + rt + '단계, ' + rt + '단계는 ' + (Math.round(MM.raidEquipTable(k)[0].p * 1000) / 10) + '%) · 속성 장비는 속성마다 그 절반</div></div>' +
         '<button class="btn primary sm block" data-act="startRaid" data-tier="' + k + '"' + (n && party ? '' : ' disabled') + '>' + (n ? (ph ? (ph + 1) + '페이즈 이어 하기' : '도전 (3페이즈까지 깨면 입장권 1장 사용)') : '레인보우 샤들링을 이겨서 입장권을 모아 보세요') + '</button></div>';
     });
     return html;
@@ -492,7 +494,7 @@
     var p = boss.plan, tg = p.target != null ? bt.units[p.target] : null;
     var txt = p.type === 'attack' ? '공격 → ' + (tg ? tg.name : '?') : p.type === 'smash' ? '<b style="color:var(--bad)">강타 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') :
       p.type === 'sweep' ? '<b style="color:var(--bad)">휩쓸기</b> (아군 전체)' : p.type === 'seal' ? '<b style="color:var(--bad)">봉인</b> (무작위 1마리)' : p.type === 'shield' ? '보호막 (' + p.sk.turns + '턴 피해 ' + Math.round((1 - p.sk.cut) * 100) + '%만)' : p.type === 'heal' ? '회복 (체력 ' + Math.round(p.sk.pct * 100) + '%)' :
-      p.type === 'charge' ? '<b style="color:var(--warn)">힘 모으기</b> (다음 차례 대폭발!)' : p.type === 'blast' ? '<b style="color:var(--bad)">대폭발 ×' + p.sk.mult + '</b> (아군 전체) — 방어하세요!' : p.type === 'drain' ? '<b style="color:var(--bad)">흡수 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') : p.type;
+      p.type === 'charge' ? '<b style="color:var(--warn)">힘 모으기</b> (다음 차례 대폭발!)' : p.type === 'blast' ? '<b style="color:var(--bad)">대폭발 ×' + p.sk.mult + '</b> (아군 전체) — 방어하세요!' : p.type === 'drain' ? '<b style="color:var(--bad)">흡수 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') : p.type === 'poison' ? '<b style="color:var(--bad)">중독</b> (아군 전체 ' + p.sk.turns + '라운드, 회복으로 풀기)' : p.type === 'frenzy' ? '<b style="color:var(--bad)">연타 ' + p.sk.hits + '번 ×' + p.sk.mult + '</b> (누가 맞을지 몰라요)' : p.type;
     var shift = MM.shiftAfterThisTurn(boss) && boss.nextEl ? '<div class="boss-plan" style="border-color:' + MM.ELEMENTS[boss.nextEl].color + '">🔄 이 행동 뒤 <b style="color:' + MM.ELEMENTS[boss.nextEl].color + '">' + MM.ELEMENTS[boss.nextEl].name + ' 속성</b>으로 변해요!</div>' : '';
     return '<div class="boss-plan">⚠ 보스 다음 행동: ' + txt + '</div>' + shift;
   }
@@ -509,7 +511,7 @@
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (u.raid && u.el !== 'rainbow' ? ' style="border-color:' + MM.ELEMENTS[u.el].color + ';box-shadow:0 0 18px ' + MM.ELEMENTS[u.el].color + '"' : '') + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
       monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.raid ? (u.el === 'rainbow' ? '<div class="weak">상성 없음</div>' : '<div class="weak" style="color:' + MM.ELEMENTS[u.el].color + ';font-weight:700">' + MM.ELEMENTS[u.el].name + ' 속성</div>' + weakText(u.el)) : u.side === 'e' ? weakText(u.el) : '') +
-      (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
+      (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.poison > 0 && u.hp > 0 ? '<div class="status bad">☠ 중독 ' + u.poison + '</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
       '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u, bt) + '</div>';
   }
@@ -563,7 +565,7 @@
     if (Bt.last && !bt.result && (Bt.last.skip || Bt.last.skill || Bt.last.action)) {
       var L = Bt.last, la = bt.units[L.actor];
       sub = L.action === 'heal' ? la.name + '의 회복! ' + bt.units[L.target].name + ' +' + L.amount : L.action === 'revive' ? la.name + '의 부활! ' + bt.units[L.target].name + '이(가) 체력 ' + L.amount + '으로 일어났어요' : L.action === 'defend' ? la.name + ' 방어 자세 (다음 차례까지 받는 피해 ' + Math.round(BAL().BOSS_GUARD_CUT * 100) + '%)' : L.action === 'focus' ? la.name + ' 힘을 모았어요 (다음 공격 ×' + BAL().BOSS_FOCUS_MULT + ')' : L.skill === 'smash' ? '강타! ' + bt.units[L.target].name + ' -' + L.dmg + (L.guarded ? ' (방어)' : '') + (L.ko ? ' · 쓰러짐' : '') : L.skip ? la.name + '은(는) 봉인되어 움직이지 못했어요' : L.skill === 'seal' ? '봉인! ' + bt.units[L.target].name + ' ' + L.turns + '턴 동안 못 움직여요' :
-        L.skill === 'sweep' ? '휩쓸기! 아군 전체 ' + L.hits.map(function (h) { return '-' + h.dmg; }).join(' ') : L.skill === 'blast' ? '대폭발!! 아군 전체 ' + L.hits.map(function (h) { return '-' + h.dmg; }).join(' ') : L.skill === 'charge' ? '보스가 힘을 모으고 있어요… 다음 차례 대폭발!' : L.skill === 'drain' ? '흡수! ' + bt.units[L.target].name + ' -' + L.dmg + (L.guarded ? ' (방어)' : '') + ' · 보스 체력 +' + (L.heal || 0) : L.skill === 'shield' ? '보호막! ' + L.turns + '턴 동안 받는 피해 줄어듦' : L.skill === 'heal' ? '회복! 체력 +' + L.heal : '';
+        L.skill === 'sweep' ? '휩쓸기! 아군 전체 ' + L.hits.map(function (h) { return '-' + h.dmg; }).join(' ') : L.skill === 'blast' ? '대폭발!! 아군 전체 ' + L.hits.map(function (h) { return '-' + h.dmg; }).join(' ') : L.skill === 'charge' ? '보스가 힘을 모으고 있어요… 다음 차례 대폭발!' : L.skill === 'drain' ? '흡수! ' + bt.units[L.target].name + ' -' + L.dmg + (L.guarded ? ' (방어)' : '') + ' · 보스 체력 +' + (L.heal || 0) : L.skill === 'shield' ? '보호막! ' + L.turns + '턴 동안 받는 피해 줄어듦' : L.skill === 'heal' ? '회복! 체력 +' + L.heal : L.skill === 'poison' ? '중독! 아군 전체가 ' + L.turns + '라운드 동안 매 라운드 체력 ' + Math.round(L.pct * 100) + '%를 잃어요' : L.skill === 'frenzy' ? '연타! ' + L.hits.map(function (h) { return bt.units[h.target].name + ' -' + h.dmg; }).join(' · ') : '';
     } else if (Bt.last && !myTurn && !bt.result) {
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
       sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '') + (Bt.last.enrage ? ' · 보스가 분노했어요!' : '') + (Bt.last.shielded ? ' · 보호막' : '') + (Bt.last.focused ? ' · 집중 ×' + BAL().BOSS_FOCUS_MULT + '!' : '') + (Bt.last.guarded ? ' · 방어' : '');
@@ -656,6 +658,7 @@
         var rp = MM.winRaidPhase(S, Bt.tier, null, (Bt.bt.units.filter(function (u) { return u.raid; })[0] || {}).el); Bt.raidRes = rp; r = rp.done ? rp.reward : null;
         if (r && r.equip) showNotice('🌈 무지개 장비!!!', MM.equipName('rainbow', r.equip.tier) + ' — 모든 샤들링이 강해져요');
         if (r && r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 레이드에서 무지개 깃털이 나왔어요');
+        if (r && r.equips) r.equips.forEach(function (e) { showNotice('⚔ ' + e.tier + '단계 장비!!', MM.equipName(e.el, e.tier) + ' — 끼거나 팔 수 있어요'); });
       }
       else if (Bt.kind === 'boss') { MM.useBossTicket(S, Bt.tier); r = MM.grantBossWin(S, Bt.tier, null, Date.now()); if (r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 보스에서 무지개 깃털이 나왔어요 (+' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)'); }
       else { MM.accrueOffline(S, Date.now()); r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies); }
@@ -714,7 +717,8 @@
     return (r.feather ? '<div class="soul-item rare">🪶 무지개 깃털 ×' + r.feather + '</div>' : '') +
       (r.rainbowSoul ? '<div class="soul-item rare">🌈 레인보우 소울 ×' + r.rainbowSoul + '</div>' : '') +
       (r.raidTickets || (r.raidTicket ? [r.raidTicket] : [])).map(function (k) { return '<div class="soul-item rare">⚔ ' + k + '단계 레이드 입장권 ×1</div>'; }).join('') +
-      (r.equip ? '<div class="soul-item rare">' + equipSvg('rainbow', r.equip.tier, 24) + MM.equipName('rainbow', r.equip.tier) + ' (무지개 장비)</div>' : '');
+      (r.equip ? '<div class="soul-item rare">' + equipSvg('rainbow', r.equip.tier, 24) + MM.equipName('rainbow', r.equip.tier) + ' (무지개 장비)</div>' : '') +
+      (r.equips || []).map(function (e) { return '<div class="soul-item rare">' + equipSvg(e.el, e.tier, 24) + MM.equipName(e.el, e.tier) + '</div>'; }).join('');
   }
   function dropsHtml(list) {
     if (!list.length) return '<span class="muted">이번에는 소울이 나오지 않았어요</span>';
@@ -1157,6 +1161,7 @@
     if (r.type === 'raidticket') return { title: '⚔ 레이드 입장권!', sub: r.tier + '단계 레이드 입장권' };
     if (r.type === 'raid') return { title: r.tier + '단계 레이드 클리어!', sub: '3페이즈 격파' };
     if (r.type === 'rainbowequip') return { title: '🌈 무지개 장비!', sub: MM.equipName('rainbow', r.tier) };
+    if (r.type === 'raidequip') return { title: '⚔ 레이드 장비!', sub: MM.equipName(r.el, r.tier) };
     if (r.type === 'dexset') return { title: r.tier + '단계 도감 5종 완성!', sub: '입장권 ' + BAL().DEX_SET_TICKETS + '장 + 보스 입장권 ' + BAL().DEX_SET_BOSS_TICKETS + '장' };
     if (r.type === 'boss') return { title: MM.bossName(r.tier) + ' 격파!', sub: '보스 입장권 1장 사용' };
     if (r.type === 'equip') return { title: '장비 강화 +' + r.plus + '!', sub: MM.equipName(r.el, r.tier) + ' +' + r.plus + (r.rate ? ' · 성공률 ' + pct(r.rate) : '') };
@@ -1479,7 +1484,7 @@
     gachaSheet: function (d) { gachaSheet(d.el, +d.tier); },
     gacha: function (d) { doGacha(d.el, +d.tier, +d.n); },
     equipSlot: function (d) { equipSlotSheet(d.el); },
-    equipIt: function (d) { MM.equip(S, +d.id); save(); closeSheet(); render(); },
+    equipIt: function (d) { var e = MM.getEquip(S, +d.id); if (!MM.equip(S, +d.id)) { toast((e ? e.tier : '') + '단계 이상 샤들링이 있어야 낄 수 있어요 (지금 최고 ' + MM.topTier(S) + '단계)'); return; } save(); closeSheet(); render(); },
     unequip: function (d) { MM.unequip(S, d.el); save(); closeSheet(); render(); },
     craftEquip: function (d) {
       var t2 = +d.tier;
