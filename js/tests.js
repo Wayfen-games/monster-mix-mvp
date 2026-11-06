@@ -302,9 +302,9 @@
     check('장착 중이면 분해 불가', !!MM.decomposeEquip(s, e.id).error);
     s.souls.light1 = 190; var e0 = MM.craftEquip(s, 'light', 1).equip, before = s.souls.light1;
     var d0 = MM.decomposeEquip(s, e0.id);
-    check('+0 분해: 소울 5개', d0.souls === 5 && s.souls.light1 === before + 5 && d0.gold === 0);
+    check('+0 분해: 받는 것 없음 (제작 소울은 사라짐)', d0.souls === 0 && s.souls.light1 === before && d0.gold === 0);
     MM.unequip(s, 'light'); var v = MM.equipDecompValue(e), ex = MM.equipExpectedSpend(1, 3);
-    check('+3 분해: 소울 5 + 기댓값 70%', v.souls === 5 + Math.floor(ex.souls * 0.7) && v.gold === Math.floor(ex.gold * 0.7 / 10) * 10);
+    check('+3 분해: 강화 기댓값의 50%', v.souls === Math.floor(ex.souls * 0.5) && v.gold === Math.floor(ex.gold * 0.5 / 10) * 10);
   })();
   // ---- 샤들링 강화 ----
   (function () {
