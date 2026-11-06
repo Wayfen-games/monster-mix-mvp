@@ -296,8 +296,7 @@ function simulatePlayer(seed) {
     if (!OPT) return;
     for (const k of MM.raidTiers()) {
       const rp = MM.raidParty(s);
-      if (!rp || MM.raidTicketCount(s, k) <= 0) continue;
-      if (Math.min(...rp.map(m => m.tier)) < MM.raidRefTier(k) - 1) continue; // 다섯 속성이 기준 단계 -1 이상일 때만 도전
+      if (!rp || MM.raidTicketCount(s, k) <= 0) continue;  // 레이드는 져도 잃는 게 없어서 실제 유저처럼 하루 10번까지 계속 도전 [11-06: 도전 조건은 너무 엄격해서 없앰]
       for (let guard = 0; guard < 10 && MM.raidTicketCount(s, k) > 0; guard++) {
         const ph = MM.raidPhase(s, k);
         const bt = MM.simulateRaidPhase(P(rp), k, ph, rng, 'smart'); log.raidTries++; (log.raidTryBy = log.raidTryBy || {})[k] = (log.raidTryBy[k] || 0) + 1; log.battles++; log.actions += bt.log.length;
