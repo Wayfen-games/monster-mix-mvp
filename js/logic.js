@@ -18,7 +18,7 @@
       tutorial: { step: 0, done: false },
       records: [],
       equips: [], equipped: {}, altar: {},
-      settings: { autoBattle: true, recordOn: true, fastTest: false },
+      settings: { autoBattle: true, recordOn: true, fastTest: false, sound: true, music: true },
       stats: { fusionTries: 0, fusionSuccess: 0, battlesWon: 0, battlesLost: 0, startedAt: now }
     };
   };

@@ -166,6 +166,10 @@
     MM.refreshDaily(S, Date.now());
     $('gold').textContent = fmt(S.gold) + ' G';
     document.body.classList.toggle('in-battle', view.tab === 'battle');
+    var Bk = view.battle && view.battle.kind;
+    MM.Sound.set(S.settings.sound, S.settings.music);
+    MM.Sound.music(view.tab !== 'battle' ? 'town' : Bk === 'boss' || Bk === 'raid' ? 'boss' : 'battle');
+    $('mute').textContent = S.settings.sound || S.settings.music ? '🔊' : '🔇'; $('mute').classList.toggle('off', !S.settings.sound && !S.settings.music);
     var tabFor = { stageDetail: 'stages', reward: 'stages', settings: 'home', battle: 'stages', altar: 'home', gacha: 'home' };
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
       b.classList.toggle('on', b.dataset.tab === (tabFor[view.tab] || view.tab));
@@ -613,6 +617,7 @@
     var ev = MM.act(Bt.bt, targetUid);
     Bt.last = ev; Bt.busy = true;
     render();
+    if (ev && (ev.dmg != null || (ev.hits && ev.hits.length))) MM.Sound.play(ev.crit ? 'crit' : 'hit');
     if (ev && ev.hits && ev.hits.length) ev.hits.forEach(function (h) { var n2 = $('u' + h.target); if (n2) { n2.classList.add('hit'); var d2 = document.createElement('div'); d2.className = 'dmg'; d2.textContent = '-' + h.dmg; n2.appendChild(d2); } });
     if (ev && ev.target != null && ev.dmg != null) {
       var node = $('u' + ev.target);
@@ -663,6 +668,7 @@
       S.stats.battlesLost++;
     }
     save();
+    MM.Sound.play(Bt.repeat ? (win ? 'coin' : 'lose') : win ? 'win' : 'lose');
     if (Bt.repeat) {
       var ss = Bt.session;
       ss.runs++; if (win) ss.wins++; else ss.losses++;
@@ -770,6 +776,7 @@
 
   function showRareDrops(list) {
     var d = list[0];
+    MM.Sound.play('rare');
     showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + raysClass(d.tier) + '"></div><div class="flash now"></div>' + sparks(10 + d.tier * 4 + d.count * 4, true) +
       '<div class="pop now" style="position:relative">' + monSvg(d.el, d.tier, 110 + d.tier * 6) + (d.count > 1 ? '<span class="count-badge">×' + d.count + '</span>' : '') + '</div></div>' +
       '<div class="reveal now"><div class="big ok">' + d.tier + '단계 소울!</div><div class="sub">' + MM.soulName(d.el, d.tier) + ' ×' + d.count + '</div>' + (d.first ? '<div class="new">첫 획득!</div>' : '') +
@@ -785,6 +792,7 @@
   function nextBanner() {
     var d = bannerQueue[0], el = $('banner');
     if (!d) { el.hidden = true; return; }
+    MM.Sound.play(d.notice ? 'chime' : 'soul');
     if (d.notice) {
       el.className = 'notice';
       el.innerHTML = '<div><b>' + d.title + '</b><div class="small">' + d.sub + '</div></div>';
@@ -1082,6 +1090,7 @@
   }
 
   function successOverlay(m, line, dex, acts, mainSnap, subSnap) {
+    MM.Sound.play(mainSnap ? 'fuse' : 'summon');
     var charge = mainSnap ? '<div class="charge">' + monSvg(mainSnap.el, mainSnap.tier, 64) + monSvg(subSnap.el, subSnap.tier, 64) + '</div>' : '';
     showOverlay('<div class="result ok"><div class="stage-anim">' + charge + '<div class="' + (mainSnap ? 'rays reveal' : raysClass(m.tier)) + (m.tier >= 5 ? ' t5' : m.tier >= 4 ? ' t4' : '') + '"></div><div class="flash' + (mainSnap ? '' : ' now') + '"></div>' + sparks(18 + m.tier * 2, !mainSnap) +
       '<div class="pop' + (mainSnap ? '' : ' now') + '">' + monSvg(m.el, m.tier, 130) + '</div></div>' +
@@ -1115,6 +1124,7 @@
     } else {
       var main = MM.getMonster(S, view.fusion.mainId), sub = MM.getMonster(S, view.fusion.subId);
       var chk = MM.fusionCheck(S, main, sub, view.fusion.soulEl, view.fusion.soulN);
+      MM.Sound.play('fail');
       showOverlay('<div class="result fail"><div class="stage-anim"><div class="charge">' + monSvg(mainSnap.el, mainSnap.tier, 64) + monSvg(subSnap.el, subSnap.tier, 64) + '</div><div class="fizzle">💨</div><div class="reveal">' + monSvg(mainSnap.el, mainSnap.tier, 90) + '</div></div>' +
         '<div class="reveal"><div class="big no">실패…</div><div class="sub">재료는 그대로 남았어요</div>' +
         '<div class="sub">실패 스택 ' + res.stack + ' → 다음 성공률 <b style="color:var(--accent);font-size:20px">' + pct(res.nextRate) + '</b></div>' +
@@ -1216,6 +1226,8 @@
     function sw(k, title, desc) { return '<div class="card"><div class="switch-row"><div><b>' + title + '</b><div class="muted small">' + desc + '</div></div><button class="switch' + (S.settings[k] ? ' on' : '') + '" data-act="setting" data-k="' + k + '"></button></div></div>'; }
     return '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2 style="margin-top:12px">설정</h2>' +
       sw('autoBattle', '전투 자동', '한 번 켜면 다음 전투에도 계속 자동이에요. 전투 화면의 자동 버튼과 같아요.') +
+      sw('sound', '효과음', '공격, 합성, 희귀 드랍 소리') +
+      sw('music', '배경음악', '마을·전투·보스 음악') +
       sw('recordOn', '희귀 획득 기록', '지금 하는 단계 이상 소울(최소 ' + BAL().RECORD_MIN_SOUL_TIER + '단계), 도감 첫 등록 등을 자동으로 남겨요.') +
       sw('fastTest', '빠른 테스트', '소울이 ' + BAL().FAST_TEST_DROP_MULT + '배 잘 나와요. 실제 템포를 보려면 꺼 두세요.') +
       '<div class="card"><b>방치 보상</b><div class="muted small lh" style="margin-top:6px">' + (off && MM.offlineStageValid(S) ? '지정: ' + MM.stageLabel(off.el, off.tier) + '' : '지정한 스테이지가 없어요. 마을의 방치 보상 카드에서 지정하세요.') + '<br>게임을 하든 안 하든 최대 ' + BAL().OFFLINE_MAX_HOURS + '시간, 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%</div></div>' +
@@ -1578,13 +1590,14 @@
   };
 
   document.addEventListener('click', function (e) {
+    if (e.target.closest('#mute')) { var on = !(S.settings.sound || S.settings.music); S.settings.sound = S.settings.music = on; save(); render(); MM.Sound.play('tap'); return; }
     var tabBtn = e.target.closest('#tabs button');
-    if (tabBtn) { go(tabBtn.dataset.tab); return; }
+    if (tabBtn) { MM.Sound.play('tap'); go(tabBtn.dataset.tab); return; }
     if (e.target.id === 'sheet') { closeSheet(); return; }
     var el = e.target.closest('[data-act]');
     if (!el || el.disabled) return;
     var fn = ACTIONS[el.dataset.act];
-    if (fn) fn(el.dataset);
+    if (fn) { MM.Sound.play('tap'); fn(el.dataset); }
   });
   document.addEventListener('visibilitychange', function () {
     save();
