@@ -21,7 +21,7 @@ if (process.env.NOFUSESOUL) { const fc = MM.fusionCost; MM.fusionCost = function
 // GOAL=15 → 샤들링 1마리가 15단계가 되면 그 플레이어는 끝 / NOSTOP=1 → 목표와 상관없이 MAX_DAYS까지 / ONLY=번호 → 그 플레이어만 / JSON=1 → 플레이어별 첫 n단계 일수를 JSON으로
 const GOAL = +(process.env.GOAL || 0);
 const PLAYERS = +process.argv[2] || 12, MAX_DAYS = +process.argv[3] || 60;
-const FEED_KEEP = +(process.env.FEED_KEEP || (B.SOULS_PER_SUMMON + 10));
+const FEED_KEEP = +(process.env.FEED_KEEP || B.SOULS_PER_SUMMON); // [사용자 11-06] 소환용으로 30개만 남김 (예전 40개)
 const STOP_FIRST = process.env.STOP !== 'all'; // 기본: 첫 맨 위 단계(10단계)를 만들면 그 플레이어는 끝
 // STYLE=user → 사용자 방식 [11-06 피드백 180번]: 3마리가 같은 단계가 되면 하나씩 다음 단계로, 주재료는 파티·부재료는 방치 팀으로 키움,
 //   남는 소울은 전부 뽑기(제단 안 씀). STYLE=mix → 합성 순서는 OPT 방식, 방치 팀으로 부재료 키우기는 사용자 방식, 남는 소울은 뽑기 반·제단 반
@@ -58,6 +58,10 @@ function simulatePlayer(seed) {
     crafted: 0, eqTries: 0, monTries: 0, eqGold: 0, monGold: 0, gacha: 0, offered: 0, raids: 0, raidTries: 0 };
   const P = ms => OPT ? MM.battleParty(s, ms) : ms; // 최적화 유저만 장비·강화·제단 능력치를 전투에 반영
   // 첫 n단계: 날짜와 그때까지 쌓인 최고 단계 막힘 횟수(구간별 막힘은 앞 단계와의 차이)
+  // 가장 센 3마리 (장비·강화·제단을 넣은 체력×공격 기준, 같으면 속성이 다른 쪽)
+  const power = m => { const c = MM.calcStats(m.el, m.tier, m.level, MM.playerMult(s, m)); return c.hp * c.atk; };
+  const strongest3 = () => { const out = []; s.monsters.slice().sort((a, b) => power(b) - power(a)).forEach(m => { if (out.length < 3 && !out.some(o => o.el === m.el)) out.push(m); }); s.monsters.slice().sort((a, b) => power(b) - power(a)).forEach(m => { if (out.length < 3 && !out.includes(m)) out.push(m); }); return MM.battleParty(s, out); };
+  const gotEq = (src, el, t) => { const k = src + '|' + el + '|' + t; (log.eqGot = log.eqGot || {})[k] = (log.eqGot[k] || 0) + 1; };
   const markFirst = (tr, now) => { if (log.first[tr] != null) return; log.first[tr] = (now - t0) / 86400000; (log.hiAt = log.hiAt || {})[tr] = Object.assign({}, log.hi || {}); };
 
   // ---- 튜토리얼 ----
@@ -229,15 +233,17 @@ function simulatePlayer(seed) {
       const cur = MM.equippedOf(s, el);
       if (cur && cur.tier >= t) break;
       if ((s.equips || []).some(e => e.el === el && e.tier >= t)) break; // 이미 가진 장비가 있으면 안 만듦
-      if ((s.souls[MM.speciesKey(el, t)] || 0) >= B.EQUIP_CRAFT_SOULS + keep) { MM.craftEquip(s, el, t); log.crafted++; break; }
+      if ((s.souls[MM.speciesKey(el, t)] || 0) >= B.EQUIP_CRAFT_SOULS + keep) { MM.craftEquip(s, el, t); log.crafted++; gotEq('제작', el, t); break; }
     }
     // 1.5) 칸마다 낄 수 있는 가장 좋은 장비로 바꾸고, 지금 장비보다 못한 남는 장비는 분해 (거래가 없으니 분해)
     for (const el of MM.RING.concat(['rainbow'])) {
       const mine = (s.equips || []).filter(e => e.el === el);
-      const bestE = mine.filter(e => MM.canEquip(s, e)).sort((a, b) => b.tier - a.tier || b.plus - a.plus)[0]; // 낄 수 있는 가장 높은 단계 (같으면 강화 높은 것)
+      const bestE = mine.filter(e => MM.canEquip(s, e)).sort((a, b) => MM.equipBonus(b) - MM.equipBonus(a) || b.tier - a.tier)[0]; // 효과가 가장 큰 장비
       if (bestE && !MM.isEquipped(s, bestE)) MM.equip(s, bestE.id);
       const cur = MM.equippedOf(s, el);
-      mine.forEach(e => { if (cur && e !== cur && e.tier <= cur.tier) { const d = MM.decomposeEquip(s, e.id); if (!d.error) { log.decomp = (log.decomp || 0) + 1; if (el === 'rainbow') log.rbFromDecomp = (log.rbFromDecomp || 0) + (d.souls || 0); } } });
+      // 남겨 둘 것: 지금 장비보다 단계가 높은 것 중 가장 좋은 1개(나중에 강화해서 바꿈). 나머지 중 지금 장비보다 단계가 같거나 낮은 것은 분해
+      const spare = mine.filter(e => cur && e !== cur && e.tier > cur.tier).sort((a, b) => MM.equipBonus(b) - MM.equipBonus(a))[0];
+      mine.forEach(e => { if (cur && e !== cur && e !== spare && (e.tier <= cur.tier || (spare && e.tier <= spare.tier && MM.equipBonus(e) <= MM.equipBonus(spare)))) { const d = MM.decomposeEquip(s, e.id); if (!d.error) { log.decomp = (log.decomp || 0) + 1; if (el === 'rainbow') log.rbFromDecomp = (log.rbFromDecomp || 0) + (d.souls || 0); } } });
     }
     // 2) 남는 소울: 지금 도는 단계 이상이면 뽑기(입장권·위 단계 소울), 최고 단계보다 2단계 이상 낮으면 제단
     for (const sp of MM.allSpecies()) {
@@ -256,11 +262,13 @@ function simulatePlayer(seed) {
     for (let guard = 0; guard < 200; guard++) {
       let best = null;
       for (const m of party) {
-        const e = MM.equippedOf(s, m.el);
-        if (e && e.plus < B.EQUIP_MAX_PLUS) {
+        const cur = MM.equippedOf(s, m.el);
+        const spare = cur ? (s.equips || []).filter(e => e.el === m.el && e.tier > cur.tier && MM.canEquip(s, e)).sort((a, b) => MM.equipBonus(b) - MM.equipBonus(a))[0] : null;
+        for (const e of [cur, spare]) {
+          if (!e || e.plus >= B.EQUIP_MAX_PLUS) continue;
           const ec = MM.equipEnhCost(e), tries = MM.equipExpectedTries(e.plus);
           const ok = (!ec.feather || MM.featherCount(s) >= ec.feather) && !ec.rainbow && (s.souls[ec.key] || 0) >= ec.souls + keep; // 소환용 소울은 남김
-          const gain = B.EQUIP_PER_PLUS / (1 + MM.equipBonus(e)), cost = ec.gold * tries;
+          const gain = B.EQUIP_PER_PLUS / (1 + MM.equipBonus(cur)) * (e === cur ? 1 : 0.5), cost = ec.gold * tries;
           if (ok && (!best || gain / cost > best.v)) best = { v: gain / cost, kind: 'eq', id: e.id, gold: ec.gold };
         }
         if ((m.plus || 0) < B.MON_ENH_BONUS.length) {
@@ -289,12 +297,14 @@ function simulatePlayer(seed) {
     for (const k of MM.raidTiers()) {
       const rp = MM.raidParty(s);
       if (!rp || MM.raidTicketCount(s, k) <= 0) continue;
+      if (Math.min(...rp.map(m => m.tier)) < MM.raidRefTier(k) - 1) continue; // 다섯 속성이 기준 단계 -1 이상일 때만 도전
       for (let guard = 0; guard < 10 && MM.raidTicketCount(s, k) > 0; guard++) {
         const ph = MM.raidPhase(s, k);
-        const bt = MM.simulateRaidPhase(P(rp), k, ph, rng, 'smart'); log.raidTries++; log.battles++; log.actions += bt.log.length;
+        const bt = MM.simulateRaidPhase(P(rp), k, ph, rng, 'smart'); log.raidTries++; (log.raidTryBy = log.raidTryBy || {})[k] = (log.raidTryBy[k] || 0) + 1; log.battles++; log.actions += bt.log.length;
         if (bt.result !== 'win') continue;
         const w = MM.winRaidPhase(s, k, rng, (bt.units.filter(u => u.raid)[0] || {}).el);
-        if (w.done) { log.raids++; w.reward.drops.forEach(d => log.wasted += d.wasted); }
+        if (w.done) { log.raids++; (log.raidWinBy = log.raidWinBy || {})[k] = (log.raidWinBy[k] || 0) + 1; w.reward.drops.forEach(d => log.wasted += d.wasted);
+          if (w.reward.equip) gotEq('레이드무지개', 'rainbow', w.reward.equip.tier); (w.reward.equips || []).forEach(e => gotEq('레이드', e.el, e.tier)); }
       }
     }
   }
@@ -367,9 +377,9 @@ function simulatePlayer(seed) {
     // 보스 (입장권 있으면, 이길 만하면 바로)
     const useBoss = () => {
       const bk = s.dungeon.bossTickets || {};
-      for (let bt = T; bt >= 1; bt--) {
+      for (let bt = Math.min(T, topTier()); bt >= 1; bt--) { // 최고 샤들링보다 높은 단계 보스는 도전 안 함
         while ((bk[bt] || 0) > 0) {
-          const party = MM.battleParty(s, s.party.map(id => MM.getMonster(s, id)));
+          const party = strongest3(); // 보스는 가장 센 3마리로
           let win = false;
           for (let tries = 0; !win && tries < 10; tries++) { const b = MM.simulateBossBattle(party, bt, rng); log.bossTries = (log.bossTries || 0) + 1; log.actions += b.log.length; log.battles++; win = b.result === 'win'; }
           if (!win) break;
@@ -411,7 +421,7 @@ function simulatePlayer(seed) {
       if (day % 30 === 0) (log.goldSeries = log.goldSeries || []).push(s.gold);
       if (day % 90 === 0) { const tt = topM.tier, sum = t => MM.RING.reduce((a, el) => a + (s.souls[MM.speciesKey(el, t)] || 0), 0);
         (log.snaps = log.snaps || []).push({ day, top: tt, gold: s.gold, feather: MM.featherCount(s), rainbow: MM.rainbowSoulCount(s), souls: [tt - 2, tt - 1, tt, tt + 1].map(t => t >= 1 ? sum(t) : 0),
-          eq: MM.RING.concat(['rainbow']).map(el => { const e = MM.equippedOf(s, el); return e ? e.tier + '+' + e.plus : '-'; }).join(' '), tickets: Object.values(s.dungeon.tickets || {}).reduce((a, b) => a + b, 0), bossTk: Object.values(s.dungeon.bossTickets || {}).reduce((a, b) => a + b, 0) }); } }
+          eq: MM.RING.concat(['rainbow']).map(el => { const e = MM.equippedOf(s, el); return e ? e.tier + '+' + e.plus : '-'; }).join(' '), raidTk: MM.raidTiers().map(k => MM.raidTicketCount(s, k)).join('/'), tickets: Object.values(s.dungeon.tickets || {}).reduce((a, b) => a + b, 0), bossTk: Object.values(s.dungeon.bossTickets || {}).reduce((a, b) => a + b, 0) }); } }
     s.offline.stage = { el: stage.el, tier: stage.tier };
     s.cleared[MM.speciesKey(stage.el, stage.tier)] = s.cleared[MM.speciesKey(stage.el, stage.tier)] || 1;
     log.maxGold = Math.max(log.maxGold, s.gold);
@@ -434,7 +444,7 @@ for (let p = 0; p < PLAYERS; p++) {
   const r = simulatePlayer(1000 + p * 77); r.idx = p; res.push(r);
   if (process.env.JSON) process.stderr.write('플레이어 ' + p + ' 끝: ' + (r.goalDay == null ? '목표 못 감' : r.goalDay + '일') + '\n');
 }
-if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, raids: r.raids, raidTries: r.raidTries, rainbowEq: r.rainbowEq, hiAt: r.hiAt, snaps: r.snaps, bosses: r.bosses, bossTries: r.bossTries, wasted: r.wasted, eqTries: r.eqTries, monTries: r.monTries, monGold: r.monGold, gacha: r.gacha, offered: r.offered, decomp: r.decomp, rbFromDecomp: r.rbFromDecomp, featherUsed: r.featherUsed, rbUsed: r.rbUsed, crafted: r.crafted, tickets: r.tickets, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
+if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, raids: r.raids, raidTries: r.raidTries, rainbowEq: r.rainbowEq, hiAt: r.hiAt, snaps: r.snaps, bosses: r.bosses, bossTries: r.bossTries, wasted: r.wasted, eqTries: r.eqTries, monTries: r.monTries, monGold: r.monGold, gacha: r.gacha, offered: r.offered, decomp: r.decomp, rbFromDecomp: r.rbFromDecomp, featherUsed: r.featherUsed, rbUsed: r.rbUsed, eqGot: r.eqGot, raidTryBy: r.raidTryBy, raidWinBy: r.raidWinBy, crafted: r.crafted, tickets: r.tickets, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
 const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
