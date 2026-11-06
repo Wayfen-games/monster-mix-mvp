@@ -191,7 +191,7 @@
   var combos = [];
   for (var x = 0; x < 5; x++) for (var y = x + 1; y < 5; y++) for (var z = y + 1; z < 5; z++) combos.push([MM.RING[x], MM.RING[y], MM.RING[z]]);
   combos.forEach(function (els) {
-    var st = MM.newState(); st.gold = 1000;
+    var st = MM.newState(); st.gold = B.START_GOLD;
     MM.tutorialPickStarters(st, els); MM.tutorialBattleReward(st);
     MM.tutorialFourthOptions(st).forEach(function (el4) {
       var st2 = JSON.parse(JSON.stringify(st)); MM.tutorialPickFourth(st2, el4);
@@ -389,7 +389,7 @@
     var g = MM.grantBossWin(s, 3, rr);
     check('보스 보상: 한 단계 위 스테이지의 소울 ×100·골드 ×BOSS_GOLD_MULT, 경험치는 1판분', g.gold === Math.round(B.CLEAR_GOLD[3] * B.BOSS_GOLD_MULT) && g.exp === MM.winExp(4) && g.drops.length > 0 && g.drops.some(function (d) { return d.tier >= 2; }));
     var dg = MM.grantDungeonWin(MM.newState(t0), 3, MM.dungeonEnemies(['fire'], 3), rr);
-    check('던전 보상: 골드 스테이지의 30배, 경험치는 스테이지와 같음', dg.exp === MM.winExp(3) && dg.gold === Math.round(B.CLEAR_GOLD[2] * 30));
+    check('던전 보상: 골드 스테이지의 DUNGEON_GOLD_MULT배, 경험치는 스테이지와 같음', dg.exp === MM.winExp(3) && dg.gold === Math.round(B.CLEAR_GOLD[2] * B.DUNGEON_GOLD_MULT));
     check('보스 입장권 사용', MM.useBossTicket(s, 3) && !MM.useBossTicket(s, 3));
     var sd = MM.newState(t0); B.BOSS_TICKET_DROP = 1; var dw = MM.grantDungeonWin(sd, 2, MM.dungeonEnemies(['fire'], 2)); B.BOSS_TICKET_DROP = 0.02;
     check('던전 승리 시 같은 단계 보스 입장권', dw.bossTicket === 2 && MM.bossTicketCount(sd, 2) === 1);
