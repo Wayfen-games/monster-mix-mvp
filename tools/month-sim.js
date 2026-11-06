@@ -403,6 +403,7 @@ function simulatePlayer(seed) {
   log.eqPlus = (s.equips || []).filter(e => MM.isEquipped(s, e)).map(e => e.tier + '단+' + e.plus).join(' ');
   log.altar = MM.RING.map(el => MM.altarOf(s, el).level).join('/');
   log.maxPlus = Math.max(0, ...(s.equips || []).map(e => e.plus)); log.feathers = MM.featherCount(s);
+  log.rainbowEq = (s.equips || []).filter(e => e.el === 'rainbow').map(e => e.tier + '단+' + e.plus).join(' ');
   return log;
 }
 
@@ -412,7 +413,7 @@ for (let p = 0; p < PLAYERS; p++) {
   const r = simulatePlayer(1000 + p * 77); r.idx = p; res.push(r);
   if (process.env.JSON) process.stderr.write('플레이어 ' + p + ' 끝: ' + (r.goalDay == null ? '목표 못 감' : r.goalDay + '일') + '\n');
 }
-if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
+if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, raids: r.raids, raidTries: r.raidTries, rainbowEq: r.rainbowEq, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
 const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
