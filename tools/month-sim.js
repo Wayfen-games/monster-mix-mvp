@@ -6,11 +6,25 @@
 //   '능력치 1%당 골드'가 싼 것부터(다음 합성 골드는 남김), 남는 소울은 지금 단계면 뽑기·낮은 단계면 제단, 레이드 도전,
 //   장비·강화를 넣은 전투력으로 이길 수 있는 가장 높은 스테이지(파티 단계 +3까지)
 const MM = require('./load');
-const B = MM.BALANCE, T = B.MAX_TIER;
+const B = MM.BALANCE;
+// MAXT=30 → 아직 없는 높은 단계까지 시험: 단계별 난이도 목록은 지금 값들의 평균으로 늘리고, 레이드는 마지막 단계 값을 반복
+if (process.env.MAXT) {
+  const n = +process.env.MAXT, pad = (a, v) => { while (a.length < n) a.push(v); };
+  const mean = a => a.reduce((p, q) => p + q, 0) / a.length;
+  ['STAGE_ENEMY_MULT', 'DUNGEON_ENEMY_MULT', 'BOSS_HP_MULT', 'BOSS_ATK_MULT'].forEach(k => pad(B[k], mean(B[k])));
+  ['RAID_HP_MULT', 'RAID_ATK_MULT'].forEach(k => { while (B[k].length < Math.floor(n / B.RAID_TIER_STEP)) B[k].push(B[k][B[k].length - 1].slice()); });
+  B.MAX_TIER = n;
+}
+const T = B.MAX_TIER;
+// GOAL=15 → 샤들링 1마리가 15단계가 되면 그 플레이어는 끝 / NOSTOP=1 → 목표와 상관없이 MAX_DAYS까지 / ONLY=번호 → 그 플레이어만 / JSON=1 → 플레이어별 첫 n단계 일수를 JSON으로
+const GOAL = +(process.env.GOAL || 0);
 const PLAYERS = +process.argv[2] || 12, MAX_DAYS = +process.argv[3] || 60;
 const FEED_KEEP = +(process.env.FEED_KEEP || (B.SOULS_PER_SUMMON + 10));
 const STOP_FIRST = process.env.STOP !== 'all'; // 기본: 첫 맨 위 단계(10단계)를 만들면 그 플레이어는 끝
-const OPT = !!process.env.OPT;
+// STYLE=user → 사용자 방식 [11-06 피드백 180번]: 3마리가 같은 단계가 되면 하나씩 다음 단계로, 주재료는 파티·부재료는 방치 팀으로 키움,
+//   남는 소울은 전부 뽑기(제단 안 씀). STYLE=mix → 합성 순서는 OPT 방식, 방치 팀으로 부재료 키우기는 사용자 방식, 남는 소울은 뽑기 반·제단 반
+const STYLE = process.env.STYLE || '';
+const OPT = !!process.env.OPT || !!STYLE;
 const OFFLINE_CLAIMS_PER_DAY = +(process.env.OFFLINE_CLAIMS || 1);
 const OFFLINE_HOURS = OPT ? Array(8).fill(3) : Array(OFFLINE_CLAIMS_PER_DAY).fill(12); // 최적화 유저는 3시간마다 받음 (하루 24시간어치)
 // 실험용 덮어쓰기: DROP=드랍 배율, EXPA, EXPP, EXPW=승리 경험치 배율, OVR='{"키":값}'
@@ -58,8 +72,13 @@ function simulatePlayer(seed) {
     const best = Math.max(0, ...s.monsters.filter(m => m.el === el).map(m => m.tier));
     return T - best;
   };
-  const goalDone = () => STOP_FIRST ? s.monsters.some(m => m.tier === T) : MM.RING.every(el => s.monsters.some(m => m.el === el && m.tier === T));
+  const goalDone = () => process.env.NOSTOP ? false : GOAL ? s.monsters.some(m => m.tier >= GOAL) : STOP_FIRST ? s.monsters.some(m => m.tier === T) : MM.RING.every(el => s.monsters.some(m => m.el === el && m.tier === T));
 
+  // 키울 샤들링: 막힌 합성의 주재료 + 부재료. 최적화 유저는 부재료가 레벨이 모자랄 때만 넣고 나머지는 가장 센 샤들링
+  const focusOf = c => {
+    if (c && STYLE) { MM.setOfflineTeam(s, [c.sub.id]); return [c.main.id]; } // 부재료는 방치로
+    return !c ? [] : !OPT ? [c.main.id, c.sub.id] : c.sub.level < MM.summonLevel(c.sub.tier) ? [c.main.id, c.sub.id] : [c.main.id];
+  };
   function pickParty(focusIds) {
     const pool = s.monsters.slice();
     const chosen = [];
@@ -72,15 +91,18 @@ function simulatePlayer(seed) {
   }
 
   // 다음 목표 합성 후보: 짝은 맞는데 레벨 등으로 막힌 것 중 가장 가치 있는 것
+  const core = () => { const out = []; s.monsters.slice().sort((a, b) => b.tier - a.tier || b.level - a.level).forEach(m => { if (out.length < 3 && !out.some(c => c.el === m.el)) out.push(m); }); return out; };
   function bestCandidate() {
     let best = null;
+    const cs = STYLE === 'user' ? core() : null, coreMin = cs ? Math.min(...cs.map(m => m.tier)) : 0;
     for (const main of s.monsters) {
       if (!MM.canBeMain(main)) continue;
+      if (cs) { const inCore = cs.includes(main); if (inCore ? main.tier !== coreMin : main.tier + 1 > Math.max(1, coreMin - 1)) continue; }
       if (main.tier + 1 === T && s.monsters.some(m => m.el === main.el && m.tier === T)) continue; // 이미 5단계 있음
       for (const sub of s.monsters) {
         if (!MM.isPair(main, sub)) continue;
         // 부재료가 그 속성의 유일한 최고 단계 몬스터면 아끼기 (5단계 경로 보호)
-        const score = main.tier * 10 + (need(main.el) > 0 ? 5 : 0) - sub.tier * 0.1 + main.stack;
+        const score = main.tier * 10 + (need(main.el) > 0 ? 5 : 0) - sub.tier * 0.1 + main.stack + (cs && cs.includes(main) ? 1000 : 0);
         if (!best || score > best.score) best = { main, sub, score };
       }
     }
@@ -95,6 +117,7 @@ function simulatePlayer(seed) {
         if (sp.tier === T && s.monsters.some(m => m.el === sp.el && m.tier === T)) break;
         if (s.monsters.filter(m => m.el === sp.el && m.tier === sp.tier).length >= 3) break; // 같은 종 3마리까지만
         MM.summon(s, sp.el, sp.tier); log.summons++;
+        for (let tr = 2; tr <= sp.tier; tr++) if (log.first[tr] == null) log.first[tr] = (now - t0) / 86400000;
       }
     }
     // 1.5) 소울 먹이기: 소환용으로 FEED_KEEP개는 남기고, 나머지를 같은 속성 중 합성 조건 레벨이 모자란 몬스터에게
@@ -113,6 +136,9 @@ function simulatePlayer(seed) {
     for (let guard = 0; guard < 60; guard++) {
       const c = bestCandidate();
       if (!c) break;
+      // 합성하려면 방치 팀에서 빼야 함: 합성할 수 있을 때만 빼고, 막히면 그대로 둠 (부재료가 계속 방치 경험치를 받게)
+      const savedTeam = (s.offline.team || []).slice();
+      if (STYLE) s.offline.team = savedTeam.filter(id => id !== c.main.id && id !== c.sub.id);
       const cost = MM.fusionCost(c.main, c.sub);
       let soulEl = cost.soulOptions.slice().sort((a, b) => (s.souls[MM.speciesKey(b, cost.soulTier)] || 0) - (s.souls[MM.speciesKey(a, cost.soulTier)] || 0))[0];
       let chk = MM.fusionCheck(s, c.main, c.sub, soulEl);
@@ -135,6 +161,7 @@ function simulatePlayer(seed) {
         }
       }
       if (!chk.ok) {
+        if (STYLE) s.offline.team = savedTeam;
         if (chk.reasons.some(r => /골드/.test(r))) log.goldBlocked++;
         else if (chk.reasons.some(r => /소울/.test(r))) log.soulBlocked++;
         else if (chk.reasons.some(r => /Lv/.test(r))) log.levelBlocked++;
@@ -163,8 +190,12 @@ function simulatePlayer(seed) {
     // 2) 남는 소울: 지금 도는 단계 이상이면 뽑기(입장권·위 단계 소울), 최고 단계보다 2단계 이상 낮으면 제단
     for (const sp of MM.allSpecies()) {
       const have = () => s.souls[sp.key] || 0;
+      if (STYLE === 'user' || (STYLE === 'mix' && sp.tier % 2 === 0)) { while (have() >= keep + (sp.tier >= top - 1 ? B.EQUIP_CRAFT_SOULS : 0) + B.GACHA_COST) { const g = MM.gachaPull(s, sp.el, sp.tier, rng); if (g.error) break; log.gacha++; } continue; }
       if (sp.tier >= stageTier) { while (have() >= keep + B.GACHA_COST) { const g = MM.gachaPull(s, sp.el, sp.tier, rng); if (g.error) break; log.gacha++; } }
-      else if (sp.tier <= top - 2 && have() > keep) { const o = MM.offerSouls(s, sp.el, sp.tier, have() - keep); if (!o.error) log.offered += o.used; }
+      else if (sp.tier <= top - 2) {
+        const eq = MM.equippedOf(s, sp.el), save = keep + (!eq || sp.tier > eq.tier ? B.EQUIP_CRAFT_SOULS : sp.tier === eq.tier ? 60 : 0); // 장비 제작(100개)·강화용 소울은 남김
+        if (have() <= save) continue;
+        const o = MM.offerSouls(s, sp.el, sp.tier, have() - save); if (!o.error) log.offered += o.used; }
     }
     // 3) 골드: 다음 합성 골드(실패 스택 반영)는 남기고, 능력치 1%당 골드가 가장 싼 강화부터
     const c = bestCandidate();
@@ -199,10 +230,10 @@ function simulatePlayer(seed) {
     for (const k of MM.raidTiers()) {
       const rp = MM.raidParty(s);
       if (!rp || MM.raidTicketCount(s, k) <= 0) continue;
-      for (let guard = 0; guard < 15 && MM.raidTicketCount(s, k) > 0; guard++) {
+      for (let guard = 0; guard < 10 && MM.raidTicketCount(s, k) > 0; guard++) {
         const ph = MM.raidPhase(s, k);
         const bt = MM.simulateRaidPhase(P(rp), k, ph, rng, 'smart'); log.raidTries++; log.battles++; log.actions += bt.log.length;
-        if (bt.result !== 'win') { if (guard % 5 === 4) break; continue; }
+        if (bt.result !== 'win') continue;
         const w = MM.winRaidPhase(s, k, rng, (bt.units.filter(u => u.raid)[0] || {}).el);
         if (w.done) { log.raids++; w.reward.drops.forEach(d => log.wasted += d.wasted); }
       }
@@ -235,7 +266,7 @@ function simulatePlayer(seed) {
     // 던전 2판
     MM.refreshDaily(s, dayStart);
     let blocked = manage(dayStart);
-    pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
+    pickParty(focusOf(blocked));
     const dEl = MM.dungeonElementFor(dayStart);
     for (let k = 0; k < B.DUNGEON_DAILY; k++) {
       const party = P(s.party.map(id => MM.getMonster(s, id)));
@@ -290,15 +321,15 @@ function simulatePlayer(seed) {
     useTickets(); useBoss(); doRaids();
     // 자동 반복
     blocked = manage(dayStart);
-    pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
+    pickParty(focusOf(blocked));
     let party = s.party.map(id => MM.getMonster(s, id));
     let stage = chooseStage(party);
     invest(stage.tier);
     let fight = P(party);
     for (let run = 0; run < B.AUTO_REPEAT_DAILY; run++) {
-      if (run % 20 === 19) {
+      if (run % (OPT ? 100 : 20) === (OPT ? 99 : 19)) {
         blocked = manage(dayStart + run / B.AUTO_REPEAT_DAILY * 86400000 * 0.999);
-        pickParty(blocked ? [blocked.main.id, blocked.sub.id] : []);
+        pickParty(focusOf(blocked));
         party = s.party.map(id => MM.getMonster(s, id));
         stage = chooseStage(party);
         invest(stage.tier); fight = P(party);
@@ -312,6 +343,7 @@ function simulatePlayer(seed) {
       else { log.losses++; s.stats.battlesLost++; }
     }
     useTickets(); useBoss(); doRaids();
+    if (process.env.DEBUG && day % +process.env.DEBUG === 0) { const top = s.monsters.slice().sort((a, b) => b.tier - a.tier || b.level - a.level).slice(0, 4); process.stderr.write(day + "일 스테이지 " + stage.tier + " 파티 " + party.map(m => m.el + m.tier + "Lv" + m.level).join(",") + " 상위 " + top.map(m => m.el + m.tier + "Lv" + m.level + "/" + (m.tier < T ? MM.fuseLevelReq(m.tier) : "-")).join(",") + " 막힘 " + (blocked ? blocked.main.el + blocked.main.tier + "Lv" + blocked.main.level + "+" + blocked.sub.el + blocked.sub.tier + "Lv" + blocked.sub.level + " 이유: " + MM.fusionCheck(s, blocked.main, blocked.sub).reasons.join("/") : "-") + " 골드 " + s.gold + " 방치팀 " + MM.offlineTeam(s).map(id => { const m = MM.getMonster(s, id); return m ? m.el + m.tier + "Lv" + m.level : "?"; }).join(",") + "\n"); }
     s.offline.stage = { el: stage.el, tier: stage.tier };
     s.cleared[MM.speciesKey(stage.el, stage.tier)] = s.cleared[MM.speciesKey(stage.el, stage.tier)] || 1;
     log.maxGold = Math.max(log.maxGold, s.gold);
@@ -327,7 +359,12 @@ function simulatePlayer(seed) {
 }
 
 const res = [];
-for (let p = 0; p < PLAYERS; p++) res.push(simulatePlayer(1000 + p * 77));
+for (let p = 0; p < PLAYERS; p++) {
+  if (process.env.ONLY && +process.env.ONLY !== p) continue;
+  const r = simulatePlayer(1000 + p * 77); r.idx = p; res.push(r);
+  if (process.env.JSON) process.stderr.write('플레이어 ' + p + ' 끝: ' + (r.goalDay == null ? '목표 못 감' : r.goalDay + '일') + '\n');
+}
+if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first })))); }
 const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
