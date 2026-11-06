@@ -293,7 +293,7 @@
     check('장비 효과: 그 속성 샤들링만 단계×2% + 강화×1%', Math.abs(MM.playerMult(s, m) - 1.02) < 1e-9 && MM.playerMult(s, MM.addMonster(s, 'fire', 1)) === 1);
     var bp = MM.battleParty(s, [m]);
     check('전투에 장비 배율 반영 (원본은 그대로)', Math.abs(bp[0].mult - 1.02) < 1e-9 && !m.mult);
-    check('강화 비용: 0→1은 골드만, n→n+1은 소울 n개', MM.equipEnhCost({ el: 'light', tier: 1, plus: 0 }).souls === 0 && MM.equipEnhCost({ el: 'light', tier: 1, plus: 7 }).souls === 7);
+    check('강화 비용: 0→1은 골드만, 그 뒤는 시도마다 소울 1개 (무지개는 5강마다 1개씩)', MM.equipEnhCost({ el: 'light', tier: 1, plus: 0 }).souls === 0 && MM.equipEnhCost({ el: 'light', tier: 1, plus: 7 }).souls === 1 && MM.equipEnhCost({ el: 'rainbow', tier: 1, plus: 7 }).souls === 2);
     check('강화 성공률: 높을수록 낮게 시작, 천장에서 100%', MM.equipRate(0, 0) > MM.equipRate(5, 0) && MM.equipRate(5, MM.equipCeil(5) - 1) === 1 && MM.equipRate(15, 0) < 0.02);
     var e = r.equip, tries = 0;
     while (e.plus < 3 && tries < 50) { MM.enhanceEquip(s, e.id); tries++; }

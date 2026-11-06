@@ -176,7 +176,7 @@
   MM.equipEnhCost = function (e) {
     var b = B(), n = e.plus, rb = e.el === 'rainbow';
     // 무지개 장비는 소울 대신 레인보우 소울: 0→1은 0개, 1~5강 1개, 6~10강 2개 … [사용자 확정 10-27]
-    var souls = rb ? (n ? Math.ceil(n / (b.RAINBOW_ENH_STEP || 5)) : 0) : n;
+    var souls = rb ? (n ? Math.ceil(n / (b.RAINBOW_ENH_STEP || 5)) : 0) : (n ? 1 : 0); // [사용자 11-06] 일반 장비는 시도마다 소울 1개 (0→1은 골드만), 무지개는 그대로
     return { souls: souls, rainbow: rb, gold: Math.round(tv(b.EQUIP_ENH_GOLD, e.tier) * Math.pow(b.EQUIP_ENH_GOLD_GROWTH, n) / 10) * 10, key: rb ? 'rainbowSoul' : MM.speciesKey(e.el, e.tier), feather: n >= (b.FEATHER_FROM_PLUS || 999) ? 1 : 0 };
   };
   MM.rainbowSoulCount = function (s) { return (s.items && s.items.rainbowSoul) || 0; };
