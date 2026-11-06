@@ -16,6 +16,8 @@ if (process.env.MAXT) {
   B.MAX_TIER = n;
 }
 const T = B.MAX_TIER;
+// NOFUSESOUL=1 → 실험용: 합성에 소울이 안 든다고 가정 (골드만)
+if (process.env.NOFUSESOUL) { const fc = MM.fusionCost; MM.fusionCost = function () { const c = fc.apply(this, arguments); c.soulTier = null; c.soulOptions = []; c.souls = 0; return c; }; }
 // GOAL=15 → 샤들링 1마리가 15단계가 되면 그 플레이어는 끝 / NOSTOP=1 → 목표와 상관없이 MAX_DAYS까지 / ONLY=번호 → 그 플레이어만 / JSON=1 → 플레이어별 첫 n단계 일수를 JSON으로
 const GOAL = +(process.env.GOAL || 0);
 const PLAYERS = +process.argv[2] || 12, MAX_DAYS = +process.argv[3] || 60;
