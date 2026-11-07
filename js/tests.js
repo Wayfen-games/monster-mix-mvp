@@ -125,7 +125,7 @@
   total = 0;
   for (i = 0; i < N; i++) { dd = MM.rollDrops([{ el: 'fire', tier: 1 }], rng, 30); total += dd.fire1 || 0; }
   check('던전 30배도 평균 유지', Math.abs(total / N / 30 - MM.soulDropAvg(1)) < 0.01, (total / N).toFixed(2));
-  check('소울 드랍: 10단계 하루 1,323판에 이틀에 1개, 단계마다 ×0.5', close(MM.soulDropAvg(10) * 1323 * 3.5, 0.5) && Math.abs(MM.soulDropAvg(4) / MM.soulDropAvg(3) - 0.5) < 1e-9);
+  check('소울 드랍: 10단계 하루 1,323판에 이틀에 1개, 5단계부터 ×0.5, 1~5단계는 ×0.4 [11-07]', close(MM.soulDropAvg(10) * 1323 * 3.5, 0.5) && Math.abs(MM.soulDropAvg(6) / MM.soulDropAvg(5) - 0.5) < 1e-9 && Math.abs(MM.soulDropAvg(4) / MM.soulDropAvg(3) - 0.4) < 1e-9);
   var over = MM.rollDrops([{ el: 'fire', tier: B.MAX_TIER + 2 }], ALWAYS, 1);
   check('소울은 맨 위 단계 + 1(11단계)까지만 나옴', !over['fire' + (B.MAX_TIER + 2)] && over['fire' + (B.MAX_TIER + 1)] > 0);
   (function () { var s11 = MM.newState(t0); s11.souls['fire' + (B.MAX_TIER + 1)] = 100;
@@ -326,7 +326,7 @@
     var r = MM.offerSouls(s, 'fire', 1, 20);
     check('제단: 1단계 소울 20개(20점) → Lv 1', r.level === 1 && MM.altarOf(s, 'fire').pts === 0);
     MM.offerSouls(s, 'fire', 3, 1);
-    check('제단: 3단계 소울 1개 = 드랍률 비 4점', MM.altarSoulPoints(3) === 4 && MM.altarOf(s, 'fire').level >= 1, MM.altarSoulPoints(3));
+    check('제단: 3단계 소울 1개 = 드랍률 비 6점 (1/0.4²)', MM.altarSoulPoints(3) === 6 && MM.altarOf(s, 'fire').level >= 1, MM.altarSoulPoints(3));
     check('제단 보너스: 그 속성만 능력치·경험치', MM.playerMult(s, m) > 1 && MM.altarExpBonus(s, 'water') === 0);
     var s2 = MM.newState(t0), seen = {}, acc = 0;
     B.GACHA_TABLE.forEach(function (row) { var x = acc + row.p / 2; acc += row.p; s2.souls.water2 = 100; var g = MM.gachaPull(s2, 'water', 2, function () { return x; }); seen[g.kind + g.n] = g; });

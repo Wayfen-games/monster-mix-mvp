@@ -293,6 +293,8 @@ function simulatePlayer(seed) {
   }
   // ---- 최적화 유저의 레이드: 입장권이 있고 속성별 5마리가 있으면 대응 전투로 도전 (하루 페이즈당 5번까지) ----
   function doRaids() {
+    if (process.env.FIRSTRAID && !log.firstRaidGiven && log.bosses > 0) { log.firstRaidGiven = 1; MM.addRaidTickets(s, 1, 1); } // 시험: 첫 보스 승리에 1단계 레이드 입장권 1장
+    { const d = (now0.t - t0) / 86400000; if (log.raidReady == null && MM.raidParty(s)) log.raidReady = d; if (log.raidTicket1 == null && MM.raidTicketTotal(s) > 0) log.raidTicket1 = d; if (log.raidWin1 == null && log.raids > 0) log.raidWin1 = d; }
     if (!OPT) return;
     for (const k of MM.raidTiers()) {
       const rp = MM.raidParty(s);
@@ -443,7 +445,7 @@ for (let p = 0; p < PLAYERS; p++) {
   const r = simulatePlayer(1000 + p * 77); r.idx = p; res.push(r);
   if (process.env.JSON) process.stderr.write('플레이어 ' + p + ' 끝: ' + (r.goalDay == null ? '목표 못 감' : r.goalDay + '일') + '\n');
 }
-if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, raids: r.raids, raidTries: r.raidTries, rainbowEq: r.rainbowEq, hiAt: r.hiAt, snaps: r.snaps, bosses: r.bosses, bossTries: r.bossTries, wasted: r.wasted, eqTries: r.eqTries, monTries: r.monTries, monGold: r.monGold, gacha: r.gacha, offered: r.offered, decomp: r.decomp, rbFromDecomp: r.rbFromDecomp, featherUsed: r.featherUsed, rbUsed: r.rbUsed, eqGot: r.eqGot, raidTryBy: r.raidTryBy, raidWinBy: r.raidWinBy, crafted: r.crafted, tickets: r.tickets, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked })))); }
+if (process.env.JSON) { require('fs').writeFileSync(process.env.JSON, JSON.stringify(res.map(r => ({ idx: r.idx, goalDay: r.goalDay, first: r.first, maxFirst: r.maxFirst, topMaxDays: r.topMaxDays, days: r.days, goldSeries: r.goldSeries, maxGold: r.maxGold, hi: r.hi, goldBlocked: r.goldBlocked, maxPlus: r.maxPlus, eqPlus: r.eqPlus, feathers: r.feathers, eqGold: r.eqGold, raids: r.raids, raidTries: r.raidTries, rainbowEq: r.rainbowEq, hiAt: r.hiAt, snaps: r.snaps, bosses: r.bosses, bossTries: r.bossTries, wasted: r.wasted, eqTries: r.eqTries, monTries: r.monTries, monGold: r.monGold, gacha: r.gacha, offered: r.offered, decomp: r.decomp, rbFromDecomp: r.rbFromDecomp, featherUsed: r.featherUsed, rbUsed: r.rbUsed, eqGot: r.eqGot, raidTryBy: r.raidTryBy, raidWinBy: r.raidWinBy, crafted: r.crafted, tickets: r.tickets, levelBlocked: r.levelBlocked, soulBlocked: r.soulBlocked, raidReady: r.raidReady, raidTicket1: r.raidTicket1, raidWin1: r.raidWin1 })))); }
 const med = a => { const x = a.slice().sort((p, q) => p - q); return x[Math.floor(x.length / 2)]; };
 const avg = (f) => (res.reduce((a, r) => a + f(r), 0) / res.length);
 const fmt = d => d >= 90 ? '-' : d < 1 ? d.toFixed(2) : d.toFixed(1);
