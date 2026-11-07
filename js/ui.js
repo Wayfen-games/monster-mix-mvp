@@ -176,7 +176,7 @@
       b.classList.toggle('on', b.dataset.tab === (tabFor[view.tab] || view.tab));
     });
     var sc = $('screen'); // 11-07 전투 배경: 적 속성 그림 (레이드는 빛)
-    if (view.tab === 'battle' && view.battle) { var VB = view.battle, eb = VB.bt.units.filter(function (u) { return u.side === 'e' && u.boss; })[0], bgEl = VB.kind === 'raid' || VB.kind === 'boss' ? 'light' : [VB.el, VB.els && VB.els[0], eb && eb.el].filter(function (e) { return e && MM.RING.indexOf(e) >= 0; })[0] || 'light'; sc.style.backgroundImage = 'linear-gradient(rgba(20,14,8,.15), rgba(20,14,8,.55)), url(art/bg/' + bgEl + '.jpg)'; sc.classList.add('bg-battle'); }
+    if (view.tab === 'battle' && view.battle) { var VB = view.battle, eb = VB.bt.units.filter(function (u) { return u.side === 'e' && u.boss; })[0], bgEl = VB.kind === 'raid' ? 'raid' : VB.kind === 'boss' ? 'light' : [VB.el, VB.els && VB.els[0], eb && eb.el].filter(function (e) { return e && MM.RING.indexOf(e) >= 0; })[0] || 'light'; sc.style.backgroundImage = 'linear-gradient(rgba(20,14,8,.15), rgba(20,14,8,.55)), url(art/bg/' + bgEl + '.jpg)'; sc.classList.add('bg-battle'); }
     else if (sc.classList.contains('bg-battle')) { sc.style.backgroundImage = ''; sc.classList.remove('bg-battle'); }
     var fn = SCREENS[view.tab] || SCREENS.home;
     $('screen').innerHTML = fn();
