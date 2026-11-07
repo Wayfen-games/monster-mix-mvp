@@ -373,3 +373,6 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 .town-hint img { width: 28px; height: 28px; flex: none; }
 img.ic { width: 1.35em; height: 1.35em; vertical-align: -0.32em; margin-right: 1px; }
 h2 img.ic { width: 1.5em; height: 1.5em; }
+#screen.bg-battle { background-size: cover; background-position: center top; }
+#screen.bg-battle .battle > .row:first-child, #screen.bg-battle .battle-mid { text-shadow: 0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.6); }
+#screen.bg-battle .battle-mid { background: rgba(26,19,12,.55); border-radius: 12px; padding: 6px 10px; }
