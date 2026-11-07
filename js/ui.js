@@ -361,7 +361,21 @@
     return html + (view.stageSeg === 'dungeon' ? dungeonHtml() : view.stageSeg === 'ticket' ? ticketHtml() : view.stageSeg === 'boss' ? bossHtml() : view.stageSeg === 'raid' ? raidHtml() : stageListHtml());
   };
 
+  // [11-07] 월드맵: 마을 가운데, 다섯 지역(위치는 그림 768×1376 기준 %). '모험하는 느낌'(피드백 172) 시험
+  var MAP_REGIONS = [
+    { el: 'light', x: 26, y: 4, w: 48, h: 26 }, { el: 'fire', x: 62, y: 18, w: 36, h: 36 }, { el: 'water', x: 55, y: 56, w: 43, h: 38 },
+    { el: 'grass', x: 2, y: 52, w: 46, h: 42 }, { el: 'dark', x: 2, y: 8, w: 30, h: 40 }
+  ];
+  function worldMapHtml() {
+    var mt = maxPartyTier();
+    return '<div class="town wmap"><img class="town-bg" src="art/worldmap.jpg" alt="" draggable="false">' + MAP_REGIONS.map(function (r) {
+      var cleared = MM.tiers().filter(function (t) { return S.cleared[MM.speciesKey(r.el, t)]; }).length;
+      return '<button class="spot" data-act="mapRegion" data-el="' + r.el + '" style="left:' + r.x + '%;top:' + r.y + '%;width:' + r.w + '%;height:' + r.h + '%"><span class="spot-label" style="top:40%"><img src="art/ui/' + r.el + '.png" alt="">' + MM.ELEMENTS[r.el].name + ' 지역 <span class="muted small" style="color:#8a6232">' + cleared + '/' + T() + '</span></span></button>';
+    }).join('') + '<button class="spot" data-act="tab" data-tab="home" style="left:40%;top:41%;width:20%;height:14%"><span class="spot-label" style="top:70%"><img src="art/ui/home.png" alt="">마을</span></button></div>' +
+      '<button class="btn sm" style="margin-bottom:10px" data-act="stageView" data-v="grid">표로 보기</button>';
+  }
   function stageListHtml() {
+    if (view.stageView !== 'grid') return worldMapHtml();
     var mt = maxPartyTier();
     var html = '<div class="card">' + elChart() + '</div>' +
       '<div class="muted small" style="margin-bottom:10px">n단계 스테이지 = (n+1)단계 보스 + n단계 쫄 2마리. 노란 테두리 = 지금 파티 단계</div>';
@@ -374,7 +388,7 @@
           monSvg(el, bossT, 24) + '<span>' + (c ? '✓' + c : '') + '</span></button>';
       });
     });
-    return html + '</div></div>';
+    return html + '</div></div><button class="btn sm" style="margin-top:10px" data-act="stageView" data-v="map">지도로 보기</button>';
   }
 
   function possibleSouls(el, tier) {
@@ -1409,6 +1423,14 @@
   var ACTIONS = {
     tab: function (d) { if (d.bag) view.bagSeg = d.bag; if (d.mon) view.monSeg = d.mon; if (d.seg) view.stageSeg = d.seg; go(d.tab); },
     stageSeg: function (d) { view.stageSeg = d.v; render(); },
+    stageView: function (d) { view.stageView = d.v; render(); },
+    mapRegion: function (d) { // 지역을 누르면 그 속성 스테이지 1~T단계를 길처럼 보여 줌
+      var el = d.el, mt = maxPartyTier();
+      openSheet('<div class="row" style="gap:8px"><img class="ic" src="art/ui/' + el + '.png" alt=""><b>' + MM.ELEMENTS[el].name + ' 지역</b> <span class="muted small">' + MM.ELEMENTS[el].name + ' 몬스터가 나와요 · 노란 칸 = 지금 파티 단계</span></div>' +
+        '<div class="map-path">' + MM.tiers().map(function (t) { var c = S.cleared[MM.speciesKey(el, t)] || 0;
+          return '<button class="stage-cell' + (c ? ' clear' : '') + (t === mt ? ' rec' : '') + '" data-act="mapStage" data-el="' + el + '" data-tier="' + t + '"><span class="small">' + t + '</span>' + monSvg(el, t + 1, 26) + '<span>' + (c ? '✓' + c : '') + '</span></button>'; }).join('') + '</div>');
+    },
+    mapStage: function (d) { closeSheet(); ACTIONS.stage(d); },
     bagSeg: function (d) { view.bagSeg = d.v; render(); },
     startRaid: function (d) { var k = +d.tier; if (MM.raidTicketCount(S, k) <= 0) { toast('레이드 입장권이 없어요'); return; } startBattle('raid', { tier: k }); },
     sweepTicket: function (d) {

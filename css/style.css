@@ -401,3 +401,7 @@ h3 { color: #e8c98e; letter-spacing: -0.2px; }
 .side.five .unit .hpnum { font-size: 10px; color: #e3cfa6; letter-spacing: -0.3px; }
 .side.five .unit .nm { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #screen.bg-battle .battle > .row:first-child > .muted { background: rgba(26,19,12,.7); color: #f5e3bd; border-radius: 10px; padding: 4px 8px; }
+/* [11-07] 월드맵 */
+.town.wmap { aspect-ratio: 768 / 1376; margin-bottom: 10px; }
+.map-path { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+.map-path .stage-cell { aspect-ratio: auto; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
