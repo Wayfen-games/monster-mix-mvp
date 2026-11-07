@@ -232,7 +232,7 @@
   }
   // [11-07 N2] 같은 소울을 제단에 바치면 어떻게 되는지 나란히 보여 줌 (규칙은 그대로, 정보만)
   // [11-07] 사용자 확인 전이라 꺼 둔 기능(공개 주소). true면 숨김 — 승인되면 false로
-  var HOLD = { altarCompare: true, raidArt: true, board: true };
+  var HOLD = { altarCompare: true, raidArt: true, board: true, regionMap: true };
   function altarCompare(el, tier, n) {
     if (HOLD.altarCompare || !n) return '';
     var a = MM.altarOf(S, el), p = MM.offerPreview(S, el, tier, n), need = MM.altarNeed(p.level);
@@ -1431,7 +1431,7 @@
     stageView: function (d) { view.stageView = d.v; render(); },
     mapRegion: function (d) { // 지역을 누르면 그 속성 스테이지 1~T단계를 길처럼 보여 줌
       var el = d.el, mt = maxPartyTier();
-      if (REGION_PATH[el]) {
+      if (!HOLD.regionMap && REGION_PATH[el]) {
         var pts = REGION_PATH[el];
         openSheet('<div class="row" style="gap:8px"><img class="ic" src="art/ui/' + el + '.png" alt=""><b>' + MM.ELEMENTS[el].name + ' 지역</b> <span class="muted small">돌다리를 눌러 도전 · 노란 칸 = 지금 파티 단계</span></div>' +
           '<div class="region-map"><img src="art/region/' + el + '.jpg" alt="" draggable="false">' + MM.tiers().map(function (t, i) { var p = pts[i]; if (!p) return ''; var c = S.cleared[MM.speciesKey(el, t)] || 0;
