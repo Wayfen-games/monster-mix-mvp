@@ -186,7 +186,7 @@
 
   // ================= 마을 =================
   SCREENS.altar = function () {
-    var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🔥 소울 제단</h2>' +
+    var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2><img class="ic" src="art/ui/altar.png" alt=""> 소울 제단</h2>' +
       '<div class="muted small lh" style="margin-bottom:10px">속성마다 제단이 있어요. 그 속성 소울을 바치면 제단 레벨이 오르고, 그 속성 샤들링 전체가 영구히 강해져요.<br>레벨당 경험치 +' + Math.round(BAL().ALTAR_EXP_PER_LV * 100) + '% · 체력·공격·방어 +' + (BAL().ALTAR_STAT_PER_LV * 100) + '% · 귀한(높은 단계) 소울일수록 많이 차요 (1단계 1점 · 2단계 ' + MM.altarSoulPoints(2) + '점 · 3단계 ' + MM.altarSoulPoints(3) + '점 …)</div>';
     MM.RING.forEach(function (el) {
       var a = MM.altarOf(S, el), need = MM.altarNeed(a.level);
@@ -209,7 +209,7 @@
   }
   SCREENS.gacha = function () {
     var c = BAL().GACHA_COST;
-    var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2>🎁 소울 뽑기</h2>' +
+    var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2><img class="ic" src="art/ui/gacha.png" alt=""> 소울 뽑기</h2>' +
       '<div class="muted small lh" style="margin-bottom:10px">같은 소울 ' + c + '개로 한 번 뽑아요. 꽝 없음! 같은 단계 소울 ' + BAL().GACHA_TABLE.filter(function (r) { return r.kind === 'souls'; }).map(function (r) { return r.n; }).join('·') + '개, 입장권 1·2·3·5장, 한 단계 위 소울 ' + BAL().GACHA_TABLE.filter(function (r) { return r.kind === 'up'; }).map(function (r) { return r.n; }).join('·') + '개 중 하나 · 아주 가끔 보스 입장권!</div>' +
       '<div class="hscroll"><div class="tgrid" style="' + gridCols() + '"><div></div>' + MM.tiers().map(function (t) { return '<div class="head">' + t + '단계</div>'; }).join('');
     MM.RING.forEach(function (el) {
@@ -239,12 +239,12 @@
     var bossT = 0; res.forEach(function (r) { bossT += r.bossTickets || 0; }); res.forEach(function (r) { r.drops.forEach(function (d) { var x = drops[d.key] || (drops[d.key] = { key: d.key, el: d.el, tier: d.tier, count: 0, added: 0, wasted: 0, first: false }); x.count += d.count; x.added += d.added; x.wasted += d.wasted; x.first = x.first || d.first; }); tickets += r.tickets; });
     var list = Object.keys(drops).map(function (k) { return drops[k]; }).sort(function (a, b) { return b.tier - a.tier; });
     var big = best.big || best.kind === 'up' || (best.kind === 'ticket' && best.n >= 3);
-    var icon = best.kind === 'boss' ? '🌈' : best.kind === 'up' ? (best.big ? '💎' : '✨') : best.kind === 'ticket' ? '🎟' : '🎁';
+    var icon = '<img src="art/ui/' + (best.kind === 'boss' ? 'bossticket' : best.kind === 'up' ? (best.big ? 'rainbow' : 'light2') : best.kind === 'ticket' ? 'scroll' : 'gacha') + '.png" width="112" height="112" alt="" style="vertical-align:middle">';
     var tally = {}; res.forEach(function (r) { var k = gachaLabel(r).replace(/!/g, ''); tally[k] = (tally[k] || 0) + 1; });
     showOverlay('<div class="result ok"><div class="stage-anim"><div class="' + (big ? raysClass(best.big ? 5 : 4) : 'rays reveal now') + '"></div><div class="pop now" style="font-size:96px;line-height:130px">' + icon + '</div></div>' +
       '<div class="reveal now"><div class="big ok">' + gachaLabel(best) + '</div><div class="sub">' + MM.soulName(el, tier) + ' 뽑기 ' + res.length + '번' + '</div>' +
       (res.length > 1 ? '<div class="muted small" style="margin-top:6px">' + Object.keys(tally).map(function (k) { return k + ' ×' + tally[k]; }).join(' · ') + '</div>' : '') +
-      '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare">🎟 ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + (bossT ? '<div class="soul-item rare">🌈 ' + tier + '단계 보스 입장권 ×' + bossT + '</div>' : '') + '</div></div>' +
+      '<div class="card" style="margin-top:14px;text-align:left"><div class="soul-list">' + (list.length ? dropsHtml(list) : '') + (tickets ? '<div class="soul-item rare"><img class="ic" src="art/ui/scroll.png" alt=""> ' + tier + '단계 입장권 ×' + tickets + '</div>' : '') + (bossT ? '<div class="soul-item rare"><img class="ic" src="art/ui/rainbow.png" alt=""> ' + tier + '단계 보스 입장권 ×' + bossT + '</div>' : '') + '</div></div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div></div>');
     var rare = rareOf(list); if (rare.length) rare.forEach(showBanner);
   }
@@ -437,12 +437,12 @@
   };
   function bossHtml() {
     var leftB = MM.bossLeftToday(S, Date.now());
-    var html = '<div class="card"><div class="row between"><b>🌈 레인보우 샤들링</b><span class="chip gold">입장권 ' + MM.bossTicketTotal(S) + '장</span></div>' +
-      '<div class="row between small" style="margin-top:6px"><span>오늘 보상 <b>' + leftB + '/' + BAL().BOSS_DAILY_REWARDS + '</b>번 남음</span><span>🪶 무지개 깃털 <b>' + MM.featherCount(S) + '</b>개</span></div>' +
-      '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×' + Math.round(BAL().FEATHER_DROP_PER_TIER * 100) + '% 확률로 🪶 무지개 깃털, n×' + Math.round(BAL().BOSS_RAINBOW_SOUL_PER_TIER * 100) + '% 확률로 🌈 레인보우 소울, 가끔 ⚔ 레이드 입장권(레이드 탭 참고) · 🪶 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 입장권은 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
+    var html = '<div class="card"><div class="row between"><b><img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 샤들링</b><span class="chip gold">입장권 ' + MM.bossTicketTotal(S) + '장</span></div>' +
+      '<div class="row between small" style="margin-top:6px"><span>오늘 보상 <b>' + leftB + '/' + BAL().BOSS_DAILY_REWARDS + '</b>번 남음</span><span><img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털 <b>' + MM.featherCount(S) + '</b>개</span></div>' +
+      '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×' + Math.round(BAL().FEATHER_DROP_PER_TIER * 100) + '% 확률로 <img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털, n×' + Math.round(BAL().BOSS_RAINBOW_SOUL_PER_TIER * 100) + '% 확률로 <img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 소울, 가끔 <img class="ic" src="art/ui/raidticket.png" alt=""> 레이드 입장권(레이드 탭 참고) · <img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 입장권은 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
     MM.tiers().forEach(function (t) {
       var n = MM.bossTicketCount(S, t), sk = BAL().BOSS_SKILLS[t] || [];
-      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 레인보우 샤들링</b><span class="chip' + (n ? ' gold' : '') + '">🌈 ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
+      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 레인보우 샤들링</b><span class="chip' + (n ? ' gold' : '') + '"><img class="ic" src="art/ui/rainbow.png" alt=""> ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
         '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + (t < T() ? MM.fuseLevelReq(t) : MM.summonLevel(t) + 10) + ' 이상 3마리 + ' + t + '단계 장비 +5</div></div>' +
         '<button class="btn primary sm block" data-act="startBoss" data-tier="' + t + '"' + (n && S.party.length && leftB ? '' : ' disabled') + '>' + (n ? (leftB ? '도전 (이기면 입장권 1장 사용)' : '오늘 보상을 다 받았어요') : t + '단계 던전에서 입장권을 모아 보세요') + '</button></div>';
     });
@@ -451,15 +451,15 @@
   // 레이드 [사용자 확정 10-27]: 속성별 1마리씩 5마리 vs 레이드 보스, 3페이즈, 페이즈마다 저장
   function raidHtml() {
     var party = MM.raidParty(S);
-    var html = '<div class="card"><div class="row between"><b>⚔ 레이드</b><span class="chip gold">입장권 ' + MM.raidTicketTotal(S) + '장</span></div>' +
+    var html = '<div class="card"><div class="row between"><b><img class="ic" src="art/ui/raidticket.png" alt=""> 레이드</b><span class="chip gold">입장권 ' + MM.raidTicketTotal(S) + '장</span></div>' +
       '<div class="muted small lh" style="margin-top:6px">다섯 속성 샤들링이 1마리씩 힘을 모아 거대한 레인보우 샤들링과 싸워요 · 3페이즈 (약 10분) · 페이즈를 깨면 저장돼서 나중에 이어 할 수 있어요 · 3페이즈까지 깨면 입장권 1장 사용<br>' +
       '레이드 입장권은 레인보우 샤들링(보스)을 이기면 나와요: k단계 레이드 입장권은 ' + (BAL().RAID_TIER_STEP) + '(k-1)+1단계 보스부터 ' + Math.round(BAL().RAID_TICKET_STEP * 100) + '%, 한 단계 오를 때마다 +' + Math.round(BAL().RAID_TICKET_STEP * 100) + '% (최대 ' + Math.round(BAL().RAID_TICKET_MAX * 100) + '%) — 예: 1단계 레이드는 1단계 보스 2% … 5단계 이상 10%, 2단계 레이드는 6단계 보스 2%부터<br>' +
-      '보상: 골드 ×' + BAL().RAID_GOLD_MULT + ' · 🌈 레인보우 소울 1~' + BAL().RAID_RAINBOW_STEP + 'k개(반올림) · 🪶 무지개 깃털 k×' + Math.round(BAL().RAID_FEATHER_STEP * 100) + '% · ⚔ 가끔 무지개 장비와 속성 장비 (단계가 높을수록 드묾)</div>' +
+      '보상: 골드 ×' + BAL().RAID_GOLD_MULT + ' · <img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 소울 1~' + BAL().RAID_RAINBOW_STEP + 'k개(반올림) · <img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털 k×' + Math.round(BAL().RAID_FEATHER_STEP * 100) + '% · <img class="ic" src="art/ui/raidticket.png" alt=""> 가끔 무지개 장비와 속성 장비 (단계가 높을수록 드묾)</div>' +
       '<div style="margin-top:10px"><div class="muted small">레이드 파티 (속성마다 가장 센 샤들링)</div><div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">' +
       (party ? party.map(function (m) { return '<div class="chip" style="display:flex;align-items:center;gap:4px">' + monSvg(m.el, m.tier, 22) + name(m) + ' Lv' + m.level + '</div>'; }).join('') : MM.RING.map(function (el) { var best = sortMons(S.monsters.filter(function (m) { return m.el === el; }))[0]; return best ? '<div class="chip" style="display:flex;align-items:center;gap:4px">' + monSvg(best.el, best.tier, 22) + name(best) + ' Lv' + best.level + '</div>' : '<div class="chip" style="display:flex;align-items:center;gap:4px;border:1px dashed var(--bad);color:var(--bad)">' + elName(el) + ' 없음</div>'; }).join('') + '<div class="lack small" style="width:100%;margin-top:4px">' + MM.RING.filter(function (el) { return !S.monsters.some(function (m) { return m.el === el; }); }).map(function (el) { return MM.ELEMENTS[el].name; }).join('·') + ' 샤들링이 없어요. 그 속성 스테이지에서 소울 ' + BAL().SOULS_PER_SUMMON + '개를 모아 소환하면 도전할 수 있어요</div>') + '</div></div></div>';
     MM.raidTiers().forEach(function (k) {
       var n = MM.raidTicketCount(S, k), ph = MM.raidPhase(S, k), rt = MM.raidRefTier(k);
-      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + k + '단계 레이드</b><span class="chip' + (n ? ' gold' : '') + '">⚔ ' + n + '장</span></div>' +
+      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + k + '단계 레이드</b><span class="chip' + (n ? ' gold' : '') + '"><img class="ic" src="art/ui/raidticket.png" alt=""> ' + n + '장</span></div>' +
         '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', rt, 64) + '<div class="muted small lh">추천: ' + rt + '단계 샤들링 5마리 + ' + rt + '단계 장비 +10<br>진행: ' + [0, 1, 2].map(function (i) { return i < ph ? '✅' : i === ph ? '▶' : '⬜'; }).join(' ') + ' (' + (ph + 1) + '페이즈 차례)<br>레인보우 소울 1~' + Math.round(k * BAL().RAID_RAINBOW_STEP) + '개 · 깃털 ' + Math.round(Math.min(1, k * BAL().RAID_FEATHER_STEP) * 100) + '% · 무지개 장비 ' + (Math.round(MM.raidEquipTable(k).reduce(function (a, r) { return a + r.p; }, 0) * 1000) / 10) + '% (1~' + rt + '단계, ' + rt + '단계는 ' + (Math.round(MM.raidEquipTable(k)[0].p * 1000) / 10) + '%) · 속성 장비는 속성마다 ' + (BAL().RAID_NORMAL_EQUIP_RATE === 1 ? '같은 확률' : '그 ' + BAL().RAID_NORMAL_EQUIP_RATE + '배') + '</div></div>' +
         '<button class="btn primary sm block" data-act="startRaid" data-tier="' + k + '"' + (n && party ? '' : ' disabled') + '>' + (n ? (ph ? (ph + 1) + '페이즈 이어 하기' : '도전 (3페이즈까지 깨면 입장권 1장 사용)') : '레인보우 샤들링을 이겨서 입장권을 모아 보세요') + '</button></div>';
     });
@@ -467,7 +467,7 @@
   }
   function ticketHtml() {
     var els = view.ticketEls, ready = els.length === 3;
-    var html = '<div class="card"><div class="row between"><b>🎟 입장권 던전</b><span class="chip gold">입장권 ' + MM.ticketTotal(S) + '장</span></div>' +
+    var html = '<div class="card"><div class="row between"><b><img class="ic" src="art/ui/scroll.png" alt=""> 입장권 던전</b><span class="chip gold">입장권 ' + MM.ticketTotal(S) + '장</span></div>' +
       '<div class="muted small lh" style="margin-top:6px">입장권으로만 들어가는 던전이에요. 요일 던전 하루 ' + BAL().DUNGEON_DAILY + '번과 별개 · 요일 상관없이 속성 3개 선택 · 보상은 요일 던전과 같아요<br>입장권은 스테이지(자동 반복 포함)와 방치 보상에서 가끔 나와요 · 유효기간 없음 · 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 이겨서 보상을 받을 때만 1장 써요</div></div>' +
       '<div class="card"><b>서로 다른 속성 3개 고르기 (' + els.length + '/3)</b><div class="el-pick" style="margin:10px 0 0">' + MM.RING.map(function (el) {
         return '<button class="' + (els.indexOf(el) >= 0 ? 'on' : '') + '" data-act="tEl" data-el="' + el + '">' + monSvg(el, 2, 28) + '<div>' + MM.ELEMENTS[el].name + '</div></button>';
@@ -475,7 +475,7 @@
     MM.tiers().forEach(function (t) {
       var n = MM.ticketCount(S, t);
       var icons = ready ? els.map(function (e) { return monSvg(e, t, 34); }).join('') : unknownSvg(34) + unknownSvg(34) + unknownSvg(34);
-      html += '<div class="card" style="' + (n ? '' : 'opacity:.55') + '"><div class="row between"><div><b>' + t + '단계 입장권 던전</b> <span class="muted small">' + t + '단계 3마리 · 1단계 소울 확정</span></div><span class="chip' + (n ? ' gold' : '') + '">🎟 ' + n + '장' + (MM.ticketBound(S, t) ? ' · 교환 불가 ' + MM.ticketBound(S, t) : '') + '</span></div>' +
+      html += '<div class="card" style="' + (n ? '' : 'opacity:.55') + '"><div class="row between"><div><b>' + t + '단계 입장권 던전</b> <span class="muted small">' + t + '단계 3마리 · 1단계 소울 확정</span></div><span class="chip' + (n ? ' gold' : '') + '"><img class="ic" src="art/ui/scroll.png" alt=""> ' + n + '장' + (MM.ticketBound(S, t) ? ' · 교환 불가 ' + MM.ticketBound(S, t) : '') + '</span></div>' +
         '<div class="row" style="margin:10px 0;justify-content:center;gap:12px">' + icons + '</div>' +
         '<button class="btn primary sm block" data-act="startTicket" data-tier="' + t + '"' + (n && ready && S.party.length ? '' : ' disabled') + '>' + (n ? '도전 (이기면 입장권 1장 사용)' : t + '단계 스테이지에서 입장권을 모아 보세요') + '</button>' +
         (MM.ticketCleared(S, t) && n ? '<div class="grid2" style="margin-top:8px"><button class="btn sm" data-act="sweepTicket" data-tier="' + t + '" data-n="1"' + (ready ? '' : ' disabled') + '>소탕 1장</button><button class="btn sm" data-act="sweepTicket" data-tier="' + t + '" data-n="' + n + '"' + (ready ? '' : ' disabled') + '>전부 소탕 (' + n + '장)</button></div>' : '') + '</div>';
@@ -574,7 +574,7 @@
 
   function sessionTally(ss) {
     var keys = Object.keys(ss.drops).sort(function (a, b) { return MM.parseKey(b).tier - MM.parseKey(a).tier; });
-    var tk = ss.tickets ? '<span class="chip gold">🎟 ' + (ss.ticketTier || '') + '단계 입장권 ×' + ss.tickets + '</span>' : '';
+    var tk = ss.tickets ? '<span class="chip gold"><img class="ic" src="art/ui/scroll.png" alt=""> ' + (ss.ticketTier || '') + '단계 입장권 ×' + ss.tickets + '</span>' : '';
     return '<div class="tally">' + tk + (keys.length ? keys.slice(0, 8).map(function (k) { var p = MM.parseKey(k); return '<span class="chip' + (isRare(p.tier) ? ' gold' : '') + '">' + monSvg(p.el, p.tier, 14) + MM.soulName(p.el, p.tier) + ' ×' + ss.drops[k] + '</span>'; }).join('') : (tk ? '' : '<span class="muted small">아직 얻은 소울이 없어요</span>')) + '</div>';
   }
 
@@ -614,7 +614,7 @@
       var dead = bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; }), dis = function (ok) { return myTurn && ok ? '' : ' disabled'; };
       // [사용자 확정 10-27 12:31] 보스·레이드도 자동 전투: 공격만 반복 (방어·집중·회복·부활은 직접 해야 함)
       if (Bt.pending && myTurn) html += '<div class="boss-plan" style="border-color:var(--good)">' + (Bt.pending === 'heal' ? '💚 회복할 아군을 누르세요' : '✨ 살릴 아군을 누르세요') + ' <button class="btn sm" data-act="bossCancel">취소</button></div>';
-      html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + dis(true) + '>⚔ 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + dis(true) + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + dis(true) + '>✊ 집중</button></div>' +
+      html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + dis(true) + '><img class="ic" src="art/ui/sword.png" alt=""> 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + dis(true) + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + dis(true) + '>✊ 집중</button></div>' +
         '<div class="battle-bar boss-acts two"><button class="btn good" data-act="bossAct" data-a="heal"' + dis(bt.healsLeft > 0) + '>💚 회복 ' + bt.healsLeft + '</button><button class="btn good" data-act="bossAct" data-a="revive"' + dis(bt.revivesLeft > 0 && dead) + '>✨ 부활 ' + bt.revivesLeft + '</button></div>' +
         '';
       // [10-28 사용자] 자동은 맨 밑 (레이드는 자동 없음 [10-27 12:33])
@@ -681,16 +681,16 @@
       else if (Bt.kind === 'ticket') { MM.useTicket(S, Bt.tier); r = MM.grantDungeonWin(S, Bt.tier, Bt.enemies, null, { ticket: true }); }
       else if (Bt.kind === 'raid') {
         var rp = MM.winRaidPhase(S, Bt.tier, null, (Bt.bt.units.filter(function (u) { return u.raid; })[0] || {}).el); Bt.raidRes = rp; r = rp.done ? rp.reward : null;
-        if (r && r.equip) showNotice('🌈 무지개 장비!!!', MM.equipName('rainbow', r.equip.tier) + ' — 모든 샤들링이 강해져요');
-        if (r && r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 레이드에서 무지개 깃털이 나왔어요');
-        if (r && r.equips) r.equips.forEach(function (e) { showNotice('⚔ ' + e.tier + '단계 장비!!', MM.equipName(e.el, e.tier) + ' — 끼거나 팔 수 있어요'); });
+        if (r && r.equip) showNotice('<img class="ic" src="art/ui/rainbow.png" alt=""> 무지개 장비!!!', MM.equipName('rainbow', r.equip.tier) + ' — 모든 샤들링이 강해져요');
+        if (r && r.feather) showNotice('<img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털!!!', Bt.tier + '단계 레이드에서 무지개 깃털이 나왔어요');
+        if (r && r.equips) r.equips.forEach(function (e) { showNotice('<img class="ic" src="art/ui/sword.png" alt=""> ' + e.tier + '단계 장비!!', MM.equipName(e.el, e.tier) + ' — 끼거나 팔 수 있어요'); });
       }
-      else if (Bt.kind === 'boss') { MM.useBossTicket(S, Bt.tier); r = MM.grantBossWin(S, Bt.tier, null, Date.now()); if (r.feather) showNotice('🪶 무지개 깃털!!!', Bt.tier + '단계 보스에서 무지개 깃털이 나왔어요 (+' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)'); }
+      else if (Bt.kind === 'boss') { MM.useBossTicket(S, Bt.tier); r = MM.grantBossWin(S, Bt.tier, null, Date.now()); if (r.feather) showNotice('<img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털!!!', Bt.tier + '단계 보스에서 무지개 깃털이 나왔어요 (+' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)'); }
       else { MM.accrueOffline(S, Date.now()); r = MM.grantStageWin(S, Bt.el, Bt.tier, Bt.enemies); }
-      if (r && r.bossTicket) showNotice('🌈 보스 입장권!!', r.bossTicket + '단계 레인보우 샤들링 입장권 1장');
-      if (r && r.raidTickets && r.raidTickets.length) showNotice('⚔ 레이드 입장권!!!', r.raidTickets.map(function (k) { return k + '단계 레이드 입장권 1장'; }).join(' + '));
-      if (r && r.rainbowSoul && Bt.kind === 'boss') showNotice('🌈 레인보우 소울!', '무지개 장비 강화 재료');
-      if (r && r.ticket && !Bt.repeat) showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장');
+      if (r && r.bossTicket) showNotice('<img class="ic" src="art/ui/bossticket.png" alt=""> 보스 입장권!!', r.bossTicket + '단계 레인보우 샤들링 입장권 1장');
+      if (r && r.raidTickets && r.raidTickets.length) showNotice('<img class="ic" src="art/ui/raidticket.png" alt=""> 레이드 입장권!!!', r.raidTickets.map(function (k) { return k + '단계 레이드 입장권 1장'; }).join(' + '));
+      if (r && r.rainbowSoul && Bt.kind === 'boss') showNotice('<img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 소울!', '무지개 장비 강화 재료');
+      if (r && r.ticket && !Bt.repeat) showNotice('<img class="ic" src="art/ui/scroll.png" alt=""> 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장');
       if (r && r.autoOffline) { showNotice('방치 보상 스테이지 변경', MM.stageLabel(r.autoOffline.el, r.autoOffline.tier) + '로 자동 지정' + (r.offlinePaid ? ' · 쌓인 보상은 받았어요' : '')); }
     } else {
       S.stats.battlesLost++;
@@ -705,7 +705,7 @@
         r.drops.forEach(function (d) { ss.drops[d.key] = (ss.drops[d.key] || 0) + d.added; ss.wasted += d.wasted; if (d.first) ss.firsts[d.key] = true; });
         r.levelUps.forEach(function (u) { ss.levelUps[u.id] = u; });
         rareOf(r.drops).forEach(showBanner);
-        if (r.ticket) { ss.tickets = (ss.tickets || 0) + 1; ss.ticketTier = r.ticket; showNotice('🎟 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장 (이번 반복 ' + ss.tickets + '장)'); }
+        if (r.ticket) { ss.tickets = (ss.tickets || 0) + 1; ss.ticketTier = r.ticket; showNotice('<img class="ic" src="art/ui/scroll.png" alt=""> 입장권 획득!', r.ticket + '단계 입장권 던전 입장권 1장 (이번 반복 ' + ss.tickets + '장)'); }
       }
       checkReadyBanner(Bt);
       if (Bt.stopAfter || MM.autoLeft(S, Date.now()) <= 0) {
@@ -733,15 +733,15 @@
 
   // ================= 보상 =================
   function lootHtml(list, tickets, bossTickets) {
-    var extra = (tickets || []).map(function (x) { return '<div class="soul-item rare">🎟 ' + x.tier + '단계 입장권 ×' + x.n + '</div>'; }).join('') +
-      (bossTickets || []).map(function (x) { return '<div class="soul-item rare">🌈 ' + x.tier + '단계 보스 입장권 ×' + x.n + '</div>'; }).join('');
+    var extra = (tickets || []).map(function (x) { return '<div class="soul-item rare"><img class="ic" src="art/ui/scroll.png" alt=""> ' + x.tier + '단계 입장권 ×' + x.n + '</div>'; }).join('') +
+      (bossTickets || []).map(function (x) { return '<div class="soul-item rare"><img class="ic" src="art/ui/bossticket.png" alt=""> ' + x.tier + '단계 보스 입장권 ×' + x.n + '</div>'; }).join('');
     if (!list.length && !extra) return '<span class="muted">이번에는 전리품이 없어요</span>';
     return extra + (list.length ? dropsHtml(list) : '');
   }
   function extraLoot(r) {
-    return (r.feather ? '<div class="soul-item rare">🪶 무지개 깃털 ×' + r.feather + '</div>' : '') +
-      (r.rainbowSoul ? '<div class="soul-item rare">🌈 레인보우 소울 ×' + r.rainbowSoul + '</div>' : '') +
-      (r.raidTickets || (r.raidTicket ? [r.raidTicket] : [])).map(function (k) { return '<div class="soul-item rare">⚔ ' + k + '단계 레이드 입장권 ×1</div>'; }).join('') +
+    return (r.feather ? '<div class="soul-item rare"><img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털 ×' + r.feather + '</div>' : '') +
+      (r.rainbowSoul ? '<div class="soul-item rare"><img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 소울 ×' + r.rainbowSoul + '</div>' : '') +
+      (r.raidTickets || (r.raidTicket ? [r.raidTicket] : [])).map(function (k) { return '<div class="soul-item rare"><img class="ic" src="art/ui/raidticket.png" alt=""> ' + k + '단계 레이드 입장권 ×1</div>'; }).join('') +
       (r.equip ? '<div class="soul-item rare">' + equipSvg('rainbow', r.equip.tier, 24) + MM.equipName('rainbow', r.equip.tier) + ' (무지개 장비)</div>' : '') +
       (r.equips || []).map(function (e) { return '<div class="soul-item rare">' + equipSvg(e.el, e.tier, 24) + MM.equipName(e.el, e.tier) + '</div>'; }).join('');
   }
@@ -888,7 +888,7 @@
     MM.RING.concat(['rainbow']).forEach(function (el) {
       var e = MM.equippedOf(S, el);
       html += '<button class="pick" data-act="equipSlot" data-el="' + el + '">' + (e ? equipSvg(el, e.tier, 30) : '<span class="mon" style="width:30px;height:30px;opacity:.3">' + (el === 'rainbow' ? equipSvg('rainbow', 1, 30) : monSvg(el, 1, 30)) + '</span>') +
-        '<div style="flex:1"><b>' + (el === 'rainbow' ? '🌈 무지개 (모든 속성)' : MM.ELEMENTS[el].name) + '</b> <span class="muted small">' + (e ? eqName(e) : '비어 있음') + '</span></div>' + (e ? '<span class="chip adv">' + pctBonus(MM.equipBonus(e)) + '</span>' : '') + '</button>';
+        '<div style="flex:1"><b>' + (el === 'rainbow' ? '<img class="ic" src="art/ui/rainbow.png" alt=""> 무지개 (모든 속성)' : MM.ELEMENTS[el].name) + '</b> <span class="muted small">' + (e ? eqName(e) : '비어 있음') + '</span></div>' + (e ? '<span class="chip adv">' + pctBonus(MM.equipBonus(e)) + '</span>' : '') + '</button>';
     });
     html += '</div></div>';
     // 만들기
@@ -920,12 +920,12 @@
     var row = function (icon, nm, n, sub) { return '<div class="cost-line"><span>' + icon + ' ' + nm + (sub ? ' <span class="muted small">' + sub + '</span>' : '') + '</span><b>' + fmt(n) + '</b></div>'; };
     var html = '<div class="seg"><button class="' + (view.bagSeg !== 'equip' ? 'on' : '') + '" data-act="bagSeg" data-v="items">아이템</button><button class="' + (view.bagSeg === 'equip' ? 'on' : '') + '" data-act="bagSeg" data-v="equip">장비 ' + (S.equips || []).length + '</button></div>';
     if (view.bagSeg === 'equip') return html + equipHtml();
-    html += '<div class="card"><b>재료</b><div style="margin-top:8px">' + row('🪶', '무지개 깃털', MM.featherCount(S), '장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화') + row('🌈', '레인보우 소울', MM.rainbowSoulCount(S), '무지개 장비 강화') + row('💰', '골드', S.gold) + '</div></div>';
+    html += '<div class="card"><b>재료</b><div style="margin-top:8px">' + row('<img class="ic" src="art/ui/feather.png" alt="">', '무지개 깃털', MM.featherCount(S), '장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화') + row('<img class="ic" src="art/ui/rainbow.png" alt="">', '레인보우 소울', MM.rainbowSoulCount(S), '무지개 장비 강화') + row('<img class="ic" src="art/ui/gold.png" alt="">', '골드', S.gold) + '</div></div>';
     html += '<div class="card"><b>입장권</b><div class="muted small" style="margin-top:4px">쓸 때는 교환 불가부터 써요</div><div style="margin-top:8px">';
     var any = false;
-    MM.tiers().forEach(function (t) { if (tk[t]) { any = true; html += row('🎟', t + '단계 입장권', tk[t], MM.ticketBound(S, t) ? '교환 불가 ' + MM.ticketBound(S, t) : ''); } });
-    MM.tiers().forEach(function (t) { if (bk[t]) { any = true; html += row('🌈', t + '단계 보스 입장권', bk[t], MM.bossTicketBound(S, t) ? '교환 불가 ' + MM.bossTicketBound(S, t) : ''); } });
-    MM.raidTiers().forEach(function (k) { var n = MM.raidTicketCount(S, k); if (n) { any = true; html += row('⚔', k + '단계 레이드 입장권', n); } });
+    MM.tiers().forEach(function (t) { if (tk[t]) { any = true; html += row('<img class="ic" src="art/ui/scroll.png" alt="">', t + '단계 입장권', tk[t], MM.ticketBound(S, t) ? '교환 불가 ' + MM.ticketBound(S, t) : ''); } });
+    MM.tiers().forEach(function (t) { if (bk[t]) { any = true; html += row('<img class="ic" src="art/ui/bossticket.png" alt="">', t + '단계 보스 입장권', bk[t], MM.bossTicketBound(S, t) ? '교환 불가 ' + MM.bossTicketBound(S, t) : ''); } });
+    MM.raidTiers().forEach(function (k) { var n = MM.raidTicketCount(S, k); if (n) { any = true; html += row('<img class="ic" src="art/ui/raidticket.png" alt="">', k + '단계 레이드 입장권', n); } });
     if (!any) html += '<div class="muted small">아직 입장권이 없어요</div>';
     return html + '</div></div>';
   };
@@ -942,9 +942,9 @@
     var have = MM.enhHave(S, c), ok = have >= c.souls && S.gold >= c.gold && MM.featherCount(S) >= (c.feather || 0);
     openSheet('<div class="row" style="gap:12px">' + equipSvg(e.el, e.tier, 52) + '<div><b>' + eqName(e) + ' → +' + (e.plus + 1) + '</b><div class="muted small">' + pctBonus(MM.equipBonus(e)) + ' → ' + pctBonus(MM.equipBonus(e) + BAL().EQUIP_PER_PLUS) + '</div></div></div>' +
       '<div class="rate-box" style="margin-top:12px"><div class="rate">' + pct(rate) + '</div><div class="muted small">성공률 · 실패 스택 ' + e.stack + ' · ' + (rate >= 1 ? '이번엔 확정!' : '천장까지 최대 ' + fmt(left) + '번') + '</div></div>' +
-      '<div class="cost-line" style="margin-top:10px"><span>' + (c.souls ? (c.rainbow ? '🌈 레인보우 소울' : MM.soulName(e.el, e.tier)) + ' ' + c.souls + '개' : '소울 필요 없음') + '</span><span class="' + (have >= c.souls ? 'okc' : 'lack') + '">' + (c.souls ? '보유 ' + have : '✓') + '</span></div>' +
+      '<div class="cost-line" style="margin-top:10px"><span>' + (c.souls ? (c.rainbow ? '<img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 소울' : MM.soulName(e.el, e.tier)) + ' ' + c.souls + '개' : '소울 필요 없음') + '</span><span class="' + (have >= c.souls ? 'okc' : 'lack') + '">' + (c.souls ? '보유 ' + have : '✓') + '</span></div>' +
       '<div class="cost-line"><span>골드 ' + fmt(c.gold) + ' G</span><span class="' + (S.gold >= c.gold ? 'okc' : 'lack') + '">' + (S.gold >= c.gold ? '✓' : '부족') + '</span></div>' +
-      (c.feather ? '<div class="cost-line"><span>🪶 무지개 깃털 ' + c.feather + '개</span><span class="' + (MM.featherCount(S) >= c.feather ? 'okc' : 'lack') + '">보유 ' + MM.featherCount(S) + '</span></div>' : '') +
+      (c.feather ? '<div class="cost-line"><span><img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털 ' + c.feather + '개</span><span class="' + (MM.featherCount(S) >= c.feather ? 'okc' : 'lack') + '">보유 ' + MM.featherCount(S) + '</span></div>' : '') +
       '<div class="muted small" style="margin:6px 0">실패해도 장비는 그대로, 비용만 들어요 · 강화 수치는 다른 장비로 옮길 수 없어요</div>' +
       '<button class="btn primary block" data-act="equipEnh" data-id="' + e.id + '"' + (ok ? '' : ' disabled') + '>강화 · ' + pct(rate) + '</button>');
   }
@@ -1182,11 +1182,11 @@
   };
 
   function recLine(r) {
-    if (r.type === 'feather') return { title: '🪶 무지개 깃털!', sub: r.tier + '단계 보스·레이드에서 획득' };
-    if (r.type === 'raidticket') return { title: '⚔ 레이드 입장권!', sub: r.tier + '단계 레이드 입장권' };
+    if (r.type === 'feather') return { title: '<img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털!', sub: r.tier + '단계 보스·레이드에서 획득' };
+    if (r.type === 'raidticket') return { title: '<img class="ic" src="art/ui/raidticket.png" alt=""> 레이드 입장권!', sub: r.tier + '단계 레이드 입장권' };
     if (r.type === 'raid') return { title: r.tier + '단계 레이드 클리어!', sub: '3페이즈 격파' };
-    if (r.type === 'rainbowequip') return { title: '🌈 무지개 장비!', sub: MM.equipName('rainbow', r.tier) };
-    if (r.type === 'raidequip') return { title: '⚔ 레이드 장비!', sub: MM.equipName(r.el, r.tier) };
+    if (r.type === 'rainbowequip') return { title: '<img class="ic" src="art/ui/rainbow.png" alt=""> 무지개 장비!', sub: MM.equipName('rainbow', r.tier) };
+    if (r.type === 'raidequip') return { title: '<img class="ic" src="art/ui/sword.png" alt=""> 레이드 장비!', sub: MM.equipName(r.el, r.tier) };
     if (r.type === 'dexset') return { title: r.tier + '단계 도감 5종 완성!', sub: '입장권 ' + BAL().DEX_SET_TICKETS + '장 + 보스 입장권 ' + BAL().DEX_SET_BOSS_TICKETS + '장' };
     if (r.type === 'boss') return { title: MM.bossName(r.tier) + ' 격파!', sub: '보스 입장권 1장 사용' };
     if (r.type === 'equip') return { title: '장비 강화 +' + r.plus + '!', sub: MM.equipName(r.el, r.tier) + ' +' + r.plus + (r.rate ? ' · 성공률 ' + pct(r.rate) : '') };
@@ -1280,7 +1280,7 @@
     var team = MM.offlineTeam(S).map(function (id) { return MM.getMonster(S, id); }).filter(Boolean);
     var items = valid ? '<div class="off-items">' + bagList(bag).map(function (d) {
         return '<span class="soul-item' + (isRare(d.tier, st.tier) ? ' rare' : '') + '">' + monSvg(d.el, d.tier, 18) + MM.soulName(d.el, d.tier) + ' ×' + d.count + '</span>';
-      }).join('') + (bag.tickets ? '<span class="soul-item rare">🎟 ' + st.tier + '단계 입장권 ×' + bag.tickets + '</span>' : '') + '<span class="soul-item">' + fmt(bag.gold) + ' G</span><span class="soul-item">EXP ' + fmt(bag.exp) + '</span></div>' : '';
+      }).join('') + (bag.tickets ? '<span class="soul-item rare"><img class="ic" src="art/ui/scroll.png" alt=""> ' + st.tier + '단계 입장권 ×' + bag.tickets + '</span>' : '') + '<span class="soul-item">' + fmt(bag.gold) + ' G</span><span class="soul-item">EXP ' + fmt(bag.exp) + '</span></div>' : '';
     var teamLine = '<button class="linkish small off-team" data-act="offlineTeamSheet">경험치: ' + (team.length ? team.map(function (m) { return monSvg(m.el, m.tier, 18) + name(m); }).join(' ') : '없음') + (S.offline.team && S.offline.team.length ? '' : ' <span class="muted">(파티)</span>') + ' · 바꾸기 ›</button>';
     return '<div class="card offline-card' + (full ? ' full' : '') + '"><div class="row between"><div><b>방치 보상</b> <span class="small ' + (full ? 'lack' : 'muted') + '">' + hoursText(h) + ' / ' + BAL().OFFLINE_MAX_HOURS + '시간' + (full ? ' · 가득 참' : '') + '</span>' +
       '<button class="linkish small" data-act="offlineSheet">' + (valid ? MM.stageLabel(st.el, st.tier) + ' · 바꾸기 ›' : '스테이지를 지정하면 쌓이기 시작해요 ›') + '</button></div>' + right + '</div>' +
@@ -1323,7 +1323,7 @@
     if (res.stage) setRare('stage', res.stage.tier);
     showOverlay('<div class="result"><div class="big ok">방치 보상</div>' + (note ? '<div class="muted small" style="margin-top:4px">' + note + '</div>' : '') + '<div class="sub">' + MM.stageLabel(res.stage.el, res.stage.tier) + ' · ' + hoursText(res.hours) + (res.capped ? ' (최대 ' + BAL().OFFLINE_MAX_HOURS + '시간)' : '') + ' · ' + fmt(res.runs) + '판 분량</div>' +
       '<div class="card" style="margin-top:16px;text-align:left"><b>소울</b><div class="soul-list" style="margin-top:10px">' + (res.drops.length ? dropsHtml(res.drops) : '<span class="muted small">이번에는 소울이 없어요</span>') + '</div></div>' +
-      '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' + (res.tickets ? '<div class="cost-line"><span>🎟 입장권</span><span>' + res.stage.tier + '단계 +' + res.tickets + '장</span></div>' : '') +
+      '<div class="card" style="text-align:left"><div class="cost-line"><span>골드</span><span>+' + fmt(res.gold) + ' G</span></div>' + (res.tickets ? '<div class="cost-line"><span><img class="ic" src="art/ui/scroll.png" alt=""> 입장권</span><span>' + res.stage.tier + '단계 +' + res.tickets + '장</span></div>' : '') +
       res.team.map(function (id) { var m = MM.getMonster(S, id); return m ? '<div class="cost-line"><span>' + name(m) + '</span><span>EXP +' + fmt(res.expBy[id] || 0) + '</span></div>' : ''; }).join('') +
       res.levelUps.map(function (u) { return '<div class="cost-line"><span>레벨 업!</span><span>' + u.name + ' → Lv ' + u.level + '</span></div>'; }).join('') + '</div>' +
       '<div class="acts"><button class="btn primary block" data-act="closeOverlay">확인</button></div></div>');
@@ -1383,7 +1383,7 @@
       var merged = {}; all.forEach(function (d) { var m = merged[d.key] || (merged[d.key] = { key: d.key, el: d.el, tier: d.tier, count: 0, added: 0, wasted: 0, first: false }); m.count += d.count; m.added += d.added; m.wasted += d.wasted; m.first = m.first || d.first; });
       var list = Object.keys(merged).map(function (k) { return merged[k]; }).sort(function (a, b) { return b.tier - a.tier || b.count - a.count; });
       save();
-      if (bt) showNotice('🌈 보스 입장권!!', t + '단계 레인보우 샤들링 입장권 ' + bt + '장');
+      if (bt) showNotice('<img class="ic" src="art/ui/bossticket.png" alt=""> 보스 입장권!!', t + '단계 레인보우 샤들링 입장권 ' + bt + '장');
       view.reward = { win: true, kind: 'ticket', tier: t, els: els, r: { drops: list, gold: gold, exp: exp, levelUps: Object.keys(ups).map(function (k) { return ups[k]; }), bossTicket: bt ? t : null, sweepN: i } };
       view.tab = 'reward'; render();
       var rare = rareOf(list); if (rare.length) showRareDrops(rare);
@@ -1502,7 +1502,7 @@
       var r = MM.offerSouls(S, d.el, +d.tier, +d.n);
       if (r.error) { toast(r.error); return; }
       save(); render();
-      if (r.ups) showNotice('🔥 ' + MM.ELEMENTS[d.el].name + ' 제단 Lv ' + r.level + '!', MM.ELEMENTS[d.el].name + ' 샤들링 경험치 +' + Math.round(MM.altarExpBonus(S, d.el) * 100) + '% · 능력치 +' + (Math.round(MM.altarStatBonus(S, d.el) * 1000) / 10) + '%');
+      if (r.ups) showNotice('<img class="ic" src="art/ui/altar.png" alt=""> ' + MM.ELEMENTS[d.el].name + ' 제단 Lv ' + r.level + '!', MM.ELEMENTS[d.el].name + ' 샤들링 경험치 +' + Math.round(MM.altarExpBonus(S, d.el) * 100) + '% · 능력치 +' + (Math.round(MM.altarStatBonus(S, d.el) * 1000) / 10) + '%');
       else toast('+' + fmt(r.points) + '점');
       offerSheet(d.el);
     },
