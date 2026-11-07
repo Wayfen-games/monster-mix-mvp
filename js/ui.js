@@ -228,7 +228,17 @@
     var n = S.souls[MM.speciesKey(el, tier)] || 0, c = BAL().GACHA_COST, k = Math.floor(n / c);
     openSheet('<div class="row" style="gap:12px">' + monSvg(el, tier, 52) + '<div><b>' + MM.soulName(el, tier) + ' 뽑기</b><div class="muted small">보유 ' + n + '개 · 1번에 ' + c + '개</div></div></div>' +
       '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="1"' + (k >= 1 ? '' : ' disabled') + '>1번 뽑기</button>' +
-      '<button class="btn" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="' + k + '"' + (k >= 2 ? '' : ' disabled') + '>' + (k >= 2 ? '전부 ' + k + '번' : '전부 뽑기') + '</button></div>');
+      '<button class="btn" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="' + k + '"' + (k >= 2 ? '' : ' disabled') + '>' + (k >= 2 ? '전부 ' + k + '번' : '전부 뽑기') + '</button></div>' + altarCompare(el, tier, n));
+  }
+  // [11-07 N2] 같은 소울을 제단에 바치면 어떻게 되는지 나란히 보여 줌 (규칙은 그대로, 정보만)
+  function altarCompare(el, tier, n) {
+    if (!n) return '';
+    var a = MM.altarOf(S, el), p = MM.offerPreview(S, el, tier, n), need = MM.altarNeed(p.level);
+    var up = p.level - a.level, pe = BAL().ALTAR_EXP_PER_LV, ps = BAL().ALTAR_STAT_PER_LV;
+    return '<div class="card" style="margin-top:12px;margin-bottom:0"><div class="row" style="gap:8px"><img class="ic" src="art/ui/altar.png" alt=""><b>대신 제단에 바치면</b></div>' +
+      '<div class="muted small lh" style="margin-top:6px">' + MM.ELEMENTS[el].name + ' 제단 Lv ' + a.level + ' → <b style="color:var(--accent)">Lv ' + p.level + '</b>' + (up ? ' (+' + up + ')' : ' (' + Math.floor(p.pts / need * 100) + '%)') +
+      '<br>' + MM.ELEMENTS[el].name + ' 샤들링 전체 경험치 +' + Math.round(up * pe * 100) + '% · 체력·공격 +' + (Math.round(up * ps * 1000) / 10) + '% (영구)</div>' +
+      '<button class="btn sm" style="margin-top:8px" data-act="offerSheet" data-el="' + el + '">제단으로 가기</button></div>';
   }
   function gachaRank(r) { return r.kind === 'boss' ? 1000 : r.kind === 'up' ? 100 + r.n : r.kind === 'ticket' ? 10 + r.n : r.n / 10; }
   function gachaLabel(r) { return r.kind === 'boss' ? '보스 입장권!!!' : r.kind === 'up' ? '위 단계 소울 ' + r.n + '개' + (r.big ? '!!!' : r.n >= 10 ? '!!' : '!') : r.kind === 'ticket' ? '입장권 ' + r.n + '장' + (r.n >= 5 ? '!!' : r.n >= 2 ? '!' : '') : '소울 ' + r.n + '개'; }
