@@ -349,7 +349,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted); font-weight: 600;
 #tabs button { color: #d9c7a6; font-weight: 700; }
 #tabs button.on { color: #ffe08a; background: radial-gradient(ellipse at 50% 30%, rgba(255,214,120,.22), transparent 70%); }
 
-.town { position: relative; margin: -14px -16px 10px; aspect-ratio: 768 / 1236; overflow: hidden; user-select: none; }
+.town { position: relative; margin: -14px -16px 10px; aspect-ratio: 768 / 1137; overflow: hidden; user-select: none; }
 .town-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .spot { position: absolute; padding: 0; border-radius: 16px; }
 .spot:active { background: rgba(255,240,180,.18); }
@@ -402,7 +402,7 @@ h3 { color: #e8c98e; letter-spacing: -0.2px; }
 .side.five .unit .nm { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #screen.bg-battle .battle > .row:first-child > .muted { background: rgba(26,19,12,.7); color: #f5e3bd; border-radius: 10px; padding: 4px 8px; }
 /* [11-07] 월드맵 */
-.town.wmap { aspect-ratio: 768 / 1376; margin-bottom: 10px; }
+.town.wmap { aspect-ratio: 768 / 1217; margin-bottom: 10px; }
 .map-path { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
 .map-path .stage-cell { aspect-ratio: auto; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 @media (max-width: 380px) { .seg button { font-size: 12.5px; padding: 8px 2px; letter-spacing: -0.4px; } }

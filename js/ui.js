@@ -288,16 +288,16 @@
     return mt + '단계 스테이지에서 소울과 경험치를 모으세요. 합성하려면 주재료가 Lv ' + MM.fuseLevelReq(Math.min(mt, T() - 1)) + ' 이상이어야 해요.';
   }
 
-  // 마을 그림 위 건물 누르기 [11-07 사용자: 기본 화면부터, 마을 시안 참고]. 위치는 그림(768×1236, 원본 위 80px·아래 60px 잘라냄) 기준 %
+  // 마을 그림 위 건물 누르기 [11-07 사용자: 기본 화면부터, 마을 시안 참고]. 위치는 그림(768×1137, 원본 위 80px·아래 11.5% 잘라냄 — 제미나이 표식 자리) 기준 %
   var TOWN_SPOTS = [
-    { tab: 'altar', icon: 'altar', label: '소울 제단', x: 10, y: 6.9, w: 30, h: 23.4 },
-    { tab: 'fusion', icon: 'shard', label: '합성 공방', x: 62, y: 1.3, w: 36, h: 27.8 },
-    { tab: 'gacha', icon: 'gacha', label: '소울 뽑기', x: 0, y: 28.0, w: 30, h: 30.1 },
-    { tab: 'bag', bag: 'equip', icon: 'sword', label: '대장간', x: 77, y: 34.7, w: 23, h: 25.6 },
-    { tab: 'monsters', icon: 'rainbow', label: '샤들링', x: 35, y: 33.6, w: 30, h: 23.4 },
-    { tab: 'dex', icon: 'dex', label: '도감', x: 0, y: 62.6, w: 32, h: 26.7 },
-    { tab: 'stages', icon: 'battle', label: '전투', x: 35, y: 73.7, w: 30, h: 22.3 },
-    { act: 'boardSheet', icon: 'scroll', label: '게시판', x: 76, y: 72.6, w: 16, h: 14.5 }
+    { tab: 'altar', icon: 'altar', label: '소울 제단', x: 10, y: 7.5, w: 30, h: 25.4 },
+    { tab: 'fusion', icon: 'shard', label: '합성 공방', x: 62, y: 1.4, w: 36, h: 30.3 },
+    { tab: 'gacha', icon: 'gacha', label: '소울 뽑기', x: 0, y: 30.5, w: 30, h: 32.7 },
+    { tab: 'bag', bag: 'equip', icon: 'sword', label: '대장간', x: 77, y: 37.7, w: 23, h: 27.8 },
+    { tab: 'monsters', icon: 'rainbow', label: '샤들링', x: 35, y: 36.5, w: 30, h: 25.4 },
+    { tab: 'dex', icon: 'dex', label: '도감', x: 0, y: 68.0, w: 32, h: 29.0 },
+    { tab: 'stages', icon: 'battle', label: '전투', x: 35, y: 80.1, w: 30, h: 19.9 },
+    { act: 'boardSheet', icon: 'scroll', label: '게시판', x: 76, y: 78.9, w: 16, h: 15.7 }
   ];
   // [11-07] 게시판 '다음 목표' — 새 단계가 한두 달에 한 번인 구간에도 가까운 목표가 보이게 (이미 있는 진행만 보여 줌)
   function boardGoals() {
@@ -321,11 +321,11 @@
       return '<button class="spot" ' + attrs + ' style="left:' + p.x + '%;top:' + p.y + '%;width:' + p.w + '%;height:' + p.h + '%"><span class="spot-label"><img src="art/ui/' + p.icon + '.png" alt="">' + p.label + (p.act === 'boardSheet' && news ? '<b class="bang">!</b>' : '') + '</span></button>';
     }).join('');
     // 파티 3마리가 분수 둘레에서 통통 뛰어다님
-    var pos = [[30, 58], [62, 60], [46, 64]];
+    var pos = [[30, 63], [62, 65], [46, 70]];
     var walkers = pm.slice(0, 3).map(function (m, i) {
       return '<button class="walker" data-act="tab" data-tab="monsters" style="left:' + pos[i][0] + '%;top:' + pos[i][1] + '%;animation-delay:' + (i * 0.4) + 's">' + monSvg(m.el, m.tier, 46) + '</button>';
     }).join('');
-    var chest = S.tutorial.done ? '<button class="chest' + (ready ? ' ready' : '') + '" data-act="' + (ready ? 'claimOffline' : 'offlineSheet') + '" style="left:92%;top:89%"><img src="art/ui/chest.png" alt=""><span>' + (ready ? '받기' : hoursText(ms / 3600000)) + '</span></button>' : '';
+    var chest = S.tutorial.done ? '<button class="chest' + (ready ? ' ready' : '') + '" data-act="' + (ready ? 'claimOffline' : 'offlineSheet') + '" style="left:92%;top:90%"><img src="art/ui/chest.png" alt=""><span>' + (ready ? '받기' : hoursText(ms / 3600000)) + '</span></button>' : '';
     return '<div class="town"><img class="town-bg" src="art/town.jpg" alt="" draggable="false">' + spots + walkers + chest +
       '</div><div class="town-hint"><img src="art/ui/scroll.png" alt=""><span>' + hint() + '</span></div>';
   }
@@ -366,15 +366,15 @@
 
   // [11-07] 월드맵: 마을 가운데, 다섯 지역(위치는 그림 768×1376 기준 %). '모험하는 느낌'(피드백 172) 시험
   var MAP_REGIONS = [
-    { el: 'light', x: 26, y: 4, w: 48, h: 26 }, { el: 'fire', x: 62, y: 18, w: 36, h: 36 }, { el: 'water', x: 55, y: 56, w: 43, h: 38 },
-    { el: 'grass', x: 2, y: 52, w: 46, h: 42 }, { el: 'dark', x: 2, y: 8, w: 30, h: 40 }
+    { el: 'light', x: 26, y: 4.5, w: 48, h: 29.4 }, { el: 'fire', x: 62, y: 20.4, w: 36, h: 40.7 }, { el: 'water', x: 55, y: 63.3, w: 43, h: 36.7 },
+    { el: 'grass', x: 2, y: 58.8, w: 46, h: 41.2 }, { el: 'dark', x: 2, y: 9.0, w: 30, h: 45.2 }
   ];
   function worldMapHtml() {
     var mt = maxPartyTier();
     return '<div class="town wmap"><img class="town-bg" src="art/worldmap.jpg" alt="" draggable="false">' + MAP_REGIONS.map(function (r) {
       var cleared = MM.tiers().filter(function (t) { return S.cleared[MM.speciesKey(r.el, t)]; }).length;
       return '<button class="spot" data-act="mapRegion" data-el="' + r.el + '" style="left:' + r.x + '%;top:' + r.y + '%;width:' + r.w + '%;height:' + r.h + '%"><span class="spot-label" style="top:40%"><img src="art/ui/' + r.el + '.png" alt="">' + MM.ELEMENTS[r.el].name + ' 지역 <span class="muted small" style="color:#8a6232">' + cleared + '/' + T() + '</span></span></button>';
-    }).join('') + '<button class="spot" data-act="tab" data-tab="home" style="left:40%;top:41%;width:20%;height:14%"><span class="spot-label" style="top:70%"><img src="art/ui/home.png" alt="">마을</span></button></div>' +
+    }).join('') + '<button class="spot" data-act="tab" data-tab="home" style="left:40%;top:46.4%;width:20%;height:15%"><span class="spot-label" style="top:70%"><img src="art/ui/home.png" alt="">마을</span></button></div>' +
       '<button class="btn sm" style="margin-bottom:10px" data-act="stageView" data-v="grid">표로 보기</button>';
   }
   function stageListHtml() {
