@@ -366,8 +366,8 @@
 
   // [11-07] 월드맵: 마을 가운데, 다섯 지역(위치는 그림 768×1376 기준 %). '모험하는 느낌'(피드백 172) 시험
   var MAP_REGIONS = [
-    { el: 'light', x: 26, y: 4.5, w: 48, h: 29.4 }, { el: 'fire', x: 62, y: 20.4, w: 36, h: 40.7 }, { el: 'water', x: 55, y: 63.3, w: 43, h: 36.7 },
-    { el: 'grass', x: 2, y: 58.8, w: 46, h: 41.2 }, { el: 'dark', x: 2, y: 9.0, w: 30, h: 45.2 }
+    { el: 'light', x: 26, y: 5.0, w: 48, h: 32.4 }, { el: 'fire', x: 62, y: 22.5, w: 36, h: 44.8 }, { el: 'water', x: 55, y: 69.7, w: 43, h: 30.3 },
+    { el: 'grass', x: 2, y: 64.8, w: 46, h: 35.2 }, { el: 'dark', x: 2, y: 9.9, w: 30, h: 49.8 }
   ];
   // [11-07] 지역 지도(지금은 불만): 돌다리 위치(그림 768×1217 기준 퍼센트)에 1~10단계를 올림
   var REGION_PATH = { fire: [[64.7, 90.4], [47.9, 81.5], [28.9, 76.7], [47.9, 70.8], [72.5, 63.9], [50.5, 60.2], [27.6, 56.4], [47.1, 50.3], [33.3, 37.7], [50.1, 27.2]] };
@@ -376,7 +376,7 @@
     return '<div class="town wmap"><img class="town-bg" src="art/worldmap.jpg" alt="" draggable="false">' + MAP_REGIONS.map(function (r) {
       var cleared = MM.tiers().filter(function (t) { return S.cleared[MM.speciesKey(r.el, t)]; }).length;
       return '<button class="spot" data-act="mapRegion" data-el="' + r.el + '" style="left:' + r.x + '%;top:' + r.y + '%;width:' + r.w + '%;height:' + r.h + '%"><span class="spot-label" style="top:40%"><img src="art/ui/' + r.el + '.png" alt="">' + MM.ELEMENTS[r.el].name + ' 지역 <span class="muted small" style="color:#8a6232">' + cleared + '/' + T() + '</span></span></button>';
-    }).join('') + '<button class="spot" data-act="tab" data-tab="home" style="left:40%;top:46.4%;width:20%;height:15%"><span class="spot-label" style="top:70%"><img src="art/ui/home.png" alt="">마을</span></button></div>' +
+    }).join('') + '<button class="spot" data-act="tab" data-tab="home" style="left:40%;top:51.1%;width:20%;height:15%"><span class="spot-label" style="top:70%"><img src="art/ui/home.png" alt="">마을</span></button></div>' +
       '<button class="btn sm" style="margin-bottom:10px" data-act="stageView" data-v="grid">표로 보기</button>';
   }
   function stageListHtml() {
