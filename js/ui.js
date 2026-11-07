@@ -231,8 +231,10 @@
       '<button class="btn" data-act="gacha" data-el="' + el + '" data-tier="' + tier + '" data-n="' + k + '"' + (k >= 2 ? '' : ' disabled') + '>' + (k >= 2 ? '전부 ' + k + '번' : '전부 뽑기') + '</button></div>' + altarCompare(el, tier, n));
   }
   // [11-07 N2] 같은 소울을 제단에 바치면 어떻게 되는지 나란히 보여 줌 (규칙은 그대로, 정보만)
+  // [11-07] 사용자 확인 전이라 꺼 둔 기능(공개 주소). true면 숨김 — 승인되면 false로
+  var HOLD = { altarCompare: true, raidArt: true, board: true };
   function altarCompare(el, tier, n) {
-    if (!n) return '';
+    if (HOLD.altarCompare || !n) return '';
     var a = MM.altarOf(S, el), p = MM.offerPreview(S, el, tier, n), need = MM.altarNeed(p.level);
     var up = p.level - a.level, pe = BAL().ALTAR_EXP_PER_LV, ps = BAL().ALTAR_STAT_PER_LV;
     return '<div class="card" style="margin-top:12px;margin-bottom:0"><div class="row" style="gap:8px"><img class="ic" src="art/ui/altar.png" alt=""><b>대신 제단에 바치면</b></div>' +
@@ -314,6 +316,7 @@
     var pm = partyMons(), ms = MM.offlinePendingMs(S), ready = S.tutorial.done && MM.offlineReady(S);
     var news = readyPairs(1).length > 0 || MM.allSpecies().some(function (sp) { return MM.canSummon(S, sp.key); }); // 게시판 '!' = 지금 소환·합성할 수 있음
     var spots = TOWN_SPOTS.map(function (p) {
+      if (HOLD.board && p.act === 'boardSheet') { if (!S.records.length) return ''; p = Object.assign({}, p, { act: 'records', label: '기록' }); }
       var attrs = p.act ? 'data-act="' + p.act + '"' : 'data-act="tab" data-tab="' + p.tab + '"' + (p.bag ? ' data-bag="' + p.bag + '"' : '');
       return '<button class="spot" ' + attrs + ' style="left:' + p.x + '%;top:' + p.y + '%;width:' + p.w + '%;height:' + p.h + '%"><span class="spot-label"><img src="art/ui/' + p.icon + '.png" alt="">' + p.label + (p.act === 'boardSheet' && news ? '<b class="bang">!</b>' : '') + '</span></button>';
     }).join('');
@@ -583,7 +586,7 @@
       if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
     }
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (u.raid && u.el !== 'rainbow' ? ' style="border-color:' + MM.ELEMENTS[u.el].color + ';box-shadow:0 0 18px ' + MM.ELEMENTS[u.el].color + '"' : '') + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
-      (u.raid && view.battle && view.battle.kind === 'raid' && RAID_ART[view.battle.tier] ? '<span class="mon"><img src="art/raid/' + view.battle.tier + '.png" width="150" height="150" alt="" draggable="false"></span>' : monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50)) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
+      (!HOLD.raidArt && u.raid && view.battle && view.battle.kind === 'raid' && RAID_ART[view.battle.tier] ? '<span class="mon"><img src="art/raid/' + view.battle.tier + '.png" width="150" height="150" alt="" draggable="false"></span>' : monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50)) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.raid ? (u.el === 'rainbow' ? '<div class="weak">상성 없음</div>' : '<div class="weak" style="color:' + MM.ELEMENTS[u.el].color + ';font-weight:700">' + MM.ELEMENTS[u.el].name + ' 속성</div>' + weakText(u.el)) : u.side === 'e' ? weakText(u.el) : '') +
       (u.sealed > 0 ? '<div class="status bad"><img class="ic" src="art/ui/lock.png" alt=""> 봉인</div>' : '') + (u.poison > 0 && u.hp > 0 ? '<div class="status bad"><img class="ic" src="art/ui/poison.png" alt=""> 중독 ' + u.poison + '</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
