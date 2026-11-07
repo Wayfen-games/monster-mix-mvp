@@ -394,3 +394,5 @@ h3 { color: #e8c98e; letter-spacing: -0.2px; }
 .fuse-slot.empty { background: rgba(26,19,12,.55); border: 2px dashed rgba(255,224,150,.6); color: #f5e3bd; }
 .fuse-slot .swap { color: #e8d2a8; }
 .fuse-op { color: #ffe08a; text-shadow: 0 1px 3px #000; font-weight: 800; }
+.spot-label .bang { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 3px; border-radius: 50%; background: #e0452a; color: #fff; font-size: 11px; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }

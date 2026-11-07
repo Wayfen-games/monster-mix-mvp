@@ -295,12 +295,12 @@
     { tab: 'monsters', icon: 'rainbow', label: '샤들링', x: 35, y: 33.6, w: 30, h: 23.4 },
     { tab: 'dex', icon: 'dex', label: '도감', x: 0, y: 62.6, w: 32, h: 26.7 },
     { tab: 'stages', icon: 'battle', label: '전투', x: 35, y: 73.7, w: 30, h: 22.3 },
-    { act: 'records', icon: 'scroll', label: '기록', x: 76, y: 72.6, w: 16, h: 14.5 }
+    { act: 'boardSheet', icon: 'scroll', label: '게시판', x: 76, y: 72.6, w: 16, h: 14.5 }
   ];
   function townHtml() {
     var pm = partyMons(), ms = MM.offlinePendingMs(S), ready = S.tutorial.done && MM.offlineReady(S);
+    var news = readyPairs(1).length > 0 || MM.allSpecies().some(function (sp) { return MM.canSummon(S, sp.key); }); // 게시판 '!' = 지금 소환·합성할 수 있음
     var spots = TOWN_SPOTS.map(function (p) {
-      if (p.act === 'records' && !S.records.length) return '';
       var attrs = p.act ? 'data-act="' + p.act + '"' : 'data-act="tab" data-tab="' + p.tab + '"' + (p.bag ? ' data-bag="' + p.bag + '"' : '');
       return '<button class="spot" ' + attrs + ' style="left:' + p.x + '%;top:' + p.y + '%;width:' + p.w + '%;height:' + p.h + '%"><span class="spot-label"><img src="art/ui/' + p.icon + '.png" alt="">' + p.label + '</span></button>';
     }).join('');
@@ -1403,7 +1403,11 @@
     },
     monSeg: function (d) { view.monSeg = d.v; render(); },
     dexSeg: function (d) { view.dexSeg = d.v; render(); },
-    records: function () { view.dexSeg = 'rec'; go('dex'); },
+    records: function () { closeSheet(); view.dexSeg = 'rec'; go('dex'); },
+    boardSheet: function () { // [11-07] 마을 게시판: 다음 할 일 + 희귀 기록 (말풍선이 화면 아래로 내려가서)
+      openSheet('<div class="row" style="gap:8px"><img class="ic" src="art/ui/scroll.png" alt=""><b>마을 게시판</b></div><div class="card" style="margin:12px 0 0"><b>다음 할 일</b><div class="muted lh" style="margin-top:6px">' + hint() + '</div></div>' +
+        (S.records.length ? '<button class="btn block" style="margin-top:10px" data-act="records">희귀 획득 기록 ' + S.records.length + '개 보기</button>' : ''));
+    },
     stage: function (d) { view.stage = { el: d.el, tier: +d.tier }; go('stageDetail'); },
     startStage: function () { startBattle('stage', { el: view.stage.el, tier: view.stage.tier }); },
     startRepeat: function () { if (view.battle) view.battle = null; startBattle('stage', { el: view.stage.el, tier: view.stage.tier, repeat: true }); },
