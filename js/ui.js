@@ -296,7 +296,7 @@
     var walkers = pm.slice(0, 3).map(function (m, i) {
       return '<button class="walker" data-act="tab" data-tab="monsters" style="left:' + pos[i][0] + '%;top:' + pos[i][1] + '%;animation-delay:' + (i * 0.4) + 's">' + monSvg(m.el, m.tier, 46) + '</button>';
     }).join('');
-    var chest = S.tutorial.done ? '<button class="chest' + (ready ? ' ready' : '') + '" data-act="' + (ready ? 'claimOffline' : 'offlineSheet') + '" style="left:93%;top:82%"><img src="art/ui/chest.png" alt=""><span>' + (ready ? '받기' : hoursText(ms / 3600000)) + '</span></button>' : '';
+    var chest = S.tutorial.done ? '<button class="chest' + (ready ? ' ready' : '') + '" data-act="' + (ready ? 'claimOffline' : 'offlineSheet') + '" style="left:92%;top:89%"><img src="art/ui/chest.png" alt=""><span>' + (ready ? '받기' : hoursText(ms / 3600000)) + '</span></button>' : '';
     return '<div class="town"><img class="town-bg" src="art/town.jpg" alt="" draggable="false">' + spots + walkers + chest +
       '</div><div class="town-hint"><img src="art/ui/scroll.png" alt=""><span>' + hint() + '</span></div>';
   }
