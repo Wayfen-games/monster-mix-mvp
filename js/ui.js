@@ -468,8 +468,8 @@
       '<div class="muted small lh" style="margin-top:6px">보스 보상은 하루 ' + BAL().BOSS_DAILY_REWARDS + '번까지 · n단계 보스는 n×' + Math.round(BAL().FEATHER_DROP_PER_TIER * 100) + '% 확률로 <img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털, n×' + Math.round(BAL().BOSS_RAINBOW_SOUL_PER_TIER * 100) + '% 확률로 <img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 소울, 가끔 <img class="ic" src="art/ui/raidticket.png" alt=""> 레이드 입장권(레이드 탭 참고) · <img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털(장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화 재료)<br>보스 입장권으로만 들어가요 · 입장권은 교환 가능 / 교환 불가(도감 보상)로 나뉘고 교환 불가부터 써요 · 상성 없음 · 자동 전투 불가 · 이기면 입장권 1장 사용 (지면 그대로)<br>보상: 한 단계 위 스테이지의 소울·경험치·골드를 100배로 (위 단계 소울도 나와요) · 입장권은 던전에서 가끔, 소울 뽑기에서 아주 가끔 나와요</div></div>';
     MM.tiers().forEach(function (t) {
       var n = MM.bossTicketCount(S, t), sk = BAL().BOSS_SKILLS[t] || [];
-      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 레인보우 샤들링</b><span class="chip' + (n ? ' gold' : '') + '"><img class="ic" src="art/ui/rainbow.png" alt=""> ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
-        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + (t < T() ? MM.fuseLevelReq(t) : MM.summonLevel(t) + 10) + ' 이상 3마리 + ' + t + '단계 장비 +5</div></div>' +
+      html += '<div class="card" style="' + (n ? 'border-color:var(--accent)' : 'opacity:.6') + '"><div class="row between"><b>' + t + '단계 레인보우 샤들링</b><span class="chip' + (n ? ' gold' : '') + '"><img class="ic" src="art/ui/bossticket.png" alt=""> ' + n + '장' + (MM.bossTicketBound(S, t) ? ' · 교환 불가 ' + MM.bossTicketBound(S, t) : '') + '</span></div>' +
+        '<div class="row" style="gap:12px;margin:10px 0">' + monSvg('rainbow', t, 64) + '<div class="muted small lh">' + sk.map(function (k) { return '· ' + SKILL_TEXT[k.type](k); }).join('<br>') + '<br>· 추천: ' + t + '단계 Lv ' + (t < T() ? MM.fuseLevelReq(t) : MM.summonLevel(t) + 10) + ' 이상 3마리 + ' + t + '단계 장비 +5' + (n ? bossOdds(t) : '') + '</div></div>' +
         '<button class="btn primary sm block" data-act="startBoss" data-tier="' + t + '"' + (n && S.party.length && leftB ? '' : ' disabled') + '>' + (n ? (leftB ? '도전 (이기면 입장권 1장 사용)' : '오늘 보상을 다 받았어요') : t + '단계 던전에서 입장권을 모아 보세요') + '</button></div>';
     });
     return html;
@@ -548,6 +548,14 @@
       p.type === 'charge' ? '<b style="color:var(--warn)">힘 모으기</b> (다음 차례 대폭발!)' : p.type === 'blast' ? '<b style="color:var(--bad)">대폭발 ×' + p.sk.mult + '</b> (아군 전체) — 방어하세요!' : p.type === 'drain' ? '<b style="color:var(--bad)">흡수 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') : p.type === 'poison' ? '<b style="color:var(--bad)">중독</b> (아군 전체 ' + p.sk.turns + '라운드, 회복으로 풀기)' : p.type === 'frenzy' ? '<b style="color:var(--bad)">연타 ' + p.sk.hits + '번 ×' + p.sk.mult + '</b> (누가 맞을지 몰라요)' : p.type;
     var shift = MM.shiftAfterThisTurn(boss) && boss.nextEl ? '<div class="boss-plan" style="border-color:' + MM.ELEMENTS[boss.nextEl].color + '">🔄 이 행동 뒤 <b style="color:' + MM.ELEMENTS[boss.nextEl].color + '">' + MM.ELEMENTS[boss.nextEl].name + ' 속성</b>으로 변해요!</div>' : '';
     return '<div class="boss-plan">⚠ 보스 다음 행동: ' + txt + '</div>' + shift;
+  }
+  // [11-07 N9] 지금 파티로 이 보스를 '잘 대응하면' 이길 확률 감 (100번 미리 돌려 봄, 규칙은 그대로)
+  function bossOdds(t) {
+    var pm = partyMons(); if (!pm.length) return '';
+    var party = MM.battleParty(S, pm), rng = MM.seededRng(1000 + t), w = 0, N = 100;
+    for (var i = 0; i < N; i++) if (MM.simulateBossBattle(party, t, rng, 'smart').result === 'win') w++;
+    var p = Math.round(w / N * 100), col = p >= 70 ? 'var(--good)' : p >= 30 ? 'var(--accent)' : 'var(--bad)';
+    return '<br>· 지금 파티로 잘 대응하면 <b style="color:' + col + '">약 ' + p + '%</b>' + (p < 30 ? ' (입장권은 팔거나 모아 두기)' : '');
   }
   var RAID_ART = { 1: true, 2: true }; // [11-07] 레이드 보스 그림 (제미나이 시안, 공개 전) — 3단계(고래)는 기각, 나머지는 결정 뒤
   function unitHtml(u, bt, actor, pickable) {
