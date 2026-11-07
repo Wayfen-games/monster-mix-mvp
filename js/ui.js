@@ -369,6 +369,8 @@
     { el: 'light', x: 26, y: 4.5, w: 48, h: 29.4 }, { el: 'fire', x: 62, y: 20.4, w: 36, h: 40.7 }, { el: 'water', x: 55, y: 63.3, w: 43, h: 36.7 },
     { el: 'grass', x: 2, y: 58.8, w: 46, h: 41.2 }, { el: 'dark', x: 2, y: 9.0, w: 30, h: 45.2 }
   ];
+  // [11-07] 지역 지도(지금은 불만): 돌다리 위치(그림 768×1217 기준 퍼센트)에 1~10단계를 올림
+  var REGION_PATH = { fire: [[64.7, 90.4], [47.9, 81.5], [28.9, 76.7], [47.9, 70.8], [72.5, 63.9], [50.5, 60.2], [27.6, 56.4], [47.1, 50.3], [33.3, 37.7], [50.1, 27.2]] };
   function worldMapHtml() {
     var mt = maxPartyTier();
     return '<div class="town wmap"><img class="town-bg" src="art/worldmap.jpg" alt="" draggable="false">' + MAP_REGIONS.map(function (r) {
@@ -1429,6 +1431,13 @@
     stageView: function (d) { view.stageView = d.v; render(); },
     mapRegion: function (d) { // 지역을 누르면 그 속성 스테이지 1~T단계를 길처럼 보여 줌
       var el = d.el, mt = maxPartyTier();
+      if (REGION_PATH[el]) {
+        var pts = REGION_PATH[el];
+        openSheet('<div class="row" style="gap:8px"><img class="ic" src="art/ui/' + el + '.png" alt=""><b>' + MM.ELEMENTS[el].name + ' 지역</b> <span class="muted small">돌다리를 눌러 도전 · 노란 칸 = 지금 파티 단계</span></div>' +
+          '<div class="region-map"><img src="art/region/' + el + '.jpg" alt="" draggable="false">' + MM.tiers().map(function (t, i) { var p = pts[i]; if (!p) return ''; var c = S.cleared[MM.speciesKey(el, t)] || 0;
+            return '<button class="stone' + (c ? ' clear' : '') + (t === mt ? ' rec' : '') + '" data-act="mapStage" data-el="' + el + '" data-tier="' + t + '" style="left:' + p[0] + '%;top:' + p[1] + '%">' + monSvg(el, t + 1, 30) + '<b>' + t + '</b></button>'; }).join('') + '</div>');
+        return;
+      }
       openSheet('<div class="row" style="gap:8px"><img class="ic" src="art/ui/' + el + '.png" alt=""><b>' + MM.ELEMENTS[el].name + ' 지역</b> <span class="muted small">' + MM.ELEMENTS[el].name + ' 몬스터가 나와요 · 노란 칸 = 지금 파티 단계</span></div>' +
         '<div class="map-path">' + MM.tiers().map(function (t) { var c = S.cleared[MM.speciesKey(el, t)] || 0;
           return '<button class="stage-cell' + (c ? ' clear' : '') + (t === mt ? ' rec' : '') + '" data-act="mapStage" data-el="' + el + '" data-tier="' + t + '"><span class="small">' + t + '</span>' + monSvg(el, t + 1, 26) + '<span>' + (c ? '✓' + c : '') + '</span></button>'; }).join('') + '</div>');
