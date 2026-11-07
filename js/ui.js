@@ -192,6 +192,11 @@
   SCREENS.altar = function () {
     var html = '<button class="btn sm" data-act="tab" data-tab="home">← 마을</button><h2><img class="ic" src="art/ui/altar.png" alt=""> 소울 제단</h2>' +
       '<div class="muted small lh" style="margin-bottom:10px">속성마다 제단이 있어요. 그 속성 소울을 바치면 제단 레벨이 오르고, 그 속성 샤들링 전체가 영구히 강해져요.<br>레벨당 경험치 +' + Math.round(BAL().ALTAR_EXP_PER_LV * 100) + '% · 체력·공격·방어 +' + (BAL().ALTAR_STAT_PER_LV * 100) + '% · 귀한(높은 단계) 소울일수록 많이 차요 (1단계 1점 · 2단계 ' + MM.altarSoulPoints(2) + '점 · 3단계 ' + MM.altarSoulPoints(3) + '점 …)</div>';
+    var ra = MM.rbAltar(S), rneed = MM.rbAltarNeed(ra.lv), dew = MM.dewCount(S);
+    html += '<div class="card" style="border-color:#c9a2ff"><div class="row between"><div class="row" style="gap:8px"><img class="ic" src="art/ui/rainbow.png" alt=""><b>레인보우 제단 Lv ' + ra.lv + '</b></div><button class="btn sm primary" data-act="offerDew"' + (dew ? '' : ' disabled') + '>이슬 바치기 ' + dew + '</button></div>' +
+      '<div class="expbar" style="margin-top:8px"><i style="width:' + (ra.pts / rneed * 100) + '%"></i></div>' +
+      '<div class="row between small muted" style="margin-top:4px"><span>' + ra.pts + ' / ' + rneed + ' 이슬</span><span>모든 샤들링 체력·공격 +' + (Math.round(MM.rbAltarBonus(S) * 1000) / 10) + '%</span></div>' +
+      '<div class="muted small" style="margin-top:4px">레인보우 이슬은 n단계 레이드를 다 깨면 n개 나와요 (교환 불가)</div></div>';
     MM.RING.forEach(function (el) {
       var a = MM.altarOf(S, el), need = MM.altarNeed(a.level);
       html += '<div class="card"><div class="row between"><div class="row" style="gap:8px">' + monSvg(el, 3, 32) + '<b>' + MM.ELEMENTS[el].name + ' 제단 Lv ' + a.level + '</b></div><button class="btn sm primary" data-act="offerSheet" data-el="' + el + '">바치기</button></div>' +
@@ -233,7 +238,7 @@
   }
   // [11-07 N2] 같은 소울을 제단에 바치면 어떻게 되는지 나란히 보여 줌 (규칙은 그대로, 정보만)
   // [11-07] 사용자 확인 전이라 꺼 둔 기능(공개 주소). true면 숨김 — 승인되면 false로
-  var HOLD = { altarCompare: true, raidArt: true, board: true, regionMap: true };
+  var HOLD = { altarCompare: true, raidArt: false, board: false, regionMap: false };
   function altarCompare(el, tier, n) {
     if (HOLD.altarCompare || !n) return '';
     var a = MM.altarOf(S, el), p = MM.offerPreview(S, el, tier, n), need = MM.altarNeed(p.level);
@@ -774,6 +779,7 @@
   function extraLoot(r) {
     return (r.feather ? '<div class="soul-item rare"><img class="ic" src="art/ui/feather.png" alt=""> 무지개 깃털 ×' + r.feather + '</div>' : '') +
       (r.rainbowSoul ? '<div class="soul-item rare"><img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 소울 ×' + r.rainbowSoul + '</div>' : '') +
+      (r.dew ? '<div class="soul-item rare"><img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 이슬 ×' + r.dew + ' <span class="muted small">(레인보우 제단)</span></div>' : '') +
       (r.raidTickets || (r.raidTicket ? [r.raidTicket] : [])).map(function (k) { return '<div class="soul-item rare"><img class="ic" src="art/ui/raidticket.png" alt=""> ' + k + '단계 레이드 입장권 ×1</div>'; }).join('') +
       (r.equip ? '<div class="soul-item rare">' + equipSvg('rainbow', r.equip.tier, 24) + MM.equipName('rainbow', r.equip.tier) + ' (무지개 장비)</div>' : '') +
       (r.equips || []).map(function (e) { return '<div class="soul-item rare">' + equipSvg(e.el, e.tier, 24) + MM.equipName(e.el, e.tier) + '</div>'; }).join('');
@@ -953,7 +959,7 @@
     var row = function (icon, nm, n, sub) { return '<div class="cost-line"><span>' + icon + ' ' + nm + (sub ? ' <span class="muted small">' + sub + '</span>' : '') + '</span><b>' + fmt(n) + '</b></div>'; };
     var html = '<div class="seg"><button class="' + (view.bagSeg !== 'equip' ? 'on' : '') + '" data-act="bagSeg" data-v="items">아이템</button><button class="' + (view.bagSeg === 'equip' ? 'on' : '') + '" data-act="bagSeg" data-v="equip">장비 ' + (S.equips || []).length + '</button></div>';
     if (view.bagSeg === 'equip') return html + equipHtml();
-    html += '<div class="card"><b>재료</b><div style="margin-top:8px">' + row('<img class="ic" src="art/ui/feather.png" alt="">', '무지개 깃털', MM.featherCount(S), '장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화') + row('<img class="ic" src="art/ui/rainbow.png" alt="">', '레인보우 소울', MM.rainbowSoulCount(S), '무지개 장비 강화') + row('<img class="ic" src="art/ui/gold.png" alt="">', '골드', S.gold) + '</div></div>';
+    html += '<div class="card"><b>재료</b><div style="margin-top:8px">' + row('<img class="ic" src="art/ui/feather.png" alt="">', '무지개 깃털', MM.featherCount(S), '장비 +' + BAL().FEATHER_FROM_PLUS + ' 이상 강화') + row('<img class="ic" src="art/ui/rainbow.png" alt="">', '레인보우 소울', MM.rainbowSoulCount(S), '무지개 장비 강화') + row('<img class="ic" src="art/ui/rainbow.png" alt="">', '레인보우 이슬', MM.dewCount(S), '레인보우 제단 · 교환 불가') + row('<img class="ic" src="art/ui/gold.png" alt="">', '골드', S.gold) + '</div></div>';
     html += '<div class="card"><b>입장권</b><div class="muted small" style="margin-top:4px">쓸 때는 교환 불가부터 써요</div><div style="margin-top:8px">';
     var any = false;
     MM.tiers().forEach(function (t) { if (tk[t]) { any = true; html += row('<img class="ic" src="art/ui/scroll.png" alt="">', t + '단계 입장권', tk[t], MM.ticketBound(S, t) ? '교환 불가 ' + MM.ticketBound(S, t) : ''); } });
@@ -1550,6 +1556,7 @@
     pickOffline: function (d) { changeOfflineStage(d.el, +d.tier); },
     feedSheet: function (d) { feedSheet(+d.id); },
     offerSheet: function (d) { offerSheet(d.el); },
+    offerDew: function () { var r = MM.offerDew(S); if (r.error) { toast(r.error); return; } save(); MM.Sound.play('chime'); if (r.ups) showNotice('<img class="ic" src="art/ui/rainbow.png" alt=""> 레인보우 제단 Lv ' + r.level + '!', '모든 샤들링 체력·공격 +' + (Math.round(MM.rbAltarBonus(S) * 1000) / 10) + '%'); render(); },
     offer: function (d) {
       var r = MM.offerSouls(S, d.el, +d.tier, +d.n);
       if (r.error) { toast(r.error); return; }

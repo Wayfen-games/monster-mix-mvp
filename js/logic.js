@@ -303,7 +303,18 @@
   };
 
   // 전투에 들어갈 내 샤들링: 장비(그 속성)·샤들링 강화 배율을 붙인 복사본
-  MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.equipBonus(MM.equippedOf(s, 'rainbow'))) * (1 + MM.monEnhBonus(m)) * (1 + MM.altarStatBonus(s, m.el)); };
+  // [사용자 11-07] 레인보우 제단: 레인보우 이슬로 올림, 모든 샤들링 능력치
+  MM.dewCount = function (s) { return (s.items && s.items.rainbowDew) || 0; };
+  MM.rbAltar = function (s) { s.rbAltar = s.rbAltar || { lv: 0, pts: 0 }; return s.rbAltar; };
+  MM.rbAltarNeed = function (lv) { return lv + 1; };
+  MM.rbAltarBonus = function (s) { return ((s.rbAltar && s.rbAltar.lv) || 0) * (B().RB_ALTAR_STAT_PER_LV || 0); };
+  MM.offerDew = function (s, n) {
+    var have = MM.dewCount(s); n = Math.min(have, n == null ? have : n); if (n <= 0) return { error: '레인보우 이슬이 없어요' };
+    var a = MM.rbAltar(s), lv0 = a.lv; s.items.rainbowDew = have - n; a.pts += n;
+    while (a.pts >= MM.rbAltarNeed(a.lv)) { a.pts -= MM.rbAltarNeed(a.lv); a.lv++; }
+    return { used: n, level: a.lv, ups: a.lv - lv0 };
+  };
+  MM.playerMult = function (s, m) { return (1 + MM.equipBonus(MM.equippedOf(s, m.el))) * (1 + MM.equipBonus(MM.equippedOf(s, 'rainbow'))) * (1 + MM.monEnhBonus(m)) * (1 + MM.altarStatBonus(s, m.el)) * (1 + MM.rbAltarBonus(s)); };
   MM.battleParty = function (s, mons) {
     return mons.map(function (m) { var c = {}; for (var k in m) c[k] = m[k]; c.mult = (m.mult || 1) * MM.playerMult(s, m); return c; });
   };
@@ -1160,6 +1171,7 @@
     var feather = 0; if (R(rng)() < Math.min(1, k * b.RAID_FEATHER_STEP)) { MM.addItem(s, 'feather', 1); feather = 1; MM.addRecord(s, { type: 'feather', el: 'rainbow', tier: st }); }
     var rs = 1 + Math.floor(R(rng)() * Math.round(k * b.RAID_RAINBOW_STEP));
     MM.addItem(s, 'rainbowSoul', rs);
+    var dew = k * (b.RB_DEW_PER_RAID_TIER || 0); if (dew) MM.addItem(s, 'rainbowDew', dew);
     var equip = null, et = MM.raidEquipRoll(k, R(rng)());
     if (et) { equip = { id: s.nextId++, el: 'rainbow', tier: et, plus: 0, stack: 0 }; (s.equips = s.equips || []).push(equip); if (MM.canEquip(s, equip) && (!MM.equippedOf(s, 'rainbow') || MM.equippedOf(s, 'rainbow').tier < et)) { s.equipped = s.equipped || {}; s.equipped.rainbow = equip.id; } MM.addRecord(s, { type: 'rainbowequip', el: 'rainbow', tier: et }); }
     // 일반 장비: 속성마다 따로 굴림 (무지개 장비 확률의 절반)
@@ -1172,7 +1184,7 @@
     });
     s.stats.battlesWon++; s.stats.raidWins = (s.stats.raidWins || 0) + 1;
     MM.addRecord(s, { type: 'raid', el: 'rainbow', tier: k });
-    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather, rainbowSoul: rs, equip: equip, equips: equips };
+    return { drops: drops, gold: gold, exp: exp, levelUps: ups, feather: feather, rainbowSoul: rs, dew: dew, equip: equip, equips: equips };
   };
 
   MM.simulateBattle = function (partyMonsters, enemies, rng) {

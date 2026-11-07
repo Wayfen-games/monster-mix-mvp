@@ -511,6 +511,18 @@
     check('교환 불가를 다 쓰면 교환 가능을 씀', MM.ticketCount(s, 2) === 1 && MM.ticketBound(s, 2) === 0);
   })();
 
+  // ---- [11-07] 레인보우 이슬·레인보우 제단 ----
+  (function () {
+    var sx = MM.newState(Date.now()), rq = MM.seededRng(5);
+    var r3 = MM.grantRaidWin(sx, 3, rq);
+    check('레인보우 이슬: 3단계 레이드 완료 = 3개', r3.dew === 3 && MM.dewCount(sx) === 3, r3.dew);
+    sx.items.rainbowDew = 10; sx.rbAltar = { lv: 0, pts: 0 };
+    var o = MM.offerDew(sx);
+    check('레인보우 제단: 이슬 10개 → Lv 4(1+2+3+4=10)', o.level === 4 && sx.rbAltar.pts === 0 && MM.dewCount(sx) === 0, JSON.stringify(sx.rbAltar));
+    var m = { el: 'fire', tier: 1, level: 1 }, before = MM.playerMult(MM.newState(Date.now()), m), after = MM.playerMult(sx, m);
+    check('레인보우 제단 Lv 4 = 모든 샤들링 능력치 +1.2%', Math.abs(after / before - 1.012) < 1e-9, (after / before).toFixed(4));
+  })();
+
   // ---- 출력 ----
   var pass = results.filter(function (x) { return x.ok; }).length;
   var summary = '통과 ' + pass + ' / ' + results.length;
