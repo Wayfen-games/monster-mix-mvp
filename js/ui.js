@@ -555,7 +555,7 @@
     var party = MM.battleParty(S, pm), rng = MM.seededRng(1000 + t), w = 0, N = 100;
     for (var i = 0; i < N; i++) if (MM.simulateBossBattle(party, t, rng, 'smart').result === 'win') w++;
     var p = Math.round(w / N * 100), col = p >= 70 ? 'var(--good)' : p >= 30 ? 'var(--accent)' : 'var(--bad)';
-    return '<br>· 지금 파티로 잘 대응하면 <b style="color:' + col + '">약 ' + p + '%</b>' + (p < 30 ? ' (입장권은 팔거나 모아 두기)' : '');
+    return '<br>· 지금 파티로 잘 대응하면 <b style="color:' + col + '">약 ' + p + '%</b>' + (p < 30 ? ' (입장권은 모아 두기)' : '');
   }
   var RAID_ART = { 1: true, 2: true }; // [11-07] 레이드 보스 그림 (제미나이 시안, 공개 전) — 3단계(고래)는 기각, 나머지는 결정 뒤
   function unitHtml(u, bt, actor, pickable) {
