@@ -414,3 +414,11 @@ h3 { color: #e8c98e; letter-spacing: -0.2px; }
 .stone.clear { border-color: var(--good); }
 .stone.rec { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,207,74,.6), 0 2px 0 #5a3b17; }
 .town.wmap { height: min(calc(100dvh - 228px), calc(100vw * 1105 / 768)); width: auto; margin: 0 auto 10px; max-width: calc(100% + 32px); }
+/* [11-07 사용자] 배경 그림 화면은 스크롤 없이 */
+#screen.noscroll { overflow: hidden; }
+#screen.noscroll .town:not(.wmap) { height: min(calc(100dvh - 205px), calc(100vw * 1137 / 768)); width: auto; margin: -14px auto 8px; max-width: calc(100% + 32px); }
+#screen.noscroll .town-hint { margin-bottom: 0; padding: 6px 10px 6px 6px; font-size: 12px; }
+#screen.noscroll .town-hint span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.map-grid-btn { position: absolute; left: 8px; bottom: 8px; z-index: 2; }
+.town.wmap { height: min(calc(100dvh - 240px), calc(100vw * 1105 / 768)); }
+#screen.noscroll { padding-bottom: 8px; }

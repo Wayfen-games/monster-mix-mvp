@@ -175,6 +175,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
       b.classList.toggle('on', b.dataset.tab === (tabFor[view.tab] || view.tab));
     });
+    $('screen').classList.toggle('noscroll', view.tab === 'home' || view.tab === 'battle' || (view.tab === 'stages' && view.stageSeg === 'stage' && view.stageView !== 'grid'));
     var sc = $('screen'); // 11-07 전투 배경: 적 속성 그림 (레이드는 빛)
     if (view.tab === 'battle' && view.battle) { var VB = view.battle, eb = VB.bt.units.filter(function (u) { return u.side === 'e' && u.boss; })[0], bgEl = VB.kind === 'raid' ? 'raid' : VB.kind === 'boss' ? 'light' : [VB.el, VB.els && VB.els[0], eb && eb.el].filter(function (e) { return e && MM.RING.indexOf(e) >= 0; })[0] || 'light'; sc.style.backgroundImage = 'linear-gradient(rgba(20,14,8,.15), rgba(20,14,8,.55)), url(art/bg/' + bgEl + '.jpg)'; sc.classList.add('bg-battle'); }
     else if (sc.classList.contains('bg-battle')) { sc.style.backgroundImage = ''; sc.classList.remove('bg-battle'); }
@@ -330,30 +331,8 @@
       '</div><div class="town-hint"><img src="art/ui/scroll.png" alt=""><span>' + hint() + '</span></div>';
   }
 
-  SCREENS.home = function () {
-    var g = goalCount(), now = Date.now();
-    var stars = MM.RING.map(function (el) {
-      var have = !!S.dex[MM.speciesKey(el, T())];
-      return '<div>' + monSvg(el, T(), 40, !have) + '<div>' + MM.speciesName(el, T()) + '</div></div>';
-    }).join('');
-    var pm = partyMons();
-    var slots = [0, 1, 2].map(function (i) {
-      var m = pm[i];
-      if (!m) return '<button class="slot empty" data-act="tab" data-tab="monsters">+ 비어 있음</button>';
-      return '<button class="slot" data-act="tab" data-tab="monsters">' + monSvg(m.el, m.tier, 44) + '<div>' + name(m) + '</div><div class="muted small">Lv ' + m.level + '</div></button>';
-    }).join('');
-    var dEl = MM.dungeonElementFor(now);
-    return townHtml() +
-      '<div class="card"><div class="row between"><b>1차 목표: ' + T() + '단계 5종 모으기</b><span class="chip">' + g + ' / 5</span></div><div class="goal-stars">' + stars + '</div></div>' +
-      offlineCard() +
-      '<div class="card"><b>오늘</b><div class="today" style="margin-top:10px">' +
-      '<div>요일 던전<b>' + (dEl ? MM.ELEMENTS[dEl].name : '주말 선택') + ' ' + MM.dungeonLeft(S, now) + '/' + BAL().DUNGEON_DAILY + '</b></div>' +
-      '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b><span class="small">하루 +' + BAL().AUTO_REPEAT_DAILY + ' · 최대 ' + fmt(BAL().AUTO_REPEAT_MAX) + '</span></div>' +
-      '</div></div>' +
-      '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
-      '<h3>기록</h3><div class="card muted small lh">합성 ' + S.stats.fusionTries + '회 시도 · ' + S.stats.fusionSuccess + '회 성공<br>전투 ' + S.stats.battlesWon + '승 ' + S.stats.battlesLost + '패 · 샤들링 ' + S.monsters.length + '마리' +
-      (S.records.length ? '<br><button class="btn sm" style="margin-top:8px" data-act="records">희귀 획득 기록 ' + S.records.length + '개 보기</button>' : '') + '</div>';
-  };
+  // [11-07 사용자] 배경 그림 화면은 스크롤 없이: 마을 그림 + 다음 할 일 한 줄만 (목표·방치·파티·기록은 건물로 들어감)
+  SCREENS.home = function () { return townHtml(); };
 
   SCREENS.stages = function () {
     var html = '<div class="seg"><button class="' + (view.stageSeg === 'stage' ? 'on' : '') + '" data-act="stageSeg" data-v="stage">스테이지</button>' +
@@ -376,8 +355,8 @@
     return '<div class="town wmap"><img class="town-bg" src="art/worldmap.jpg" alt="" draggable="false">' + MAP_REGIONS.map(function (r) {
       var cleared = MM.tiers().filter(function (t) { return S.cleared[MM.speciesKey(r.el, t)]; }).length;
       return '<button class="spot" data-act="mapRegion" data-el="' + r.el + '" style="left:' + r.x + '%;top:' + r.y + '%;width:' + r.w + '%;height:' + r.h + '%"><span class="spot-label" style="top:40%"><img src="art/ui/' + r.el + '.png" alt="">' + MM.ELEMENTS[r.el].name + ' 지역 <span class="muted small" style="color:#8a6232">' + cleared + '/' + T() + '</span></span></button>';
-    }).join('') + '<button class="spot" data-act="tab" data-tab="home" style="left:40%;top:51.1%;width:20%;height:15%"><span class="spot-label" style="top:70%"><img src="art/ui/home.png" alt="">마을</span></button></div>' +
-      '<button class="btn sm" style="margin-bottom:10px" data-act="stageView" data-v="grid">표로 보기</button>';
+    }).join('') + '<button class="spot" data-act="tab" data-tab="home" style="left:40%;top:51.1%;width:20%;height:15%"><span class="spot-label" style="top:70%"><img src="art/ui/home.png" alt="">마을</span></button>' +
+      '<button class="btn sm map-grid-btn" data-act="stageView" data-v="grid">표로 보기</button></div>';
   }
   function stageListHtml() {
     if (view.stageView !== 'grid') return worldMapHtml();
