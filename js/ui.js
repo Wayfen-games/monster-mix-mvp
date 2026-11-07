@@ -176,7 +176,7 @@
       b.classList.toggle('on', b.dataset.tab === (tabFor[view.tab] || view.tab));
     });
     var sc = $('screen'); // 11-07 전투 배경: 적 속성 그림 (레이드는 빛)
-    if (view.tab === 'battle' && view.battle) { var VB = view.battle, eb = VB.bt.units.filter(function (u) { return u.side === 'e' && u.boss; })[0], bgEl = [VB.el, VB.els && VB.els[0], eb && eb.el].filter(function (e) { return e && MM.RING.indexOf(e) >= 0; })[0] || 'light'; sc.style.backgroundImage = 'linear-gradient(rgba(20,14,8,.15), rgba(20,14,8,.55)), url(art/bg/' + bgEl + '.jpg)'; sc.classList.add('bg-battle'); }
+    if (view.tab === 'battle' && view.battle) { var VB = view.battle, eb = VB.bt.units.filter(function (u) { return u.side === 'e' && u.boss; })[0], bgEl = VB.kind === 'raid' || VB.kind === 'boss' ? 'light' : [VB.el, VB.els && VB.els[0], eb && eb.el].filter(function (e) { return e && MM.RING.indexOf(e) >= 0; })[0] || 'light'; sc.style.backgroundImage = 'linear-gradient(rgba(20,14,8,.15), rgba(20,14,8,.55)), url(art/bg/' + bgEl + '.jpg)'; sc.classList.add('bg-battle'); }
     else if (sc.classList.contains('bg-battle')) { sc.style.backgroundImage = ''; sc.classList.remove('bg-battle'); }
     var fn = SCREENS[view.tab] || SCREENS.home;
     $('screen').innerHTML = fn();
@@ -315,7 +315,7 @@
     var news = readyPairs(1).length > 0 || MM.allSpecies().some(function (sp) { return MM.canSummon(S, sp.key); }); // 게시판 '!' = 지금 소환·합성할 수 있음
     var spots = TOWN_SPOTS.map(function (p) {
       var attrs = p.act ? 'data-act="' + p.act + '"' : 'data-act="tab" data-tab="' + p.tab + '"' + (p.bag ? ' data-bag="' + p.bag + '"' : '');
-      return '<button class="spot" ' + attrs + ' style="left:' + p.x + '%;top:' + p.y + '%;width:' + p.w + '%;height:' + p.h + '%"><span class="spot-label"><img src="art/ui/' + p.icon + '.png" alt="">' + p.label + '</span></button>';
+      return '<button class="spot" ' + attrs + ' style="left:' + p.x + '%;top:' + p.y + '%;width:' + p.w + '%;height:' + p.h + '%"><span class="spot-label"><img src="art/ui/' + p.icon + '.png" alt="">' + p.label + (p.act === 'boardSheet' && news ? '<b class="bang">!</b>' : '') + '</span></button>';
     }).join('');
     // 파티 3마리가 분수 둘레에서 통통 뛰어다님
     var pos = [[30, 58], [62, 60], [46, 64]];
@@ -546,7 +546,7 @@
     var txt = p.type === 'attack' ? '공격 → ' + (tg ? tg.name : '?') : p.type === 'smash' ? '<b style="color:var(--bad)">강타 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') :
       p.type === 'sweep' ? '<b style="color:var(--bad)">휩쓸기</b> (아군 전체)' : p.type === 'seal' ? '<b style="color:var(--bad)">봉인</b> (무작위 1마리)' : p.type === 'shield' ? '보호막 (' + p.sk.turns + '턴 피해 ' + Math.round((1 - p.sk.cut) * 100) + '%만)' : p.type === 'heal' ? '회복 (체력 ' + Math.round(p.sk.pct * 100) + '%)' :
       p.type === 'charge' ? '<b style="color:var(--warn)">힘 모으기</b> (다음 차례 대폭발!)' : p.type === 'blast' ? '<b style="color:var(--bad)">대폭발 ×' + p.sk.mult + '</b> (아군 전체) — 방어하세요!' : p.type === 'drain' ? '<b style="color:var(--bad)">흡수 ×' + p.sk.mult + '</b> → ' + (tg ? tg.name : '?') : p.type === 'poison' ? '<b style="color:var(--bad)">중독</b> (아군 전체 ' + p.sk.turns + '라운드, 회복으로 풀기)' : p.type === 'frenzy' ? '<b style="color:var(--bad)">연타 ' + p.sk.hits + '번 ×' + p.sk.mult + '</b> (누가 맞을지 몰라요)' : p.type;
-    var shift = MM.shiftAfterThisTurn(boss) && boss.nextEl ? '<div class="boss-plan" style="border-color:' + MM.ELEMENTS[boss.nextEl].color + '">🔄 이 행동 뒤 <b style="color:' + MM.ELEMENTS[boss.nextEl].color + '">' + MM.ELEMENTS[boss.nextEl].name + ' 속성</b>으로 변해요!</div>' : '';
+    var shift = MM.shiftAfterThisTurn(boss) && boss.nextEl ? '<div class="boss-plan" style="border-color:' + MM.ELEMENTS[boss.nextEl].color + '"><img class="ic" src="art/ui/auto.png" alt=""> 이 행동 뒤 <b style="color:' + MM.ELEMENTS[boss.nextEl].color + '">' + MM.ELEMENTS[boss.nextEl].name + ' 속성</b>으로 변해요!</div>' : '';
     return '<div class="boss-plan">⚠ 보스 다음 행동: ' + txt + '</div>' + shift;
   }
   // [11-07 N9] 지금 파티로 이 보스를 '잘 대응하면' 이길 확률 감 (100번 미리 돌려 봄, 규칙은 그대로)
@@ -569,9 +569,9 @@
       if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
     }
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (u.raid && u.el !== 'rainbow' ? ' style="border-color:' + MM.ELEMENTS[u.el].color + ';box-shadow:0 0 18px ' + MM.ELEMENTS[u.el].color + '"' : '') + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
-      (u.raid && RAID_ART[view.battle && view.battle.tier] ? '<span class="mon"><img src="art/raid/' + view.battle.tier + '.png" width="150" height="150" alt="" draggable="false"></span>' : monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50)) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
+      (u.raid && view.battle && view.battle.kind === 'raid' && RAID_ART[view.battle.tier] ? '<span class="mon"><img src="art/raid/' + view.battle.tier + '.png" width="150" height="150" alt="" draggable="false"></span>' : monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50)) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.raid ? (u.el === 'rainbow' ? '<div class="weak">상성 없음</div>' : '<div class="weak" style="color:' + MM.ELEMENTS[u.el].color + ';font-weight:700">' + MM.ELEMENTS[u.el].name + ' 속성</div>' + weakText(u.el)) : u.side === 'e' ? weakText(u.el) : '') +
-      (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.poison > 0 && u.hp > 0 ? '<div class="status bad">☠ 중독 ' + u.poison + '</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
+      (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.poison > 0 && u.hp > 0 ? '<div class="status bad"><img class="ic" src="art/ui/poison.png" alt=""> 중독 ' + u.poison + '</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
       '<div class="hpnum">' + u.hp + ' / ' + u.maxHp + '</div>' + expHtml(u, bt) + '</div>';
   }
@@ -630,7 +630,7 @@
       var a = bt.units[Bt.last.actor], t = bt.units[Bt.last.target];
       sub = a.name + ' → ' + t.name + ' ' + Bt.last.dmg + ' 피해' + (Bt.last.crit ? ' · 크리티컬!' : '') + (Bt.last.mult > 1 ? ' · 효과가 좋다!' : Bt.last.mult < 1 ? ' · 효과가 별로…' : '') + (Bt.last.ko ? ' · 쓰러뜨림' : '') + (Bt.last.enrage ? ' · 보스가 분노했어요!' : '') + (Bt.last.shielded ? ' · 보호막' : '') + (Bt.last.focused ? ' · 집중 ×' + BAL().BOSS_FOCUS_MULT + '!' : '') + (Bt.last.guarded ? ' · 방어' : '');
     }
-    if (Bt.last && Bt.last.shift && !bt.result) sub = (sub ? sub + ' · ' : '') + '🔄 보스가 ' + MM.ELEMENTS[Bt.last.shift.to].name + ' 속성으로 변했어요!';
+    if (Bt.last && Bt.last.shift && !bt.result) sub = (sub ? sub + ' · ' : '') + '<img class="ic" src="art/ui/auto.png" alt=""> 보스가 ' + MM.ELEMENTS[Bt.last.shift.to].name + ' 속성으로 변했어요!';
     var title = Bt.kind === 'raid' ? Bt.tier + '단계 레이드 · ' + (bt.phase + 1) + '/3 페이즈' : Bt.kind === 'boss' ? Bt.tier + '단계 보스 ' + MM.bossName(Bt.tier) : Bt.kind === 'tutorial' ? '튜토리얼 전투' : Bt.kind === 'dungeon' ? Bt.tier + '단계 요일 던전' : Bt.kind === 'ticket' ? Bt.tier + '단계 입장권 던전' : elName(Bt.el) + ' ' + Bt.tier + '단계';
     var en = bt.units.filter(function (u) { return u.side === 'e'; });
     var html = '<div class="battle' + (bt.raid ? ' bossmode' : '') + '">' +
@@ -648,9 +648,9 @@
     } else if (Bt.kind === 'boss' || Bt.kind === 'raid') {
       var dead = bt.units.some(function (u) { return u.side === 'p' && u.hp <= 0; }), dis = function (ok) { return myTurn && ok ? '' : ' disabled'; };
       // [사용자 확정 10-27 12:31] 보스·레이드도 자동 전투: 공격만 반복 (방어·집중·회복·부활은 직접 해야 함)
-      if (Bt.pending && myTurn) html += '<div class="boss-plan" style="border-color:var(--good)">' + (Bt.pending === 'heal' ? '💚 회복할 아군을 누르세요' : '✨ 살릴 아군을 누르세요') + ' <button class="btn sm" data-act="bossCancel">취소</button></div>';
-      html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + dis(true) + '><img class="ic" src="art/ui/sword.png" alt=""> 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + dis(true) + '>🛡 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + dis(true) + '>✊ 집중</button></div>' +
-        '<div class="battle-bar boss-acts two"><button class="btn good" data-act="bossAct" data-a="heal"' + dis(bt.healsLeft > 0) + '>💚 회복 ' + bt.healsLeft + '</button><button class="btn good" data-act="bossAct" data-a="revive"' + dis(bt.revivesLeft > 0 && dead) + '>✨ 부활 ' + bt.revivesLeft + '</button></div>' +
+      if (Bt.pending && myTurn) html += '<div class="boss-plan" style="border-color:var(--good)">' + (Bt.pending === 'heal' ? '<img class="ic" src="art/ui/heal.png" alt=""> 회복할 아군을 누르세요' : '<img class="ic" src="art/ui/revive.png" alt=""> 살릴 아군을 누르세요') + ' <button class="btn sm" data-act="bossCancel">취소</button></div>';
+      html += '<div class="battle-bar boss-acts"><button class="btn primary" data-act="bossAct" data-a="attack"' + dis(true) + '><img class="ic" src="art/ui/sword.png" alt=""> 공격</button><button class="btn" data-act="bossAct" data-a="defend"' + dis(true) + '><img class="ic" src="art/ui/defend.png" alt=""> 방어</button><button class="btn" data-act="bossAct" data-a="focus"' + dis(true) + '><img class="ic" src="art/ui/focus.png" alt=""> 집중</button></div>' +
+        '<div class="battle-bar boss-acts two"><button class="btn good" data-act="bossAct" data-a="heal"' + dis(bt.healsLeft > 0) + '><img class="ic" src="art/ui/heal.png" alt=""> 회복 ' + bt.healsLeft + '</button><button class="btn good" data-act="bossAct" data-a="revive"' + dis(bt.revivesLeft > 0 && dead) + '><img class="ic" src="art/ui/revive.png" alt=""> 부활 ' + bt.revivesLeft + '</button></div>' +
         '';
       // [10-28 사용자] 자동은 맨 밑 (레이드는 자동 없음 [10-27 12:33])
       if (Bt.kind === 'boss') html += '<div class="battle-bar" style="margin-top:8px"><button class="btn toggle' + (Bt.auto ? ' on' : '') + '" data-act="auto">자동 ' + (Bt.auto ? 'ON · 공격만 반복' : 'OFF') + '</button></div>';
@@ -1262,7 +1262,7 @@
       '<circle cx="540" cy="620" r="300" fill="' + color + '" opacity="0.12"/>' +
       (artOf(r.el, r.tier) ? '' : '<g transform="translate(340,420) scale(4)">' + monInner(r.el, r.tier, false) + '</g>') +
       (r.count > 1 ? '<rect x="760" y="380" rx="40" width="170" height="90" fill="#ffcf4a"/><text x="845" y="445" text-anchor="middle" font-size="56" font-weight="900" fill="#2a2000" font-family="sans-serif">×' + r.count + '</text>' : '') +
-      '<text x="540" y="1010" text-anchor="middle" font-size="84" font-weight="900" fill="#ffcf4a" font-family="sans-serif">' + esc(l.title) + '</text>' +
+      '<text x="540" y="1010" text-anchor="middle" font-size="84" font-weight="900" fill="#ffcf4a" font-family="sans-serif">' + esc(l.title.replace(/<img[^>]*>\s*/g, '')) + '</text>' +
       '<text x="540" y="1090" text-anchor="middle" font-size="44" fill="#e9e4ff" font-family="sans-serif">' + esc(l.sub) + '</text>' +
       '<text x="540" y="1160" text-anchor="middle" font-size="34" fill="#a9a2cc" font-family="sans-serif">' + esc(new Date(r.t).toLocaleString('ko-KR')) + '</text>' +
       '<text x="540" y="1280" text-anchor="middle" font-size="34" font-weight="800" fill="#6f679e" font-family="sans-serif">샤들링</text></svg>';
@@ -1636,9 +1636,8 @@
     saveExport: function () {
       save();
       var code = 'SHD1:' + btoa(unescape(encodeURIComponent(JSON.stringify(S))));
-      var copied = false;
-      try { if (navigator.clipboard) { navigator.clipboard.writeText(code); copied = true; } } catch (e) {}
-      openSheet('<b>세이브 코드</b><div class="muted small" style="margin:6px 0 8px">' + (copied ? '복사했어요. ' : '') + '메모장이나 카톡 나에게 보내기에 붙여 넣어 두세요. 다른 기기에서도 이 코드로 이어서 할 수 있어요.</div><textarea readonly style="width:100%;height:120px;font-size:11px;background:var(--panel);color:var(--text);border:2px solid var(--line);border-radius:10px;padding:8px" onclick="this.select()">' + code + '</textarea>');
+      try { if (navigator.clipboard) navigator.clipboard.writeText(code).then(function () { var n = $('copyNote'); if (n) n.textContent = '복사했어요. '; }, function () { var n = $('copyNote'); if (n) n.textContent = '자동 복사가 안 됐어요. 아래 칸을 길게 눌러 직접 복사하세요. '; }); } catch (e) {}
+      openSheet('<b>세이브 코드</b><div class="muted small" style="margin:6px 0 8px"><span id="copyNote"></span>메모장이나 카톡 나에게 보내기에 붙여 넣어 두세요. 다른 기기에서도 이 코드로 이어서 할 수 있어요.</div><textarea readonly style="width:100%;height:120px;font-size:11px;background:var(--panel);color:var(--text);border:2px solid var(--line);border-radius:10px;padding:8px" onclick="this.select()">' + code + '</textarea>');
     },
     saveImport: function () {
       openSheet('<b>세이브 코드 붙여넣기</b><div class="muted small" style="margin:6px 0 8px">지금 진행 상황은 이 코드의 상태로 바뀌어요.</div><textarea id="importBox" style="width:100%;height:120px;font-size:11px;background:var(--panel);color:var(--text);border:2px solid var(--line);border-radius:10px;padding:8px" placeholder="SHD1:..."></textarea><button class="btn primary block" style="margin-top:10px" data-act="saveImportDo">불러오기</button>');
@@ -1646,8 +1645,9 @@
     saveImportDo: function () {
       var raw = ($('importBox') && $('importBox').value || '').trim(), st = null;
       try { st = JSON.parse(decodeURIComponent(escape(atob(raw.replace(/^SHD1:/, ''))))); } catch (e) { st = null; }
-      if (!st || !st.monsters || st.version !== MM.SAVE_VERSION) { toast('코드가 맞지 않아요'); return; }
-      if (!confirm('지금 진행 상황을 이 세이브로 바꿀까요?')) return;
+      if (!st || !Array.isArray(st.monsters) || !st.souls || typeof st.gold !== 'number' || st.version !== MM.SAVE_VERSION) { toast('코드가 맞지 않아요'); return; }
+      if (!confirm('지금 진행 상황을 이 세이브로 바꿀까요? (지금 세이브는 백업해 둬요)')) return;
+      try { localStorage.setItem(BACKUP_KEY, JSON.stringify(S)); } catch (e) {}
       S = st; save(); location.reload();
     },
     reset: function () {
