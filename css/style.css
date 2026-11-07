@@ -405,3 +405,4 @@ h3 { color: #e8c98e; letter-spacing: -0.2px; }
 .town.wmap { aspect-ratio: 768 / 1376; margin-bottom: 10px; }
 .map-path { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
 .map-path .stage-cell { aspect-ratio: auto; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+@media (max-width: 380px) { .seg button { font-size: 12.5px; padding: 8px 2px; letter-spacing: -0.4px; } }
