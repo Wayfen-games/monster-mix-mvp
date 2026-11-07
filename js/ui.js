@@ -1274,7 +1274,7 @@
       sw('recordOn', '희귀 획득 기록', '지금 하는 단계 이상 소울(최소 ' + BAL().RECORD_MIN_SOUL_TIER + '단계), 도감 첫 등록 등을 자동으로 남겨요.') +
       sw('fastTest', '빠른 테스트', '소울이 ' + BAL().FAST_TEST_DROP_MULT + '배 잘 나와요. 실제 템포를 보려면 꺼 두세요.') +
       '<div class="card"><b>방치 보상</b><div class="muted small lh" style="margin-top:6px">' + (off && MM.offlineStageValid(S) ? '지정: ' + MM.stageLabel(off.el, off.tier) + '' : '지정한 스테이지가 없어요. 마을의 방치 보상 카드에서 지정하세요.') + '<br>게임을 하든 안 하든 최대 ' + BAL().OFFLINE_MAX_HOURS + '시간, 효율 ' + Math.round(BAL().OFFLINE_RATE * 100) + '%</div></div>' +
-      '<div class="card"><b>데이터</b><div class="muted small" style="margin:6px 0 10px">진행 상황은 이 브라우저에 자동 저장돼요.</div><button class="btn block danger" data-act="reset">데이터 초기화</button></div>' +
+      '<div class="card"><b>데이터</b><div class="muted small" style="margin:6px 0 10px">진행 상황은 이 브라우저에 자동 저장돼요. 브라우저 데이터를 지우면 사라지니 가끔 세이브 코드를 복사해 두세요.</div><div class="grid2" style="margin-bottom:10px"><button class="btn" data-act="saveExport">세이브 코드 복사</button><button class="btn" data-act="saveImport">세이브 코드 붙여넣기</button></div><button class="btn block danger" data-act="reset">데이터 초기화</button></div>' +
       '<div class="muted small" style="text-align:center">샤들링 시제품 v2</div>';
   };
 
@@ -1610,6 +1610,24 @@
     recOpen: function (d) { recordOverlay(+d.i); },
     recImage: function (d) { saveRecordImage(+d.i); },
     setting: function (d) { S.settings[d.k] = !S.settings[d.k]; save(); render(); },
+    // [11-07] 세이브 백업: 이 브라우저 저장만 있어서, 데이터를 지우면 진행이 사라지는 문제
+    saveExport: function () {
+      save();
+      var code = 'SHD1:' + btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+      var copied = false;
+      try { if (navigator.clipboard) { navigator.clipboard.writeText(code); copied = true; } } catch (e) {}
+      openSheet('<b>세이브 코드</b><div class="muted small" style="margin:6px 0 8px">' + (copied ? '복사했어요. ' : '') + '메모장이나 카톡 나에게 보내기에 붙여 넣어 두세요. 다른 기기에서도 이 코드로 이어서 할 수 있어요.</div><textarea readonly style="width:100%;height:120px;font-size:11px;background:var(--panel);color:var(--text);border:2px solid var(--line);border-radius:10px;padding:8px" onclick="this.select()">' + code + '</textarea>');
+    },
+    saveImport: function () {
+      openSheet('<b>세이브 코드 붙여넣기</b><div class="muted small" style="margin:6px 0 8px">지금 진행 상황은 이 코드의 상태로 바뀌어요.</div><textarea id="importBox" style="width:100%;height:120px;font-size:11px;background:var(--panel);color:var(--text);border:2px solid var(--line);border-radius:10px;padding:8px" placeholder="SHD1:..."></textarea><button class="btn primary block" style="margin-top:10px" data-act="saveImportDo">불러오기</button>');
+    },
+    saveImportDo: function () {
+      var raw = ($('importBox') && $('importBox').value || '').trim(), st = null;
+      try { st = JSON.parse(decodeURIComponent(escape(atob(raw.replace(/^SHD1:/, ''))))); } catch (e) { st = null; }
+      if (!st || !st.monsters || st.version !== MM.SAVE_VERSION) { toast('코드가 맞지 않아요'); return; }
+      if (!confirm('지금 진행 상황을 이 세이브로 바꿀까요?')) return;
+      S = st; save(); location.reload();
+    },
     reset: function () {
       if (!confirm('모든 진행 상황을 지우고 처음부터 시작할까요?')) return;
       S = MM.newState(Date.now()); save();
