@@ -273,16 +273,16 @@
     return mt + '단계 스테이지에서 소울과 경험치를 모으세요. 합성하려면 주재료가 Lv ' + MM.fuseLevelReq(Math.min(mt, T() - 1)) + ' 이상이어야 해요.';
   }
 
-  // 마을 그림 위 건물 누르기 [11-07 사용자: 기본 화면부터, 마을 시안 참고]. 위치는 그림(768×1211, 하늘 위 165px 잘라냄) 기준 %
+  // 마을 그림 위 건물 누르기 [11-07 사용자: 기본 화면부터, 마을 시안 참고]. 위치는 그림(768×1236, 원본 위 80px·아래 60px 잘라냄) 기준 %
   var TOWN_SPOTS = [
-    { tab: 'altar', icon: 'altar', label: '소울 제단', x: 10, y: 0.7, w: 30, h: 23.2 },
-    { tab: 'fusion', icon: 'shard', label: '합성 공방', x: 62, y: 0.7, w: 36, h: 22.1 },
-    { tab: 'gacha', icon: 'gacha', label: '소울 뽑기', x: 0, y: 21.6, w: 30, h: 30.7 },
-    { tab: 'bag', bag: 'equip', icon: 'sword', label: '대장간', x: 77, y: 28.4, w: 23, h: 26.1 },
-    { tab: 'monsters', icon: 'rainbow', label: '샤들링', x: 35, y: 27.3, w: 30, h: 23.9 },
-    { tab: 'dex', icon: 'dex', label: '도감', x: 0, y: 56.8, w: 32, h: 27.3 },
-    { tab: 'stages', icon: 'battle', label: '전투', x: 35, y: 68.2, w: 30, h: 22.7 },
-    { act: 'records', icon: 'scroll', label: '기록', x: 76, y: 67.0, w: 16, h: 14.8 }
+    { tab: 'altar', icon: 'altar', label: '소울 제단', x: 10, y: 6.9, w: 30, h: 23.4 },
+    { tab: 'fusion', icon: 'shard', label: '합성 공방', x: 62, y: 1.3, w: 36, h: 27.8 },
+    { tab: 'gacha', icon: 'gacha', label: '소울 뽑기', x: 0, y: 28.0, w: 30, h: 30.1 },
+    { tab: 'bag', bag: 'equip', icon: 'sword', label: '대장간', x: 77, y: 34.7, w: 23, h: 25.6 },
+    { tab: 'monsters', icon: 'rainbow', label: '샤들링', x: 35, y: 33.6, w: 30, h: 23.4 },
+    { tab: 'dex', icon: 'dex', label: '도감', x: 0, y: 62.6, w: 32, h: 26.7 },
+    { tab: 'stages', icon: 'battle', label: '전투', x: 35, y: 73.7, w: 30, h: 22.3 },
+    { act: 'records', icon: 'scroll', label: '기록', x: 76, y: 72.6, w: 16, h: 14.5 }
   ];
   function townHtml() {
     var pm = partyMons(), ms = MM.offlinePendingMs(S), ready = S.tutorial.done && MM.offlineReady(S);
@@ -292,11 +292,11 @@
       return '<button class="spot" ' + attrs + ' style="left:' + p.x + '%;top:' + p.y + '%;width:' + p.w + '%;height:' + p.h + '%"><span class="spot-label"><img src="art/ui/' + p.icon + '.png" alt="">' + p.label + '</span></button>';
     }).join('');
     // 파티 3마리가 분수 둘레에서 통통 뛰어다님
-    var pos = [[30, 52], [62, 55], [46, 59]];
+    var pos = [[30, 58], [62, 60], [46, 64]];
     var walkers = pm.slice(0, 3).map(function (m, i) {
       return '<button class="walker" data-act="tab" data-tab="monsters" style="left:' + pos[i][0] + '%;top:' + pos[i][1] + '%;animation-delay:' + (i * 0.4) + 's">' + monSvg(m.el, m.tier, 46) + '</button>';
     }).join('');
-    var chest = S.tutorial.done ? '<button class="chest' + (ready ? ' ready' : '') + '" data-act="' + (ready ? 'claimOffline' : 'offlineSheet') + '" style="left:93%;top:77%"><img src="art/ui/chest.png" alt=""><span>' + (ready ? '받기' : hoursText(ms / 3600000)) + '</span></button>' : '';
+    var chest = S.tutorial.done ? '<button class="chest' + (ready ? ' ready' : '') + '" data-act="' + (ready ? 'claimOffline' : 'offlineSheet') + '" style="left:93%;top:82%"><img src="art/ui/chest.png" alt=""><span>' + (ready ? '받기' : hoursText(ms / 3600000)) + '</span></button>' : '';
     return '<div class="town"><img class="town-bg" src="art/town.jpg" alt="" draggable="false">' + spots + walkers + chest +
       '</div><div class="town-hint"><img src="art/ui/scroll.png" alt=""><span>' + hint() + '</span></div>';
   }
