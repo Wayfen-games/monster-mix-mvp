@@ -536,6 +536,7 @@
     var shift = MM.shiftAfterThisTurn(boss) && boss.nextEl ? '<div class="boss-plan" style="border-color:' + MM.ELEMENTS[boss.nextEl].color + '">🔄 이 행동 뒤 <b style="color:' + MM.ELEMENTS[boss.nextEl].color + '">' + MM.ELEMENTS[boss.nextEl].name + ' 속성</b>으로 변해요!</div>' : '';
     return '<div class="boss-plan">⚠ 보스 다음 행동: ' + txt + '</div>' + shift;
   }
+  var RAID_ART = { 1: true, 2: true }; // [11-07] 레이드 보스 그림 (제미나이 시안, 공개 전) — 3단계(고래)는 기각, 나머지는 결정 뒤
   function unitHtml(u, bt, actor, pickable) {
     var r = u.hp / u.maxHp;
     var allyPick = pickable === 'heal' ? u.hp > 0 : pickable === 'revive' ? u.hp <= 0 : false;
@@ -547,7 +548,7 @@
       if (up || down) adv = '<span class="adv-mark">' + (up ? '▲' : '') + (down ? '<span class="dis-mark">▼</span>' : '') + '</span>';
     }
     return '<div class="' + cls + '" id="u' + u.uid + '"' + (u.raid && u.el !== 'rainbow' ? ' style="border-color:' + MM.ELEMENTS[u.el].color + ';box-shadow:0 0 18px ' + MM.ELEMENTS[u.el].color + '"' : '') + (allyPick ? ' data-act="allyPick" data-uid="' + u.uid + '"' : pickable && u.hp > 0 ? ' data-act="hit" data-uid="' + u.uid + '"' : '') + '>' + adv +
-      monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
+      (u.raid && RAID_ART[view.battle && view.battle.tier] ? '<span class="mon"><img src="art/raid/' + view.battle.tier + '.png" width="150" height="150" alt="" draggable="false"></span>' : monSvg(u.raid ? 'rainbow' : u.el, u.tier, u.raid ? 150 : u.boss ? 60 : 50)) + '<div class="nm">' + (u.boss && !u.raid ? '보스 ' : '') + u.name + '</div><div class="lv">Lv ' + u.level + '</div>' +
       (u.raid ? (u.el === 'rainbow' ? '<div class="weak">상성 없음</div>' : '<div class="weak" style="color:' + MM.ELEMENTS[u.el].color + ';font-weight:700">' + MM.ELEMENTS[u.el].name + ' 속성</div>' + weakText(u.el)) : u.side === 'e' ? weakText(u.el) : '') +
       (u.sealed > 0 ? '<div class="status bad">🔒 봉인</div>' : '') + (u.poison > 0 && u.hp > 0 ? '<div class="status bad">☠ 중독 ' + u.poison + '</div>' : '') + (u.shield > 0 ? '<div class="status">🛡 보호막</div>' : '') + (u.enraged ? '<div class="status bad">💢 분노</div>' : '') + (u.charged ? '<div class="status bad">⚡ 충전</div>' : '') + (u.guard ? '<div class="status">🛡 방어</div>' : '') + (u.focus ? '<div class="status">✊ 집중</div>' : '') +
       '<div class="hpbar"><i style="width:' + Math.max(0, r * 100) + '%"' + (r < 0.3 ? ' class="low"' : '') + '></i></div>' +
