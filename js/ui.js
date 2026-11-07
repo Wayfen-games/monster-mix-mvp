@@ -164,12 +164,13 @@
 
   function render() {
     MM.refreshDaily(S, Date.now());
-    $('gold').textContent = fmt(S.gold) + ' G';
+    $('gold').innerHTML = '<img src="art/ui/gold.png" alt="">' + fmt(S.gold);
+    $('rbs').innerHTML = '<img src="art/ui/rainbow.png" alt="">' + fmt(MM.rainbowSoulCount(S));
     document.body.classList.toggle('in-battle', view.tab === 'battle');
     var Bk = view.battle && view.battle.kind;
     MM.Sound.set(S.settings.sound, S.settings.music);
     MM.Sound.music(view.tab !== 'battle' ? 'town' : Bk === 'boss' || Bk === 'raid' ? 'boss' : 'battle');
-    $('mute').textContent = S.settings.sound || S.settings.music ? '🔊' : '🔇'; $('mute').classList.toggle('off', !S.settings.sound && !S.settings.music);
+    $('mute').classList.toggle('off', !S.settings.sound && !S.settings.music);
     var tabFor = { stageDetail: 'stages', reward: 'stages', settings: 'home', battle: 'stages', altar: 'home', gacha: 'home' };
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) {
       b.classList.toggle('on', b.dataset.tab === (tabFor[view.tab] || view.tab));
@@ -272,6 +273,34 @@
     return mt + '단계 스테이지에서 소울과 경험치를 모으세요. 합성하려면 주재료가 Lv ' + MM.fuseLevelReq(Math.min(mt, T() - 1)) + ' 이상이어야 해요.';
   }
 
+  // 마을 그림 위 건물 누르기 [11-07 사용자: 기본 화면부터, 마을 시안 참고]. 위치는 그림(768×1376) 기준 %
+  var TOWN_SPOTS = [
+    { tab: 'altar', icon: 'altar', label: '소울 제단', x: 10, y: 12, w: 30, h: 21 },
+    { tab: 'fusion', icon: 'shard', label: '합성 공방', x: 62, y: 7, w: 36, h: 25 },
+    { tab: 'gacha', icon: 'gacha', label: '소울 뽑기', x: 0, y: 31, w: 30, h: 27 },
+    { tab: 'bag', bag: 'equip', icon: 'sword', label: '대장간', x: 77, y: 37, w: 23, h: 23 },
+    { tab: 'monsters', icon: 'rainbow', label: '샤들링', x: 35, y: 36, w: 30, h: 21 },
+    { tab: 'dex', icon: 'dex', label: '도감', x: 0, y: 62, w: 32, h: 24 },
+    { tab: 'stages', icon: 'battle', label: '전투', x: 35, y: 72, w: 30, h: 20 },
+    { act: 'records', icon: 'scroll', label: '기록', x: 76, y: 71, w: 16, h: 13 }
+  ];
+  function townHtml() {
+    var pm = partyMons(), ms = MM.offlinePendingMs(S), ready = S.tutorial.done && MM.offlineReady(S);
+    var spots = TOWN_SPOTS.map(function (p) {
+      if (p.act === 'records' && !S.records.length) return '';
+      var attrs = p.act ? 'data-act="' + p.act + '"' : 'data-act="tab" data-tab="' + p.tab + '"' + (p.bag ? ' data-bag="' + p.bag + '"' : '');
+      return '<button class="spot" ' + attrs + ' style="left:' + p.x + '%;top:' + p.y + '%;width:' + p.w + '%;height:' + p.h + '%"><span class="spot-label"><img src="art/ui/' + p.icon + '.png" alt="">' + p.label + '</span></button>';
+    }).join('');
+    // 파티 3마리가 분수 둘레에서 통통 뛰어다님
+    var pos = [[30, 58], [62, 60], [46, 64]];
+    var walkers = pm.slice(0, 3).map(function (m, i) {
+      return '<button class="walker" data-act="tab" data-tab="monsters" style="left:' + pos[i][0] + '%;top:' + pos[i][1] + '%;animation-delay:' + (i * 0.4) + 's">' + monSvg(m.el, m.tier, 46) + '</button>';
+    }).join('');
+    var chest = S.tutorial.done ? '<button class="chest' + (ready ? ' ready' : '') + '" data-act="' + (ready ? 'claimOffline' : 'offlineSheet') + '" style="left:93%;top:80%"><img src="art/ui/chest.png" alt=""><span>' + (ready ? '받기' : hoursText(ms / 3600000)) + '</span></button>' : '';
+    return '<div class="town"><img class="town-bg" src="art/town.jpg" alt="" draggable="false">' + spots + walkers + chest +
+      '<div class="town-hint"><img src="art/ui/scroll.png" alt=""><span>' + hint() + '</span></div></div>';
+  }
+
   SCREENS.home = function () {
     var g = goalCount(), now = Date.now();
     var stars = MM.RING.map(function (el) {
@@ -284,23 +313,19 @@
       if (!m) return '<button class="slot empty" data-act="tab" data-tab="monsters">+ 비어 있음</button>';
       return '<button class="slot" data-act="tab" data-tab="monsters">' + monSvg(m.el, m.tier, 44) + '<div>' + name(m) + '</div><div class="muted small">Lv ' + m.level + '</div></button>';
     }).join('');
-    var dEl = MM.dungeonElementFor(now), off = S.offline.stage;
-    return '<div class="card"><div class="row between"><b>1차 목표: ' + T() + '단계 5종 모으기</b><span class="chip">' + g + ' / 5</span></div><div class="goal-stars">' + stars + '</div></div>' +
+    var dEl = MM.dungeonElementFor(now);
+    return townHtml() +
+      '<div class="card"><div class="row between"><b>1차 목표: ' + T() + '단계 5종 모으기</b><span class="chip">' + g + ' / 5</span></div><div class="goal-stars">' + stars + '</div></div>' +
       offlineCard() +
       '<div class="card"><b>오늘</b><div class="today" style="margin-top:10px">' +
       '<div>요일 던전<b>' + (dEl ? MM.ELEMENTS[dEl].name : '주말 선택') + ' ' + MM.dungeonLeft(S, now) + '/' + BAL().DUNGEON_DAILY + '</b></div>' +
       '<div>자동 반복<b>' + MM.autoLeft(S, now) + '판</b><span class="small">하루 +' + BAL().AUTO_REPEAT_DAILY + ' · 최대 ' + fmt(BAL().AUTO_REPEAT_MAX) + '</span></div>' +
       '</div></div>' +
-      '<div class="card"><b>다음 할 일</b><div class="muted" style="margin-top:6px">' + hint() + '</div></div>' +
-      '<div class="grid2" style="margin-bottom:12px"><button class="card tap-card" data-act="tab" data-tab="altar"><b>🔥 소울 제단</b><div class="muted small">남는 소울로 속성 영구 강화</div></button><button class="card tap-card" data-act="tab" data-tab="gacha"><b>🎁 소울 뽑기</b><div class="muted small">소울 ' + BAL().GACHA_COST + '개로 한 번</div></button></div>' +
       '<h3>파티 ' + (MM.partyHasBonus(pm) ? '<span class="chip adv">속성 조화 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>' : '<span class="muted small">서로 다른 속성 3마리면 +' + Math.round(BAL().PARTY_BONUS * 100) + '%</span>') + '</h3><div class="party-slots">' + slots + '</div>' +
-      '<div class="grid2" style="margin-top:14px"><button class="btn primary" data-act="tab" data-tab="stages">⚔ 전투</button><button class="btn primary" data-act="tab" data-tab="fusion">✦ 합성</button></div>' +
       '<h3>기록</h3><div class="card muted small lh">합성 ' + S.stats.fusionTries + '회 시도 · ' + S.stats.fusionSuccess + '회 성공<br>전투 ' + S.stats.battlesWon + '승 ' + S.stats.battlesLost + '패 · 샤들링 ' + S.monsters.length + '마리' +
-      (S.records.length ? '<br><button class="btn sm" style="margin-top:8px" data-act="records">희귀 획득 기록 ' + S.records.length + '개 보기</button>' : '') + '</div>' +
-      '<button class="btn block" data-act="tab" data-tab="settings">⚙ 설정</button>';
+      (S.records.length ? '<br><button class="btn sm" style="margin-top:8px" data-act="records">희귀 획득 기록 ' + S.records.length + '개 보기</button>' : '') + '</div>';
   };
 
-  // ================= 전투 탭: 스테이지 / 요일 던전 =================
   SCREENS.stages = function () {
     var html = '<div class="seg"><button class="' + (view.stageSeg === 'stage' ? 'on' : '') + '" data-act="stageSeg" data-v="stage">스테이지</button>' +
       '<button class="' + (view.stageSeg === 'dungeon' ? 'on' : '') + '" data-act="stageSeg" data-v="dungeon">요일 던전 ' + MM.dungeonLeft(S, Date.now()) + '/' + BAL().DUNGEON_DAILY + '</button>' +
@@ -1347,7 +1372,7 @@
 
   // ================= 입력 =================
   var ACTIONS = {
-    tab: function (d) { if (d.mon) view.monSeg = d.mon; if (d.seg) view.stageSeg = d.seg; go(d.tab); },
+    tab: function (d) { if (d.bag) view.bagSeg = d.bag; if (d.mon) view.monSeg = d.mon; if (d.seg) view.stageSeg = d.seg; go(d.tab); },
     stageSeg: function (d) { view.stageSeg = d.v; render(); },
     bagSeg: function (d) { view.bagSeg = d.v; render(); },
     startRaid: function (d) { var k = +d.tier; if (MM.raidTicketCount(S, k) <= 0) { toast('레이드 입장권이 없어요'); return; } startBattle('raid', { tier: k }); },
