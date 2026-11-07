@@ -396,3 +396,7 @@ h3 { color: #e8c98e; letter-spacing: -0.2px; }
 .fuse-op { color: #ffe08a; text-shadow: 0 1px 3px #000; font-weight: 800; }
 .spot-label .bang { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 3px; border-radius: 50%; background: #e0452a; color: #fff; font-size: 11px; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
+/* [11-07 N7] 전투 카드 숫자 읽기 쉽게 */
+.unit .lv, .hpnum { font-size: 11px; color: #e3cfa6; }
+.side.five .unit .hpnum { font-size: 10px; color: #e3cfa6; letter-spacing: -0.3px; }
+.side.five .unit .nm { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
