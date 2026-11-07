@@ -297,6 +297,19 @@
     { tab: 'stages', icon: 'battle', label: '전투', x: 35, y: 73.7, w: 30, h: 22.3 },
     { act: 'boardSheet', icon: 'scroll', label: '게시판', x: 76, y: 72.6, w: 16, h: 14.5 }
   ];
+  // [11-07] 게시판 '다음 목표' — 새 단계가 한두 달에 한 번인 구간에도 가까운 목표가 보이게 (이미 있는 진행만 보여 줌)
+  function boardGoals() {
+    var top = MM.topTier(S), rows = [];
+    var dexT = 0; for (var t = 1; t <= T(); t++) { if (MM.RING.some(function (el) { return !S.dex[MM.speciesKey(el, t)]; })) { dexT = t; break; } }
+    if (dexT) { var have = MM.RING.filter(function (el) { return S.dex[MM.speciesKey(el, dexT)]; }).length; rows.push(['dex', dexT + '단계 도감 5종', have + ' / 5', have / 5]); }
+    if (top < T()) rows.push(['summon', (top + 1) + '단계 첫 샤들링', '지금 최고 ' + top + '단계', top / (top + 1)]);
+    var low = MM.RING.map(function (el) { return { el: el, lv: MM.altarOf(S, el).level }; }).sort(function (a, b) { return a.lv - b.lv; })[0];
+    if (low) rows.push(['altar', MM.ELEMENTS[low.el].name + ' 제단 Lv ' + (low.lv + 1), '가장 낮은 제단', Math.min(1, MM.altarOf(S, low.el).pts / MM.altarNeed(low.lv))]);
+    if (!rows.length) return '';
+    return '<div class="card" style="margin:10px 0 0"><b>다음 목표</b>' + rows.map(function (r) {
+      return '<div style="margin-top:8px"><div class="row between small"><span><img class="ic" src="art/ui/' + r[0] + '.png" alt=""> ' + r[1] + '</span><span class="muted">' + r[2] + '</span></div><div class="expbar" style="margin-top:4px"><i style="width:' + Math.round(r[3] * 100) + '%"></i></div></div>';
+    }).join('') + '</div>';
+  }
   function townHtml() {
     var pm = partyMons(), ms = MM.offlinePendingMs(S), ready = S.tutorial.done && MM.offlineReady(S);
     var news = readyPairs(1).length > 0 || MM.allSpecies().some(function (sp) { return MM.canSummon(S, sp.key); }); // 게시판 '!' = 지금 소환·합성할 수 있음
@@ -1406,7 +1419,7 @@
     dexSeg: function (d) { view.dexSeg = d.v; render(); },
     records: function () { closeSheet(); view.dexSeg = 'rec'; go('dex'); },
     boardSheet: function () { // [11-07] 마을 게시판: 다음 할 일 + 희귀 기록 (말풍선이 화면 아래로 내려가서)
-      openSheet('<div class="row" style="gap:8px"><img class="ic" src="art/ui/scroll.png" alt=""><b>마을 게시판</b></div><div class="card" style="margin:12px 0 0"><b>다음 할 일</b><div class="muted lh" style="margin-top:6px">' + hint() + '</div></div>' +
+      openSheet('<div class="row" style="gap:8px"><img class="ic" src="art/ui/scroll.png" alt=""><b>마을 게시판</b></div><div class="card" style="margin:12px 0 0"><b>다음 할 일</b><div class="muted lh" style="margin-top:6px">' + hint() + '</div></div>' + boardGoals() +
         (S.records.length ? '<button class="btn block" style="margin-top:10px" data-act="records">희귀 획득 기록 ' + S.records.length + '개 보기</button>' : ''));
     },
     stage: function (d) { view.stage = { el: d.el, tier: +d.tier }; go('stageDetail'); },
